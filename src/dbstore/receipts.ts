@@ -159,6 +159,10 @@ export async function queryReceiptByReceiptId(receiptId: string, timestamp = 0):
 }
 
 export async function queryLatestReceipts(count: number): Promise<Receipt[]> {
+  if (!Number.isInteger(count)) {
+    Logger.mainLogger.error('Invalid count value')
+    return null
+  }
   try {
     const sql = `SELECT * FROM receipts ORDER BY cycle DESC, timestamp DESC LIMIT ${count ? count : 100}`
     const receipts = (await db.all(receiptDatabase, sql)) as DbReceipt[]
@@ -179,6 +183,10 @@ export async function queryLatestReceipts(count: number): Promise<Receipt[]> {
 
 export async function queryReceipts(skip = 0, limit = 10000): Promise<Receipt[]> {
   let receipts: Receipt[] = []
+  if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
+    Logger.mainLogger.error('Invalid skip or limit')
+    return receipts
+  }
   try {
     const sql = `SELECT * FROM receipts ORDER BY cycle ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
     receipts = (await db.all(receiptDatabase, sql)) as DbReceipt[]
@@ -261,6 +269,10 @@ export async function queryReceiptsBetweenCycles(
   endCycleNumber: number
 ): Promise<Receipt[]> {
   let receipts: Receipt[] = []
+  if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
+    Logger.mainLogger.error('Invalid skip or limit')
+    return receipts
+  }
   try {
     const sql = `SELECT * FROM receipts WHERE cycle BETWEEN ? AND ? ORDER BY cycle ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
     receipts = (await db.all(receiptDatabase, sql, [startCycleNumber, endCycleNumber])) as DbReceipt[]

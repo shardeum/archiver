@@ -81,6 +81,10 @@ export async function queryCycleByMarker(marker: string): Promise<Cycle> {
 }
 
 export async function queryLatestCycleRecords(count: number): Promise<P2P.CycleCreatorTypes.CycleData[]> {
+  if (!Number.isInteger(count)) {
+    Logger.mainLogger.error('Invalid count value')
+    return []
+  }
   try {
     const sql = `SELECT * FROM cycles ORDER BY counter DESC LIMIT ${count ? count : 100}`
     const dbCycles = (await db.all(cycleDatabase, sql)) as DbCycle[]

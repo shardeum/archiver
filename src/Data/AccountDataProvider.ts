@@ -198,9 +198,11 @@ export const provideAccountDataRequest = async (
   // AND accountId <= "${accountEnd}" AND accountId >= "${accountStart}"
   // ORDER BY timestamp, accountId  LIMIT ${maxRecords}`
 
+  const safeSkip = Number.isInteger(offset) ? offset : 0
+  const safeLimit = Number.isInteger(maxRecords) ? maxRecords : 100
   const sqlPrefix = `SELECT * FROM accounts WHERE `
-  const queryString = `accountId BETWEEN ? AND ? AND timestamp BETWEEN ? AND ? ORDER BY timestamp ASC, accountId ASC LIMIT ${maxRecords}`
-  const offsetCondition = ` OFFSET ${offset}`
+  const queryString = `accountId BETWEEN ? AND ? AND timestamp BETWEEN ? AND ? ORDER BY timestamp ASC, accountId ASC LIMIT ${safeLimit}`
+  const offsetCondition = ` OFFSET ${safeSkip}`
   let sql = sqlPrefix
   let values = []
   if (accountOffset) {
@@ -263,6 +265,7 @@ export const provideAccountDataByListRequest = async (
 ): Promise<WrappedStateArray> => {
   const { accountIds } = payload
   const wrappedAccounts: WrappedStateArray = []
+  // todo: does this even work right now?
   const sql = `SELECT * FROM accounts WHERE accountId IN (?)`
   const accounts = await Account.fetchAccountsBySqlQuery(sql, accountIds)
   for (const account of accounts) {

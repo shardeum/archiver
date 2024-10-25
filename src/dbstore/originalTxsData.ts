@@ -90,6 +90,10 @@ export async function queryOriginalTxsData(
   endCycle?: number
 ): Promise<OriginalTxData[]> {
   let originalTxsData: DbOriginalTxData[] = []
+  if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
+    Logger.mainLogger.error('Invalid skip or limit')
+    return originalTxsData
+  }
   try {
     let sql = `SELECT * FROM originalTxsData`
     const sqlSuffix = ` ORDER BY cycle ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
@@ -166,6 +170,10 @@ export async function queryOriginalTxDataCountByCycles(
 }
 
 export async function queryLatestOriginalTxs(count: number): Promise<OriginalTxData[]> {
+  if (!Number.isInteger(count)) {
+    Logger.mainLogger.error('Invalid count value')
+    return null
+  }
   try {
     const sql = `SELECT * FROM originalTxsData ORDER BY cycle DESC, timestamp DESC LIMIT ${
       count ? count : 100

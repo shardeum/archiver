@@ -99,6 +99,10 @@ export async function queryTransactionByAccountId(accountId: string): Promise<Tr
 }
 
 export async function queryLatestTransactions(count: number): Promise<Transaction[]> {
+  if (!Number.isInteger(count)) {
+    Logger.mainLogger.error('Invalid count value')
+    return null
+  }
   try {
     const sql = `SELECT * FROM transactions ORDER BY cycleNumber DESC, timestamp DESC LIMIT ${
       count ? count : 100
@@ -123,6 +127,10 @@ export async function queryLatestTransactions(count: number): Promise<Transactio
 
 export async function queryTransactions(skip = 0, limit = 10000): Promise<Transaction[]> {
   let transactions
+  if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
+    Logger.mainLogger.error('Invalid skip or limit')
+    return null
+  }
   try {
     const sql = `SELECT * FROM transactions ORDER BY cycleNumber ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
     transactions = (await db.all(transactionDatabase, sql)) as DbTransaction[] // TODO: confirm structure of object from db
@@ -189,6 +197,10 @@ export async function queryTransactionsBetweenCycles(
   endCycleNumber: number
 ): Promise<Transaction[]> {
   let transactions
+  if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
+    Logger.mainLogger.error('Invalid skip or limit value')
+    return null
+  }
   try {
     const sql = `SELECT * FROM transactions WHERE cycleNumber BETWEEN ? AND ? ORDER BY cycleNumber ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
     transactions = (await db.all(transactionDatabase, sql, [

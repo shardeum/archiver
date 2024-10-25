@@ -90,6 +90,10 @@ export async function queryAccountByAccountId(accountId: string): Promise<Accoun
 }
 
 export async function queryLatestAccounts(count: number): Promise<AccountsCopy[] | null> {
+  if (!Number.isInteger(count)) {
+    Logger.mainLogger.error('Invalid count value')
+    return null
+  }
   try {
     const sql = `SELECT * FROM accounts ORDER BY cycleNumber DESC, timestamp DESC LIMIT ${
       count ? count : 100
@@ -114,6 +118,10 @@ export async function queryLatestAccounts(count: number): Promise<AccountsCopy[]
 export async function queryAccounts(skip = 0, limit = 10000): Promise<AccountsCopy[]> {
   let dbAccounts: DbAccountCopy[]
   const accounts: AccountsCopy[] = []
+  if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
+    Logger.mainLogger.error('Invalid skip or limit value')
+    return accounts
+  }
   try {
     const sql = `SELECT * FROM accounts ORDER BY cycleNumber ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
     dbAccounts = (await db.all(accountDatabase, sql)) as DbAccountCopy[]
@@ -174,6 +182,10 @@ export async function queryAccountsBetweenCycles(
 ): Promise<AccountsCopy[]> {
   let dbAccounts: DbAccountCopy[]
   const accounts: AccountsCopy[] = []
+  if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
+    Logger.mainLogger.error('Invalid skip or limit value')
+    return accounts
+  }
   try {
     const sql = `SELECT * FROM accounts WHERE cycleNumber BETWEEN ? AND ? ORDER BY cycleNumber ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
     dbAccounts = (await db.all(accountDatabase, sql, [startCycleNumber, endCycleNumber])) as DbAccountCopy[]
