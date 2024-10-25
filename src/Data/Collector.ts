@@ -477,7 +477,7 @@ export const verifyReceiptData = async (
     else {
       const { signs } = appliedReceipt
       // Refer to https://github.com/shardeum/shardus-core/blob/7d8877b7e1a5b18140f898a64b932182d8a35298/src/p2p/GlobalAccounts.ts#L397
-      let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
+      const votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
       if (votingGroupCount > cycleShardData.nodes.length) {
         if (nestedCountersInstance)
           nestedCountersInstance.countEvent('receipt', 'votingGroupCount_greater_than_nodes_length')
