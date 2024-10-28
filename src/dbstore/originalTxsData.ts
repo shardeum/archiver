@@ -91,7 +91,7 @@ export async function queryOriginalTxsData(
 ): Promise<OriginalTxData[]> {
   let originalTxsData: DbOriginalTxData[] = []
   if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
-    Logger.mainLogger.error('Invalid skip or limit')
+    Logger.mainLogger.error('queryOriginalTxsData - Invalid skip or limit')
     return originalTxsData
   }
   try {
@@ -171,7 +171,7 @@ export async function queryOriginalTxDataCountByCycles(
 
 export async function queryLatestOriginalTxs(count: number): Promise<OriginalTxData[]> {
   if (!Number.isInteger(count)) {
-    Logger.mainLogger.error('Invalid count value')
+    Logger.mainLogger.error('queryLatestOriginalTxs - Invalid count value')
     return null
   }
   try {

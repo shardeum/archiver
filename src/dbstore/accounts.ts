@@ -91,7 +91,7 @@ export async function queryAccountByAccountId(accountId: string): Promise<Accoun
 
 export async function queryLatestAccounts(count: number): Promise<AccountsCopy[] | null> {
   if (!Number.isInteger(count)) {
-    Logger.mainLogger.error('Invalid count value')
+    Logger.mainLogger.error('queryLatestAccounts - Invalid count value')
     return null
   }
   try {
@@ -119,7 +119,7 @@ export async function queryAccounts(skip = 0, limit = 10000): Promise<AccountsCo
   let dbAccounts: DbAccountCopy[]
   const accounts: AccountsCopy[] = []
   if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
-    Logger.mainLogger.error('Invalid skip or limit value')
+    Logger.mainLogger.error('queryAccounts - Invalid skip or limit value')
     return accounts
   }
   try {
@@ -183,7 +183,7 @@ export async function queryAccountsBetweenCycles(
   let dbAccounts: DbAccountCopy[]
   const accounts: AccountsCopy[] = []
   if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
-    Logger.mainLogger.error('Invalid skip or limit value')
+    Logger.mainLogger.error('queryAccountsBetweenCycles - Invalid skip or limit value')
     return accounts
   }
   try {

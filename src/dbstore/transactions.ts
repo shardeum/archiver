@@ -100,7 +100,7 @@ export async function queryTransactionByAccountId(accountId: string): Promise<Tr
 
 export async function queryLatestTransactions(count: number): Promise<Transaction[]> {
   if (!Number.isInteger(count)) {
-    Logger.mainLogger.error('Invalid count value')
+    Logger.mainLogger.error('queryLatestTransactions - Invalid count value')
     return null
   }
   try {
@@ -128,7 +128,7 @@ export async function queryLatestTransactions(count: number): Promise<Transactio
 export async function queryTransactions(skip = 0, limit = 10000): Promise<Transaction[]> {
   let transactions
   if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
-    Logger.mainLogger.error('Invalid skip or limit')
+    Logger.mainLogger.error('queryTransactions - Invalid skip or limit')
     return null
   }
   try {
@@ -198,7 +198,7 @@ export async function queryTransactionsBetweenCycles(
 ): Promise<Transaction[]> {
   let transactions
   if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
-    Logger.mainLogger.error('Invalid skip or limit value')
+    Logger.mainLogger.error('queryTransactionsBetweenCycles - Invalid skip or limit value')
     return null
   }
   try {

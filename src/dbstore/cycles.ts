@@ -82,7 +82,7 @@ export async function queryCycleByMarker(marker: string): Promise<Cycle> {
 
 export async function queryLatestCycleRecords(count: number): Promise<P2P.CycleCreatorTypes.CycleData[]> {
   if (!Number.isInteger(count)) {
-    Logger.mainLogger.error('Invalid count value')
+    Logger.mainLogger.error('queryLatestCycleRecords - Invalid count value')
     return []
   }
   try {

@@ -160,7 +160,7 @@ export async function queryReceiptByReceiptId(receiptId: string, timestamp = 0):
 
 export async function queryLatestReceipts(count: number): Promise<Receipt[]> {
   if (!Number.isInteger(count)) {
-    Logger.mainLogger.error('Invalid count value')
+    Logger.mainLogger.error('queryLatestReceipts - Invalid count value')
     return null
   }
   try {
@@ -184,7 +184,7 @@ export async function queryLatestReceipts(count: number): Promise<Receipt[]> {
 export async function queryReceipts(skip = 0, limit = 10000): Promise<Receipt[]> {
   let receipts: Receipt[] = []
   if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
-    Logger.mainLogger.error('Invalid skip or limit')
+    Logger.mainLogger.error('queryReceipts - Invalid skip or limit')
     return receipts
   }
   try {
@@ -270,7 +270,7 @@ export async function queryReceiptsBetweenCycles(
 ): Promise<Receipt[]> {
   let receipts: Receipt[] = []
   if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
-    Logger.mainLogger.error('Invalid skip or limit')
+    Logger.mainLogger.error('queryReceiptsBetweenCycles - Invalid skip or limit')
     return receipts
   }
   try {
