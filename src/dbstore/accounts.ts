@@ -10,7 +10,7 @@ export type AccountsCopy = {
   data: any // eslint-disable-line @typescript-eslint/no-explicit-any
   timestamp: number
   hash: string
-  cycleNumber: number
+  cycleNumber?: number
   isGlobal: boolean
 }
 

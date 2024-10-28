@@ -38,7 +38,7 @@ export interface ArchiverReceipt {
   signedReceipt: SignedReceipt | P2P.GlobalAccountsTypes.GlobalTxReceipt
   afterStates?: AccountsCopy[]
   beforeStates?: AccountsCopy[]
-  appReceiptData: object & { accountId?: string; data: object }
+  appReceiptData:object & { accountId?: string; data: object; [key: string]: any }
   executionShardKey: string
   globalModification: boolean
 }
