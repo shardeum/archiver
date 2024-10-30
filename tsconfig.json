@@ -2,13 +2,12 @@
   "extends": "./node_modules/gts/tsconfig-google.json",
   "compilerOptions": {
     "target": "ES2021",
-    "rootDir": "./",
+    "rootDir": "src",
     "outDir": "build",
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": false,
     "moduleResolution": "node"
   },
-  "include": ["src", "test"],
-  "exclude": ["build", "scripts"]
+  "exclude": ["build", "scripts", "test"]
 }
