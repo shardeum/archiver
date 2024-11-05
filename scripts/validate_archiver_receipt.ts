@@ -223,7 +223,6 @@ export const verifyAppReceiptData = (receipt: Receipt.ArchiverReceipt): boolean 
       receipt.tx.timestamp
     )
   }
-  if (globalModification && config.skipGlobalTxReceiptVerification) return true
   // Finally verify appReceiptData hash
   const appReceiptDataCopy = { ...appReceiptData }
   const calculatedAppReceiptDataHash = calculateAppReceiptDataHash(appReceiptDataCopy)
@@ -241,7 +240,6 @@ export const verifyAppReceiptData = (receipt: Receipt.ArchiverReceipt): boolean 
 // Verify account hash
 export const verifyAccountHash = (receipt: Receipt.ArchiverReceipt): boolean => {
   try {
-    if (receipt.globalModification && config.skipGlobalTxReceiptVerification) return true // return true if global modification
     for (const account of receipt.accounts) {
       const calculatedAccountHash = accountSpecificHash(account.data)
       const indexOfAccount = receipt.appliedReceipt.appliedVote.account_id.indexOf(account.accountId)

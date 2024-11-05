@@ -54,7 +54,6 @@ export interface Config {
   verifyReceiptSignaturesSeparately: boolean
   verifyAppReceiptData: boolean
   verifyAccountData: boolean
-  skipGlobalTxReceiptVerification: boolean // To skip verification of global tx receipts for now
   REQUEST_LIMIT: {
     MAX_ACCOUNTS_PER_REQUEST: number
     MAX_RECEIPTS_PER_REQUEST: number
@@ -154,7 +153,6 @@ let config: Config = {
   verifyReceiptSignaturesSeparately: true,
   verifyAccountData: true,
   verifyAppReceiptData: true,
-  skipGlobalTxReceiptVerification: true,
   REQUEST_LIMIT: {
     MAX_ACCOUNTS_PER_REQUEST: 1000,
     MAX_RECEIPTS_PER_REQUEST: 100,

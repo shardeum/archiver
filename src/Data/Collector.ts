@@ -473,89 +473,88 @@ export const verifyReceiptData = async (
   const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
   if (globalModification) {
     const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
-    if (config.skipGlobalTxReceiptVerification) return { success: true }
-    else {
-      const { signs } = appliedReceipt
-      // Refer to https://github.com/shardeum/shardus-core/blob/7d8877b7e1a5b18140f898a64b932182d8a35298/src/p2p/GlobalAccounts.ts#L397
-      const votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
-      if (votingGroupCount > cycleShardData.nodes.length) {
-        if (nestedCountersInstance)
-          nestedCountersInstance.countEvent('receipt', 'votingGroupCount_greater_than_nodes_length')
-        Logger.mainLogger.error(
-          'votingGroupCount_greater_than_nodes_length',
-          votingGroupCount,
-          cycleShardData.nodes.length
-        )
-        // votingGroupCount = cycleShardData.nodes.length
-      }
-      let isReceiptMajority =
-        (signs.length / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
-      if (!isReceiptMajority) {
-        Logger.mainLogger.error(
-          `Invalid receipt globalModification signs count is less than ${config.requiredMajorityVotesPercentage}% of the votingGroupCount, ${signs.length}, ${votingGroupCount}`
-        )
-        if (nestedCountersInstance)
-          nestedCountersInstance.countEvent(
-            'receipt',
-            `Invalid_receipt_globalModification_signs_count_less_than_${config.requiredMajorityVotesPercentage}%`
-          )
-        return result
-      }
-      
-      const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
-      // Fill the map with nodes keyed by their public keys
-      cycleShardData.nodes.forEach((node) => {
-        if (node.publicKey) {
-          nodeMap.set(node.publicKey, node)
-        }
-      })
-      // Using a set to store the unique signers to avoid duplicates
-      const uniqueSigners = new Set()
-      for (const sign of signs) {
-        const { owner: nodePubKey } = sign
-        // Get the node id from the public key
-        const node = nodeMap.get(nodePubKey)
-        if (node == null) {
-          Logger.mainLogger.error(
-            `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the active nodesList of cycle ${cycle}`
-          )
-          if (nestedCountersInstance)
-            nestedCountersInstance.countEvent(
-              'receipt',
-              'globalModification_sign_owner_not_in_active_nodesList'
-            )
-          continue
-        }
-        // Check if the node is in the execution group
-        if (!cycleShardData.parititionShardDataMap.get(homePartition).coveredBy[node.id]) {
-          Logger.mainLogger.error(
-            `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the execution group of the tx`
-          )
-          if (nestedCountersInstance)
-            nestedCountersInstance.countEvent(
-              'receipt',
-              'globalModification_sign_node_not_in_execution_group_of_tx'
-            )
-          continue
-        }
-        uniqueSigners.add(nodePubKey)
-      }
-      isReceiptMajority =
-        (uniqueSigners.size / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
-      if (isReceiptMajority) {
-        Logger.mainLogger.error(
-          `Invalid receipt globalModification valid signs count is less than votingGroupCount ${uniqueSigners.size}, ${votingGroupCount}`
-        )
-        if (nestedCountersInstance)
-          nestedCountersInstance.countEvent(
-            'receipt',
-            'Invalid_receipt_globalModification_valid_signs_count_less_than_votingGroupCount'
-          )
-        return result
-      }
-      const requiredSignatures = Math.floor(votingGroupCount * (config.requiredMajorityVotesPercentage / 100))
-      return { success: true, requiredSignatures }
+  
+    const { signs } = appliedReceipt
+    // Refer to https://github.com/shardeum/shardus-core/blob/7d8877b7e1a5b18140f898a64b932182d8a35298/src/p2p/GlobalAccounts.ts#L397
+    let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
+    if (votingGroupCount > cycleShardData.nodes.length) {
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent('receipt', 'votingGroupCount_greater_than_nodes_length')
+      Logger.mainLogger.error(
+        'votingGroupCount_greater_than_nodes_length',
+        votingGroupCount,
+        cycleShardData.nodes.length
+      )
+      votingGroupCount = cycleShardData.nodes.length
     }
+    let isReceiptMajority =
+      (signs.length / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
+    if (!isReceiptMajority) {
+      Logger.mainLogger.error(
+        `Invalid receipt globalModification signs count is less than ${config.requiredMajorityVotesPercentage}% of the votingGroupCount, ${signs.length}, ${votingGroupCount}`
+      )
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent(
+          'receipt',
+          `Invalid_receipt_globalModification_signs_count_less_than_${config.requiredMajorityVotesPercentage}%`
+        )
+      return result
+    }
+    
+    const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
+    // Fill the map with nodes keyed by their public keys
+    cycleShardData.nodes.forEach((node) => {
+      if (node.publicKey) {
+        nodeMap.set(node.publicKey, node)
+      }
+    })
+    // Using a set to store the unique signers to avoid duplicates
+    const uniqueSigners = new Set()
+    for (const sign of signs) {
+      const { owner: nodePubKey } = sign
+      // Get the node id from the public key
+      const node = nodeMap.get(nodePubKey)
+      if (node == null) {
+        Logger.mainLogger.error(
+          `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the active nodesList of cycle ${cycle}`
+        )
+        if (nestedCountersInstance)
+          nestedCountersInstance.countEvent(
+            'receipt',
+            'globalModification_sign_owner_not_in_active_nodesList'
+          )
+        continue
+      }
+      // Check if the node is in the execution group
+      if (!cycleShardData.parititionShardDataMap.get(homePartition).coveredBy[node.id]) {
+        Logger.mainLogger.error(
+          `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the execution group of the tx`
+        )
+        if (nestedCountersInstance)
+          nestedCountersInstance.countEvent(
+            'receipt',
+            'globalModification_sign_node_not_in_execution_group_of_tx'
+          )
+        continue
+      }
+      uniqueSigners.add(nodePubKey)
+    }
+    isReceiptMajority =
+      (uniqueSigners.size / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
+    if (!isReceiptMajority) {
+      Logger.mainLogger.error(
+        `Invalid receipt globalModification valid signs count is less than votingGroupCount ${uniqueSigners.size}, ${votingGroupCount}`
+      )
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent(
+          'receipt',
+          'Invalid_receipt_globalModification_valid_signs_count_less_than_votingGroupCount'
+        )
+      return result
+    }
+    const requiredSignatures = Math.floor(votingGroupCount * (config.requiredMajorityVotesPercentage / 100))
+    return { success: true, requiredSignatures }
+  
   }
   const { signaturePack } = receipt.signedReceipt as Receipt.SignedReceipt
   if (config.newPOQReceipt === false) {
