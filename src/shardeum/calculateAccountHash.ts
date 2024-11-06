@@ -17,6 +17,7 @@ export enum AccountType {
   StakeReceipt = 10,
   UnstakeReceipt = 11,
   InternalTxReceipt = 12,
+  SecureAccount = 13,
 }
 
 export const accountSpecificHash = (account: any): string => {
@@ -30,7 +31,8 @@ export const accountSpecificHash = (account: any): string => {
     account.accountType === AccountType.StakeReceipt ||
     account.accountType === AccountType.UnstakeReceipt ||
     account.accountType === AccountType.InternalTxReceipt ||
-    account.accountType === AccountType.DevAccount
+    account.accountType === AccountType.DevAccount || 
+    account.accountType === AccountType.SecureAccount // might need to parse bigints before hashing...
   ) {
     account.hash = crypto.hashObj(account)
     return account.hash
