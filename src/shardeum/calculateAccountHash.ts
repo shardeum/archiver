@@ -32,7 +32,7 @@ export const accountSpecificHash = (account: any): string => {
     account.accountType === AccountType.UnstakeReceipt ||
     account.accountType === AccountType.InternalTxReceipt ||
     account.accountType === AccountType.DevAccount || 
-    account.accountType === AccountType.SecureAccount 
+    account.accountType === AccountType.SecureAccount // might need to parse bigints before hashing...
   ) {
     account.hash = crypto.hashObj(account)
     return account.hash
