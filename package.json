@@ -1,5 +1,5 @@
 {
-  "name": "@shardeum-foundation/archiver",
+  "name": "@shardus/archiver",
   "version": "3.5.7-0",
   "engines": {
     "node": "18.16.1"
@@ -80,9 +80,9 @@
   "dependencies": {
     "@fastify/cors": "^8.2.0",
     "@fastify/rate-limit": "^7.6.0",
-    "@shardus/archiver-discovery": "^1.1.0",
-    "@shardus/crypto-utils": "4.1.4",
-    "@shardus/types": "1.2.21",
+    "@shardus/archiver-discovery": "git+https://github.com/shardeum/lib-archiver-discovery#v1.1.0",
+    "@shardus/crypto-utils": "git+https://github.com/shardeum/lib-crypto-utils#v4.1.4",
+    "@shardus/types": "git+https://github.com/shardeum/lib-types#v1.2.21",
     "deepmerge": "^4.2.2",
     "fastify": "4.12.0",
     "log4js": "^6.3.0",
