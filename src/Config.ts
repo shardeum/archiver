@@ -196,7 +196,7 @@ let config: Config = {
   disableOffloadReceipt: false,
   disableOffloadReceiptForGlobalModification: true,
   restoreNGTsFromSnapshot: false,
-  maxRecordsPerRequest: 1000, 
+  maxRecordsPerRequest: 200, 
 }
 // Override default config params from config file, env vars, and cli args
 export async function overrideDefaultConfig(file: string): Promise<void> {
