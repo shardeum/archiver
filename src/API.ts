@@ -933,6 +933,13 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       reply.send({ success: false, error: result.error })
       return
     }
+    if (payload.maxRecords > config.maxRecordsPerRequest) {
+      reply.send({
+        success: false,
+        error: 'AccountBucket Size has exceeded the max records allowed per request',
+      })
+      return
+    }
     const data = await AccountDataProvider.provideAccountDataRequest(payload)
     // Logger.mainLogger.debug('Account Data result', data)
     const res = Crypto.sign({

@@ -102,6 +102,7 @@ export interface Config {
   disableOffloadReceipt: boolean // To disable offloading of receipts globally
   disableOffloadReceiptForGlobalModification: boolean // To disable offloading of receipts for global modifications receipts
   restoreNGTsFromSnapshot: boolean // To restore NGTs from snapshot
+  maxRecordsPerRequest: number // this is the equiavlent of the accountBucketSize config variable used by the validators to fetch records from the archiver
 }
 
 let config: Config = {
@@ -195,6 +196,7 @@ let config: Config = {
   disableOffloadReceipt: false,
   disableOffloadReceiptForGlobalModification: true,
   restoreNGTsFromSnapshot: false,
+  maxRecordsPerRequest: 1000, 
 }
 // Override default config params from config file, env vars, and cli args
 export async function overrideDefaultConfig(file: string): Promise<void> {
