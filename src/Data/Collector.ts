@@ -75,6 +75,11 @@ const isReceiptRobust = async (
   executionGroupNodes: ConsensusNodeInfo[],
   minConfirmations: number = config.RECEIPT_CONFIRMATIONS
 ): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
+  // If robustQuery is disabled, do offline verification
+  if (!config.useRobustQueryForReceipt) {
+    return verifyReceiptOffline(receipt, executionGroupNodes, minConfirmations)
+  }
+
   const result = { success: false }
   // Created signedData with full_receipt = false outside of queryReceipt to avoid signing the same data multiple times
   let signedData = Crypto.sign({
@@ -270,6 +275,87 @@ const isReceiptRobust = async (
     return { success: false }
   }
   return { success: true }
+}
+
+// Offline receipt verification
+const verifyReceiptOffline = async (
+  receipt: Receipt.ArchiverReceipt, 
+  executionGroupNodes: ConsensusNodeInfo[],
+  minConfirmations: number
+): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
+  const { signedReceipt, globalModification } = receipt
+
+  if (globalModification) {
+    const globalReceipt = signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
+    // Verify global modification receipt has enough valid signatures
+    const validSigners = new Set<string>()
+    
+    // Ensure signs array exists and is not empty
+    if (!globalReceipt.signs || !Array.isArray(globalReceipt.signs) || globalReceipt.signs.length === 0) {
+      return { success: false }
+    }
+
+    // Ensure tx exists and has required fields
+    if (!globalReceipt.tx || !globalReceipt.tx.address) {
+      return { success: false }
+    }
+
+    for (const sign of globalReceipt.signs) {
+      // Skip invalid signatures
+      if (!sign || !sign.owner) continue
+
+      const node = executionGroupNodes.find(n => n.publicKey === sign.owner)
+      if (!node) continue
+
+      try {
+        if (Crypto.verify({ ...globalReceipt.tx, sign })) {
+          validSigners.add(sign.owner)
+        }
+      } catch (error) {
+        console.error('Error verifying signature:', error)
+        continue
+      }
+    }
+
+    return {
+      success: validSigners.size >= minConfirmations
+    }
+  }
+
+  // Rest of the function remains the same...
+  // Code for normal receipts verification
+  const normalReceipt = signedReceipt as Receipt.SignedReceipt
+  const validSigners = new Set<string>()
+
+  if (!normalReceipt.signaturePack || !Array.isArray(normalReceipt.signaturePack)) {
+    return { success: false }
+  }
+
+  for (const signature of normalReceipt.signaturePack) {
+    if (!signature || !signature.owner) continue
+
+    const node = executionGroupNodes.find(n => n.publicKey === signature.owner)
+    if (!node) continue
+
+    try {
+      const voteHash = calculateVoteHash(normalReceipt.proposal)
+      const appliedVoteHash = {
+        txid: receipt.tx.txId,
+        voteHash
+      }
+
+      if (Crypto.verify({ ...appliedVoteHash, sign: signature })) {
+        validSigners.add(signature.owner)
+      }
+    } catch (error) {
+      console.error('Error verifying signature:', error)
+      continue
+    }
+  }
+
+  return {
+    success: validSigners.size >= minConfirmations
+  }
 }
 
 /**
