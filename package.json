@@ -85,7 +85,7 @@
     "@shardus/types": "git+https://github.com/shardeum/lib-types#v1.2.21",
     "deepmerge": "^4.2.2",
     "fastify": "4.12.0",
-    "log4js": "^6.3.0",
+    "log4js": "6.9.1",
     "log4js-extend": "^0.2.1",
     "minimist": "^1.2.0",
     "neverthrow": "^6.0.0",
