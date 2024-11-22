@@ -1265,27 +1265,6 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     reply.send(Crypto.sign(response))
   })
 
-  server.get('/static/silver-ticket-whitelist', (request, reply) => {
-    if (reachabilityAllowed) {
-      try {
-        const jsonData = readFileSync(join(process.cwd(), config.STATIC_FILES.TICKETS_JSON), 'utf8')
-        const tickets = JSON.parse(jsonData)
-        const silverTicket = tickets.find(t => t.type === 'silver')
-        
-        if (!silverTicket) {
-          reply.code(404).send({ error: 'Silver ticket whitelist not found' })
-          return
-        }
-
-        reply.send(silverTicket)
-      } catch (err) {
-        reply.code(500).send({ error: 'Failed to read silver ticket whitelist' })
-      }
-    } else {
-      request.raw.socket.destroy()
-    }
-  })
-
   // Register ticket routes
   server.register(ticketRoutes, { prefix: '/tickets' })
 }

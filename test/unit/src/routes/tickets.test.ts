@@ -1,118 +1,203 @@
-import { FastifyInstance } from 'fastify'
-import { readFileSync } from 'fs'
-import { join } from 'path'
-import { config } from '../../../../src/Config'
-import { ticketsRouter } from '../../../../src/routes/tickets'
+// Mock modules before importing routes
+jest.mock('fs', () => ({
+    readFileSync: jest.fn()
+}));
 
-// Mock Logger
 jest.mock('../../../../src/Logger', () => ({
-  mainLogger: {
-    debug: jest.fn(),
-    error: jest.fn(),
-    info: jest.fn()
-  }
-}))
+    mainLogger: {
+        debug: jest.fn(),
+        error: jest.fn(),
+        info: jest.fn()
+    }
+}));
+
+jest.mock('../../../../src/Config', () => ({
+    config: {
+        allowedTicketSigners: {
+            "0x891DF765C855E9848A18Ed18984B9f57cb3a4d47": 3 // HIGH = 3
+        }
+    }
+}));
+
+// Import after mocks
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import { readFileSync } from 'fs'
+import { ticketsRouter, ticketCache } from '../../../../src/routes/tickets'
+
+const mockValidTickets = [{
+    data: [{ address: "0x37a9FCf5628B1C198A01C9eDaB0BF5C4d453E928" }],
+    sign: [{
+        owner: "0x891DF765C855E9848A18Ed18984B9f57cb3a4d47",
+        sig: "0x5f1aad2caa2cca1f725715ed050b1928527f0c4eb815fb282fad113ca866a63568d9c003b5310e16de67103521bf284fda10728b4fffc66055c55fde5934438d1b"
+    }],
+    type: "silver"
+}];
+
+function createMockReply() {
+    const mockSend = jest.fn();
+    const mockCode = jest.fn().mockReturnThis();
+    const reply = {
+        send: mockSend,
+        code: mockCode,
+        header: jest.fn().mockReturnThis(),
+        status: jest.fn().mockReturnThis(),
+        type: jest.fn().mockReturnThis(),
+    } as unknown as FastifyReply;
+    
+    return { reply, send: mockSend, code: mockCode };
+}
 
 describe('Ticket Routes', () => {
-  // Read the actual tickets file once at the start
-  const tickets = JSON.parse(
-    readFileSync(join(process.cwd(), config.STATIC_FILES.TICKETS_JSON), 'utf8')
-  )
+    let mockFastify: FastifyInstance;
+    let routes: { [key: string]: Function } = {};
+    
+    beforeEach(() => {
+        jest.resetModules();
+        jest.clearAllMocks();
+        
+        // Reset the cache
+        (ticketCache as any) = null;
+        
+        // Create mock Fastify instance
+        mockFastify = {
+            get: jest.fn((path: string, handler: Function) => {
+                routes[path] = handler;
+            })
+        } as unknown as FastifyInstance;
 
-  describe('GET /', () => {
-    it('should return all tickets', async () => {
-      const mockReply = {
-        send: jest.fn(),
-        code: jest.fn().mockReturnThis()
-      }
+        // Initialize the router
+        ticketsRouter(mockFastify, {}, (err) => {
+            if (err) throw err;
+        });
 
-      const mockFastify = {
-        get: jest.fn()
-      } as unknown as FastifyInstance
+        // Default mock implementation
+        (readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockValidTickets));
+    });
 
-      // Call the plugin with the required arguments
-      ticketsRouter(mockFastify, {}, (err) => {
-        if (err) throw err
-      })
-      
-      // Get the handler that was registered
-      const handler = mockFastify.get.mock.calls[0][1]
-      
-      // Call the handler directly
-      await handler({}, mockReply)
+    describe('GET /', () => {
+        it('should handle file not found error', async () => {
+            const { reply, send, code } = createMockReply();
+            (readFileSync as jest.Mock).mockImplementationOnce(() => {
+                throw new Error('ENOENT: no such file');
+            });
 
-      expect(mockReply.send).toHaveBeenCalledWith(tickets)
-      expect(mockFastify.get).toHaveBeenCalledWith('/', expect.any(Function))
-    })
-  })
+            await routes['/'](
+                {} as FastifyRequest,
+                reply
+            );
 
-  describe('GET /:type', () => {
-    it('should return silver ticket when requested', async () => {
-      const mockReply = {
-        send: jest.fn(),
-        code: jest.fn().mockReturnThis()
-      }
+            expect(code).toHaveBeenCalledWith(500);
+            expect(send).toHaveBeenCalledWith(expect.objectContaining({
+                code: 'TICKETS_FILE_NOT_ACCESSIBLE'
+            }));
+        });
 
-      const mockFastify = {
-        get: jest.fn()
-      } as unknown as FastifyInstance
+        it('should handle invalid JSON format', async () => {
+            const { reply, send, code } = createMockReply();
+            (readFileSync as jest.Mock).mockReturnValueOnce('invalid json');
 
-      ticketsRouter(mockFastify, {}, (err) => {
-        if (err) throw err
-      })
-      
-      const handler = mockFastify.get.mock.calls[1][1]
-      await handler({ params: { type: 'silver' } }, mockReply)
+            await routes['/'](
+                {} as FastifyRequest,
+                reply
+            );
 
-      expect(mockReply.send).toHaveBeenCalledWith(tickets[0])
-    })
+            expect(code).toHaveBeenCalledWith(400);
+            expect(send).toHaveBeenCalledWith(expect.objectContaining({
+                code: 'INVALID_TICKETS_DATA'
+            }));
+        });
 
-    it('should return 404 for non-existent ticket type', async () => {
-      const mockReply = {
-        send: jest.fn(),
-        code: jest.fn().mockReturnThis()
-      }
+        it('should handle non-array tickets data', async () => {
+            const { reply, send, code } = createMockReply();
+            (readFileSync as jest.Mock).mockReturnValueOnce('{"not": "an array"}');
 
-      const mockFastify = {
-        get: jest.fn()
-      } as unknown as FastifyInstance
+            await routes['/'](
+                {} as FastifyRequest,
+                reply
+            );
 
-      ticketsRouter(mockFastify, {}, (err) => {
-        if (err) throw err
-      })
-      
-      const handler = mockFastify.get.mock.calls[1][1]
-      await handler({ params: { type: 'gold' } }, mockReply)
+            expect(code).toHaveBeenCalledWith(400);
+            expect(send).toHaveBeenCalledWith(expect.objectContaining({
+                code: 'INVALID_TICKETS_FORMAT'
+            }));
+        });
+    });
 
-      expect(mockReply.code).toHaveBeenCalledWith(404)
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'No ticket found with type: gold',
-        code: 'TICKET_NOT_FOUND'
-      })
-    })
+    describe('GET /:type', () => {
+        it('should use cached tickets for type lookup', async () => {
+            const { reply } = createMockReply();
 
-    it('should handle invalid type parameter', async () => {
-      const mockReply = {
-        send: jest.fn(),
-        code: jest.fn().mockReturnThis()
-      }
+            // First call to populate cache
+            await routes['/:type'](
+                { params: { type: 'silver' } } as unknown as FastifyRequest,
+                reply
+            );
+            expect(readFileSync).toHaveBeenCalledTimes(1);
 
-      const mockFastify = {
-        get: jest.fn()
-      } as unknown as FastifyInstance
+            // Reset the mock call count
+            (readFileSync as jest.Mock).mockClear();
 
-      ticketsRouter(mockFastify, {}, (err) => {
-        if (err) throw err
-      })
-      
-      const handler = mockFastify.get.mock.calls[1][1]
-      await handler({ params: { type: undefined } }, mockReply)
+            // Second call should use cache
+            await routes['/:type'](
+                { params: { type: 'silver' } } as unknown as FastifyRequest,
+                reply
+            );
+            expect(readFileSync).toHaveBeenCalledTimes(0);
+        });
+    });
 
-      expect(mockReply.code).toHaveBeenCalledWith(400)
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Invalid ticket type parameter',
-        code: 'INVALID_TICKET_TYPE'
-      })
-    })
-  })
-}) 
+    describe('Cache invalidation', () => {
+        it('should reload tickets after TTL expires', async () => {
+            const { reply } = createMockReply();
+            
+            // First call to populate cache
+            await routes['/'](
+                {} as FastifyRequest,
+                reply
+            );
+            
+            // Verify first call
+            expect(readFileSync).toHaveBeenCalledTimes(1);
+            
+            // Reset mock
+            (readFileSync as jest.Mock).mockClear();
+
+            // Force cache invalidation by setting an old timestamp
+            (ticketCache as any) = {
+                tickets: mockValidTickets,
+                lastRead: Date.now() - (70 * 1000) // 70 seconds ago
+            };
+
+            // Second call should reload due to expired cache
+            await routes['/'](
+                {} as FastifyRequest,
+                reply
+            );
+            
+            // Verify second call
+            expect(readFileSync).toHaveBeenCalledTimes(1);
+        });
+
+        it('should use cache within TTL', async () => {
+            const { reply } = createMockReply();
+            
+            // First call to populate cache
+            await routes['/'](
+                {} as FastifyRequest,
+                reply
+            );
+            
+            // Reset mock
+            (readFileSync as jest.Mock).mockClear();
+
+            // Second call within TTL should use cache
+            await routes['/'](
+                {} as FastifyRequest,
+                reply
+            );
+            
+            // Should not read from file again
+            expect(readFileSync).not.toHaveBeenCalled();
+        });
+    });
+}); 

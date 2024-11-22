@@ -60,5 +60,7 @@
   "DevPublicKey": "",
   "allowedTicketSigners": {
     "0x891DF765C855E9848A18Ed18984B9f57cb3a4d47": 3
-  }
+  },
+  "minSigRequired": 5,
+  "requiredSecurityLevel": 3
 }

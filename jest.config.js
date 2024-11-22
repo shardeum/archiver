@@ -18,5 +18,6 @@ module.exports = {
       'ts-jest': {
         isolatedModules: true
       }
-    }
+    },
+    timers: 'fake'
 }

@@ -1,6 +1,4 @@
-type TicketData = {
-    address: string;
-}
+import { TicketData } from '../types/tickets'
 
 type Sign = {
     owner: string;
@@ -62,4 +60,4 @@ export const ticketSchema = {
     }
 } as const
 
-export type { TicketData, Sign, Ticket } 
+export type { Sign, Ticket } 
