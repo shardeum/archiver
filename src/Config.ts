@@ -102,6 +102,12 @@ export interface Config {
   disableOffloadReceipt: boolean // To disable offloading of receipts globally
   disableOffloadReceiptForGlobalModification: boolean // To disable offloading of receipts for global modifications receipts
   restoreNGTsFromSnapshot: boolean // To restore NGTs from snapshot
+  STATIC_FILES: {
+    TICKETS_JSON: string
+  }
+  allowedTicketSigners: {
+    [pubkey: string]: number
+  }
 }
 
 let config: Config = {
@@ -131,7 +137,7 @@ let config: Config = {
     save: true,
     interval: 1,
   },
-  ARCHIVER_MODE: 'release', // 'debug'/'release'
+  ARCHIVER_MODE: 'debug', // 'debug'/'release'
   DevPublicKey: '',
   dataLogWrite: true,
   dataLogWriter: {

@@ -1,0 +1,16 @@
+[
+    {
+        "data": [
+            {
+                "address": "0x37a9FCf5628B1C198A01C9eDaB0BF5C4d453E928"
+            }
+        ],
+        "sign": [
+            {
+                "owner": "0x891DF765C855E9848A18Ed18984B9f57cb3a4d47",
+                "sig": "0x5f1aad2caa2cca1f725715ed050b1928527f0c4eb815fb282fad113ca866a63568d9c003b5310e16de67103521bf284fda10728b4fffc66055c55fde5934438d1b"
+            }
+        ],
+        "type": "silver"
+    }
+]

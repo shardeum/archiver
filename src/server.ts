@@ -475,12 +475,12 @@ async function startServer(): Promise<void> {
       host: '0.0.0.0',
     },
     (err) => {
-      Logger.mainLogger.debug('Listening', config.ARCHIVER_PORT)
       if (err) {
         server.log.error(err)
         process.exit(1)
       }
-      Logger.mainLogger.debug('Archive-server has started.')
+      console.log(`Worker ${process.pid}: Archive-server is listening on http://0.0.0.0:${config.ARCHIVER_PORT}`)
+      Logger.mainLogger.info(`Worker ${process.pid}: Archive-server is listening on http://0.0.0.0:${config.ARCHIVER_PORT}`)
       State.setActive()
       Collector.scheduleMissingTxsDataQuery()
       setupWorkerProcesses(cluster)

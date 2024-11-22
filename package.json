@@ -33,7 +33,9 @@
     "pretest": "npm run compile",
     "update-docker": "docker build -t registry.gitlab.com/shardus/archive/archive-server:dev3 . && docker push registry.gitlab.com/shardus/archive/archive-server:dev3",
     "update-docker-dev": "docker build -t registry.gitlab.com/shardus/archive/archive-server:dev . && docker push registry.gitlab.com/shardus/archive/archive-server:dev",
-    "update-schemas": "typescript-json-schema tsconfig.json NewData -o src/Data/schemas/NewData.json & typescript-json-schema tsconfig.json DataResponse -o src/Data/schemas/DataResponse.json"
+    "update-schemas": "typescript-json-schema tsconfig.json NewData -o src/Data/schemas/NewData.json & typescript-json-schema tsconfig.json DataResponse -o src/Data/schemas/DataResponse.json",
+    "build": "tsc && npm run copy-static",
+    "copy-static": "cp -r static dist/"
   },
   "repository": {
     "type": "git",
@@ -84,6 +86,7 @@
     "@shardus/crypto-utils": "git+https://github.com/shardeum/lib-crypto-utils#v4.1.4",
     "@shardus/types": "git+https://github.com/shardeum/lib-types#v1.2.21",
     "deepmerge": "^4.2.2",
+    "ethers": "^6.13.4",
     "fastify": "4.12.0",
     "log4js": "^6.3.0",
     "log4js-extend": "^0.2.1",
