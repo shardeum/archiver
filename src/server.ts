@@ -44,6 +44,7 @@ import { Utils as StringUtils } from '@shardus/types'
 import { healthCheckRouter } from './routes/healthCheck'
 import { setupWorkerProcesses } from './primary-process'
 import { initWorkerProcess } from './worker-process'
+import { initializeTickets } from './routes/tickets';
 
 const configFile = join(process.cwd(), 'archiver-config.json')
 let logDir: string
@@ -486,6 +487,14 @@ async function startServer(): Promise<void> {
       setupWorkerProcesses(cluster)
     }
   )
+}
+
+// Add this before starting the server
+try {
+    initializeTickets();
+} catch (err) {
+    console.error('Failed to initialize tickets. Server startup aborted:', err);
+    process.exit(1);
 }
 
 start()

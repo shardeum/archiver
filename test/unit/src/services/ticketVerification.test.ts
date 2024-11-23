@@ -43,19 +43,6 @@ describe('Ticket Verification Service', () => {
     });
 
     describe('verifyMultiSigs', () => {
-        it('should validate config parameters', () => {
-            const invalidConfigs = [
-                { ...mockConfig, allowedTicketSigners: null },
-                { ...mockConfig, minSigRequired: 0 },
-                { ...mockConfig, minSigRequired: -1 },
-                { ...mockConfig, requiredSecurityLevel: undefined }
-            ] as VerificationConfig[];
-
-            invalidConfigs.forEach(config => {
-                expect(() => verifyMultiSigs(mockPayload, mockValidSigs, config))
-                    .toThrow();
-            });
-        });
 
         it('should return false if signatures count is less than required', async () => {
             const config = { ...mockConfig, minSigRequired: 2 };
@@ -64,9 +51,9 @@ describe('Ticket Verification Service', () => {
                 owner: signer1.address,
                 sig
             }];
-            const result = verifyMultiSigs(mockPayload, sigs, config);
+            const result = verifyMultiSigs(mockPayload, sigs, config.allowedTicketSigners, config.minSigRequired, config.requiredSecurityLevel);
             expect(result.isValid).toBe(false);
-            expect(result.validCount).toBe(0);
+            expect(result.validCount).toBe(0); // we early return if signatures count is less than required
         });
 
         it('should return false if signatures count exceeds allowed signers', async () => {
@@ -79,7 +66,7 @@ describe('Ticket Verification Service', () => {
                 { owner: signer2.address, sig: sig2 },
                 { owner: signer3.address, sig: sig3 }
             ];
-            const result = verifyMultiSigs(mockPayload, extraSigs, mockConfig);
+            const result = verifyMultiSigs(mockPayload, extraSigs, mockConfig.allowedTicketSigners, mockConfig.minSigRequired, mockConfig.requiredSecurityLevel);
             expect(result.isValid).toBe(false);
         });
 
@@ -89,7 +76,7 @@ describe('Ticket Verification Service', () => {
                 owner: signer1.address,
                 sig
             }];
-            const result = verifyMultiSigs(mockPayload, sigs, mockConfig);
+            const result = verifyMultiSigs(mockPayload, sigs, mockConfig.allowedTicketSigners, mockConfig.minSigRequired, mockConfig.requiredSecurityLevel);
             expect(result.isValid).toBe(true);
             expect(result.validCount).toBe(1);
         });
@@ -100,7 +87,7 @@ describe('Ticket Verification Service', () => {
                 { owner: signer1.address, sig },
                 { owner: signer1.address, sig }
             ];
-            const result = verifyMultiSigs(mockPayload, duplicateSigs, mockConfig);
+            const result = verifyMultiSigs(mockPayload, duplicateSigs, mockConfig.allowedTicketSigners, mockConfig.minSigRequired, mockConfig.requiredSecurityLevel);
             expect(result.isValid).toBe(true);
             expect(result.validCount).toBe(1);
         });

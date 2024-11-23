@@ -13,8 +13,12 @@ jest.mock('../../../../src/Logger', () => ({
 
 jest.mock('../../../../src/Config', () => ({
     config: {
-        allowedTicketSigners: {
-            "0x891DF765C855E9848A18Ed18984B9f57cb3a4d47": 3 // HIGH = 3
+        tickets: {
+            allowedTicketSigners: {
+                "0x891DF765C855E9848A18Ed18984B9f57cb3a4d47": 3 // HIGH = 3
+            },
+            minSigRequired: 1,
+            requiredSecurityLevel: 3
         }
     }
 }));
@@ -126,6 +130,9 @@ describe('Ticket Routes', () => {
     describe('GET /:type', () => {
         it('should use cached tickets for type lookup', async () => {
             const { reply } = createMockReply();
+            
+            // Set up mock to return valid tickets
+            (readFileSync as jest.Mock).mockReturnValue(JSON.stringify(mockValidTickets));
 
             // First call to populate cache
             await routes['/:type'](
@@ -134,7 +141,7 @@ describe('Ticket Routes', () => {
             );
             expect(readFileSync).toHaveBeenCalledTimes(1);
 
-            // Reset the mock call count
+            // Reset the mock call count but keep the same implementation
             (readFileSync as jest.Mock).mockClear();
 
             // Second call should use cache

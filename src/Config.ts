@@ -102,8 +102,12 @@ export interface Config {
   disableOffloadReceipt: boolean // To disable offloading of receipts globally
   disableOffloadReceiptForGlobalModification: boolean // To disable offloading of receipts for global modifications receipts
   restoreNGTsFromSnapshot: boolean // To restore NGTs from snapshot
-  allowedTicketSigners: {
-    [pubkey: string]: number
+  tickets: {
+    allowedTicketSigners: {
+      [pubkey: string]: number
+    }
+    minSigRequired: number
+    requiredSecurityLevel: number
   }
 }
 
@@ -134,7 +138,7 @@ let config: Config = {
     save: true,
     interval: 1,
   },
-  ARCHIVER_MODE: 'debug', // 'debug'/'release'
+  ARCHIVER_MODE: 'release', // 'debug'/'release'
   DevPublicKey: '',
   dataLogWrite: true,
   dataLogWriter: {
@@ -198,39 +202,10 @@ let config: Config = {
   disableOffloadReceipt: false,
   disableOffloadReceiptForGlobalModification: true,
   restoreNGTsFromSnapshot: false,
-  allowedTicketSigners: { // copied from shardeum config for now...
-    /* prettier-ignore */ '0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5': 5,
-    /* prettier-ignore */ '0x0a0844DA5e01E391d12999ca859Da8a897D5979A': 5,
-    /* prettier-ignore */ '0x390878B18DeBe2A9f0d5c0252a109c84243D3beb': 5,
-    /* prettier-ignore */ '0x32B6f2C027D4c9D99Ca07d047D17987390a5EB39': 5,
-    /* prettier-ignore */ '0x80aF8E195B56aCC3b4ec8e2C99EC38957258635a': 5,
-    /* prettier-ignore */ '0x7Efbb31431ac7C405E8eEba99531fF1254fCA3B6': 5,
-    /* prettier-ignore */ '0xCc74bf387F6C102b5a7F828796C57A6D2D19Cb00': 5,
-    /* prettier-ignore */ '0x4ed5C053BF2dA5F694b322EA93dce949F3276B85': 5,
-    /* prettier-ignore */ '0xd31aBC7497aD8bC9fe8555C9eDe45DFd7FB3Bf6F': 5,
-    /* prettier-ignore */ '0xe7e4cc292b424C6D50d16F1Bb5BAB2032c486980': 5,
-    /* prettier-ignore */ '0xD815DA50966c19261B34Ffa3bE50A30A67D97456': 5,
-    /* prettier-ignore */ '0xE856B2365641eba73Bc430AAC1E8F930dA513D9D': 5,
-    /* prettier-ignore */ '0x8282F755e784414697421D4b59232E5d194e2262': 5,
-    /* prettier-ignore */ '0x353Ad64Df4fAe5EffF717A1c41BE6dEBee543129': 5,
-    /* prettier-ignore */ '0x9Ce1C3c114538c625aA2488b97fEb3723fdBB07B': 5,
-    /* prettier-ignore */ '0x6A83e4e4eB0A2c8f562db6BB64b02a9A6237B314': 5,
-    /* prettier-ignore */ '0x92E375E0c76CaE76D9DfBab17EE7B3B4EE407715': 5,
-    /* prettier-ignore */ '0xBD79B430CA932e2D89bb77ACaE7367a07471c2eA': 5,
-    /* prettier-ignore */ '0xEbe173a837Bc30BFEF6E13C9988a4771a4D83275': 5,
-    /* prettier-ignore */ '0xfF2b584A947182c55BBc039BEAB78BC201D3AdDe': 5,
-    /* prettier-ignore */ '0xCeA068d8DCB4B4020D30a9950C00cF8408611F67': 5,
-    /* prettier-ignore */ '0x52F8d3DaA7b5FF25ca2bF7417E059aFe0bD5fB0E': 5,
-    /* prettier-ignore */ '0x0341996A92193d8B7d80C4774fA2eff889e4b427': 5,
-    /* prettier-ignore */ '0xF82BDA6Ef512e4219C6DCEea896E50e8180a5bff': 5,
-    /* prettier-ignore */ '0xA04A1B214a2537139fE59488820D4dA06516933f': 5,
-    /* prettier-ignore */ '0x550817e7B91244BBeFE2AD621ccD555A16B00405': 5,
-    /* prettier-ignore */ '0x84C55a4bFfff1ADadb9C46e2B60979F519dAf874': 5,
-    /* prettier-ignore */ '0x4563303BCE96D3f8d9C7fB94b36dfFC9d831871d': 5,
-    /* prettier-ignore */ '0xdA058F9c7Ce86C1D21DD5DBDeBad5ab5c785520a': 5,
-    /* prettier-ignore */ '0x0950C3Ecc7d1c4dd093C9652F335F9391d83Ee99': 5,
-    /* prettier-ignore */ '0x05b67C84bf88d93E795039d5bBA9CeC9Dcd93087': 5,
-    /* prettier-ignore */ '0x891DF765C855E9848A18Ed18984B9f57cb3a4d47': 5, // zb added this one for testing
+  tickets: {  
+    allowedTicketSigners: {},
+    minSigRequired: 5,
+    requiredSecurityLevel: 3
   }
 }
 // Override default config params from config file, env vars, and cli args

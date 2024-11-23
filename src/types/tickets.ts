@@ -1,3 +1,3 @@
-export interface TicketData {
+export type TicketData = {
     address: string;
 } 

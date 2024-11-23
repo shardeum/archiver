@@ -3,14 +3,11 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { config } from '../Config'
 import * as Logger from '../Logger'
-import * as Ajv from 'ajv'
-import { ticketSchema, type Ticket } from '../schemas/ticketSchema'
+import { type Ticket } from '../schemas/ticketSchema'
 import { verifyTickets, VerificationConfig, VerificationError } from '../services/ticketVerification'
 import { ApiError, ErrorCodes } from '../types/errors'
 import { DevSecurityLevel } from '../types/security'
 
-const ajv = new Ajv({ allErrors: true })
-const validateTicketSchema = ajv.compile(ticketSchema)
 const ticketFilePath = join(__dirname, '..', '..', 'static', 'tickets.json')
 
 // Export for testing
@@ -24,9 +21,9 @@ interface TicketCache {
 }
 
 const verificationConfig: VerificationConfig = {
-    allowedTicketSigners: config.allowedTicketSigners,
-    minSigRequired: process.env.NODE_ENV === 'production' ? 5 : 1,
-    requiredSecurityLevel: DevSecurityLevel.HIGH
+    allowedTicketSigners: config.tickets.allowedTicketSigners,
+    minSigRequired: config.tickets.minSigRequired,
+    requiredSecurityLevel: config.tickets.requiredSecurityLevel as DevSecurityLevel
 };
 
 function createApiError(code: keyof typeof ErrorCodes, message: string, details?: unknown): ApiError {
@@ -84,43 +81,52 @@ function validateTicketsArray(tickets: unknown): tickets is Ticket[] {
 
 function readAndValidateTickets(): Ticket[] {
     const now = Date.now();
-    
-    // Return cached tickets if they're still fresh
+        
+    // Check if we have valid cached tickets
     if (ticketCache && (now - ticketCache.lastRead) < CACHE_TTL) {
         return ticketCache.tickets;
     }
 
+    const jsonData = readFileSync(ticketFilePath, 'utf8');
+    const tickets = JSON.parse(jsonData);
+
+    if (!validateTicketsArray(tickets)) {
+        throw new Error('Invalid tickets format');
+    }
+
+    
+    const verificationResult = verifyTickets(tickets, verificationConfig);
+    if (!verificationResult.isValid) {
+        throw new Error('Ticket verification failed');
+    }
+    // Update cache
+    ticketCache = {
+        tickets,
+        lastRead: now
+    };
+
+    return tickets;
+}
+
+export function initializeTickets(): void {
     try {
-        // Read from disk
-        const jsonData = readFileSync(ticketFilePath, 'utf8');
-        const tickets = JSON.parse(jsonData);
-
-        if (!validateTicketsArray(tickets)) {
-            throw new Error('Invalid tickets format');
-        }
-
-        // Verify tickets before caching
-        const verificationResult = verifyTickets(tickets, verificationConfig);
-        if (!verificationResult.isValid) {
-            throw new Error('Ticket verification failed');
-        }
-
-        // Update cache
-        ticketCache = {
-            tickets,
-            lastRead: now
-        };
-
-        return tickets;
+        readAndValidateTickets();
+        Logger.mainLogger.info('Initial ticket verification successful');
     } catch (err) {
-        if (err instanceof Error) {
-            throw err; // Re-throw to be handled by the route handlers
-        }
-        throw new Error('Unknown error reading tickets');
+        Logger.mainLogger.error('Failed to verify tickets during initialization:', err);
+        throw err; // This will prevent server from starting if tickets are invalid
     }
 }
 
 export const ticketsRouter: FastifyPluginCallback = function (fastify, opts, done) {
+    // Add initialization before route handlers
+    try {
+        initializeTickets();
+    } catch (err) {
+        done(err as Error);
+        return;
+    }
+
     // GET / - Get all tickets
     fastify.get('/', (_request, reply) => {
         try {

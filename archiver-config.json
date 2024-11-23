@@ -56,11 +56,13 @@
       "publicKey": "aec5d2b663869d9c22ba99d8de76f3bff0f54fa5e39d2899ec1f3f4543422ec7"
     }
   ],
-  "ARCHIVER_MODE": "debug",
+  "ARCHIVER_MODE": "release",
   "DevPublicKey": "",
-  "allowedTicketSigners": {
-    "0x891DF765C855E9848A18Ed18984B9f57cb3a4d47": 3
-  },
-  "minSigRequired": 5,
-  "requiredSecurityLevel": 3
+  "tickets": {  
+    "allowedTicketSigners": {
+      "0x891DF765C855E9848A18Ed18984B9f57cb3a4d47": 3
+    },
+    "minSigRequired": 1,
+    "requiredSecurityLevel": 3
+  }
 }
