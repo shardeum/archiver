@@ -94,10 +94,9 @@ function readAndValidateTickets(): Ticket[] {
         throw new Error('Invalid tickets format');
     }
 
-    
     const verificationResult = verifyTickets(tickets, verificationConfig);
     if (!verificationResult.isValid) {
-        throw new Error('Ticket verification failed');
+        throw new Error(`Ticket verification failed: ${verificationResult.errors.map(e => e.message).join(', ')}`);
     }
     // Update cache
     ticketCache = {
@@ -111,9 +110,7 @@ function readAndValidateTickets(): Ticket[] {
 export function initializeTickets(): void {
     try {
         readAndValidateTickets();
-        Logger.mainLogger.info('Initial ticket verification successful');
     } catch (err) {
-        Logger.mainLogger.error('Failed to verify tickets during initialization:', err);
         throw err; // This will prevent server from starting if tickets are invalid
     }
 }

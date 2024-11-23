@@ -203,8 +203,10 @@ let config: Config = {
   disableOffloadReceiptForGlobalModification: true,
   restoreNGTsFromSnapshot: false,
   tickets: {  
-    allowedTicketSigners: {},
-    minSigRequired: 5,
+    allowedTicketSigners: {
+      "0x891DF765C855E9848A18Ed18984B9f57cb3a4d47": 3
+    },
+    minSigRequired: 1,
     requiredSecurityLevel: 3
   }
 }
