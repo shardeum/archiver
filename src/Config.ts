@@ -240,7 +240,7 @@ let config: Config = {
       '0xa58169308e7153B5Ce4ca5cA515cC4d0cBE7770B': 5,
     },
     minSigRequired: 1,
-    requiredSecurityLevel: 3
+    requiredSecurityLevel: 5
   }
 }
 // Override default config params from config file, env vars, and cli args
