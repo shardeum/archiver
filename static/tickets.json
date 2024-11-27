@@ -1,6 +1,5 @@
 [
   {
-    "type": "silver",
     "data": [
       {
         "address": "0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5"
@@ -106,7 +105,12 @@
       {
         "owner": "0x891DF765C855E9848A18Ed18984B9f57cb3a4d47",
         "sig": "0x9701d7ec08583a80981c6e4e2aee0bef44236bb08f35d42511561ee992ed7bae0c049fa781aa49e089da5ec4a1c61d5fc8393a5b39a34e35ac9ec47642e5de191c"
+      },
+      {
+        "owner": "0x1e5e12568b7103E8B22cd680A6fa6256DD66ED76",
+        "sig": "0x36e4f0cd2180d134c2e8ccd6afdf73966b2a7c4fd58e62d75f3d9963704c59b664ad2b014151ce468c904eec4c92f0d4ecb917bf4ab79e51655dd21a80f676a31c"
       }
-    ]
+    ],
+    "type": "silver"
   }
 ]
