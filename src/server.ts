@@ -480,7 +480,6 @@ async function startServer(): Promise<void> {
         server.log.error(err)
         process.exit(1)
       }
-      console.log(`Worker ${process.pid}: Archive-server is listening on http://0.0.0.0:${config.ARCHIVER_PORT}`)
       Logger.mainLogger.info(`Worker ${process.pid}: Archive-server is listening on http://0.0.0.0:${config.ARCHIVER_PORT}`)
       State.setActive()
       Collector.scheduleMissingTxsDataQuery()
