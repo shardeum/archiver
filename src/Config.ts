@@ -242,7 +242,7 @@ let config: Config = {
     },
     minSigRequired: 1,
     requiredSecurityLevel: 5
-  }
+  },
   maxRecordsPerRequest: 200, 
 }
 // Override default config params from config file, env vars, and cli args
