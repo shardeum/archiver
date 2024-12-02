@@ -110,6 +110,7 @@ export interface Config {
     minSigRequired: number
     requiredSecurityLevel: number
   }
+  maxRecordsPerRequest: number // this is the equiavlent of the accountBucketSize config variable used by the validators to fetch records from the archiver
 }
 
 let config: Config = {
@@ -242,6 +243,7 @@ let config: Config = {
     minSigRequired: 1,
     requiredSecurityLevel: 5
   }
+  maxRecordsPerRequest: 200, 
 }
 // Override default config params from config file, env vars, and cli args
 export async function overrideDefaultConfig(file: string): Promise<void> {
