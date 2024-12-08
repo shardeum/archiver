@@ -4,6 +4,7 @@ import * as Logger from '../Logger'
 import { config } from '../Config'
 import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
 
+
 /** Same as type AccountsCopy in the shardus core */
 export type AccountsCopy = {
   accountId: string
@@ -19,38 +20,67 @@ type DbAccountCopy = AccountsCopy & {
 }
 
 export async function insertAccount(account: AccountsCopy): Promise<void> {
+
   try {
-    const fields = Object.keys(account).join(', ')
-    const placeholders = Object.keys(account).fill('?').join(', ')
-    const values = db.extractValues(account)
-    const sql = 'INSERT OR REPLACE INTO accounts (' + fields + ') VALUES (' + placeholders + ')'
-    await db.run(accountDatabase, sql, values)
+
+    // Define the table columns based on schema
+    const columns = ['accountId', 'data', 'timestamp', 'hash', 'cycleNumber', 'isGlobal'];
+
+    // Construct the SQL query with placeholders
+    const placeholders = `(${columns.map(() => '?').join(', ')})`;
+    const sql = `INSERT OR REPLACE INTO accounts (${columns.join(', ')}) VALUES ${placeholders}`;
+
+    // Map the `account` object to match the columns
+    const values = columns.map((column) =>
+      typeof account[column] === 'object'
+        ? SerializeToJsonString(account[column]) // Serialize objects to JSON
+        : account[column]
+    );
+
+    // Execute the query directly (single-row insert)
+    await db.run(accountDatabase, sql, values);
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted Account', account.accountId)
+      Logger.mainLogger.debug('Successfully inserted Account', account.accountId);
     }
-  } catch (e) {
-    Logger.mainLogger.error(e)
+  } catch (err) {
+    Logger.mainLogger.error(err);
     Logger.mainLogger.error(
-      'Unable to insert Account or it is already stored in to database',
+      'Unable to insert Account or it is already stored in the database',
       account.accountId
-    )
+    );
   }
 }
 
 export async function bulkInsertAccounts(accounts: AccountsCopy[]): Promise<void> {
+
   try {
-    const fields = Object.keys(accounts[0]).join(', ')
-    const placeholders = Object.keys(accounts[0]).fill('?').join(', ')
-    const values = db.extractValuesFromArray(accounts)
-    let sql = 'INSERT OR REPLACE INTO accounts (' + fields + ') VALUES (' + placeholders + ')'
-    for (let i = 1; i < accounts.length; i++) {
-      sql = sql + ', (' + placeholders + ')'
+
+    // Define the table columns based on schema
+    const columns = ['accountId', 'data', 'timestamp', 'hash', 'cycleNumber', 'isGlobal'];
+
+    // Construct the SQL query for bulk insertion with all placeholders
+    const placeholders = accounts.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+    const sql = `INSERT OR REPLACE INTO accounts (${columns.join(', ')}) VALUES ${placeholders}`;
+
+    // Flatten the `accounts` array into a single list of values
+    const values = accounts.flatMap((account) =>
+      columns.map((column) =>
+        typeof account[column] === 'object'
+          ? SerializeToJsonString(account[column]) // Serialize objects to JSON
+          : account[column]
+      )
+    );
+
+    // Execute the single query for all accounts
+    await db.run(accountDatabase, sql, values);
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('Successfully inserted Accounts', accounts.length);
     }
-    await db.run(accountDatabase, sql, values)
-    if (config.VERBOSE) Logger.mainLogger.debug('Successfully inserted Accounts', accounts.length)
-  } catch (e) {
-    Logger.mainLogger.error(e)
-    Logger.mainLogger.error('Unable to bulk insert Accounts', accounts.length)
+  } catch (err) {
+    Logger.mainLogger.error(err);
+    Logger.mainLogger.error('Unable to bulk insert Accounts', accounts.length);
   }
 }
 

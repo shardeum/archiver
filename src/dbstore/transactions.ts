@@ -3,8 +3,9 @@ import * as db from './sqlite3storage'
 import { transactionDatabase } from '.'
 import * as Logger from '../Logger'
 import { config } from '../Config'
-import { DeSerializeFromJsonString } from '../utils/serialization'
+import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
 
+// const superjson =  require('superjson')
 /**
  * Transaction is for storing dapp receipt (eg. evm receipt in shardeum)
  * If there is no dapp receipt, we can skip storing in transactions table and use receipts table
@@ -26,37 +27,65 @@ type DbTransaction = Transaction & {
 
 export async function insertTransaction(transaction: Transaction): Promise<void> {
   try {
-    const fields = Object.keys(transaction).join(', ')
-    const placeholders = Object.keys(transaction).fill('?').join(', ')
-    const values = db.extractValues(transaction)
-    const sql = 'INSERT OR REPLACE INTO transactions (' + fields + ') VALUES (' + placeholders + ')'
-    await db.run(transactionDatabase, sql, values)
+    // Define the table columns based on schema
+    const columns = ['txId', 'appReceiptId', 'timestamp', 'cycleNumber', 'data', 'originalTxData'];
+
+    // Construct the SQL query with placeholders
+    const placeholders = `(${columns.map(() => '?').join(', ')})`;
+    const sql = `INSERT OR REPLACE INTO transactions (${columns.join(', ')}) VALUES ${placeholders}`;
+
+    // Map the `transaction` object to match the columns
+    const values = columns.map((column) =>
+      typeof transaction[column] === 'object'
+        ? SerializeToJsonString(transaction[column]) // Serialize objects to JSON
+        : transaction[column]
+    );
+
+    // Execute the query directly
+    await db.run(transactionDatabase, sql, values);
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted Transaction', transaction.txId)
+      Logger.mainLogger.debug('Successfully inserted Transaction', transaction.txId);
     }
-  } catch (e) {
-    Logger.mainLogger.error(e)
+  } catch (err) {
+    Logger.mainLogger.error(err);
     Logger.mainLogger.error(
-      'Unable to insert Transaction or it is already stored in to database',
+      'Unable to insert Transaction or it is already stored in the database',
       transaction.txId
-    )
+    );
   }
 }
 
+
 export async function bulkInsertTransactions(transactions: Transaction[]): Promise<void> {
+
   try {
-    const fields = Object.keys(transactions[0]).join(', ')
-    const placeholders = Object.keys(transactions[0]).fill('?').join(', ')
-    const values = db.extractValuesFromArray(transactions)
-    let sql = 'INSERT OR REPLACE INTO transactions (' + fields + ') VALUES (' + placeholders + ')'
-    for (let i = 1; i < transactions.length; i++) {
-      sql = sql + ', (' + placeholders + ')'
+
+    // Define the table columns based on schema
+    const columns = ['txId', 'appReceiptId', 'timestamp', 'cycleNumber', 'data', 'originalTxData'];
+
+    // Construct the SQL query for bulk insertion with all placeholders
+    const placeholders = transactions.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+    const sql = `INSERT OR REPLACE INTO transactions (${columns.join(', ')}) VALUES ${placeholders}`;
+
+    // Flatten the `transactions` array into a single list of values
+    const values = transactions.flatMap((transaction) =>
+      columns.map((column) =>
+        typeof transaction[column] === 'object'
+          ? SerializeToJsonString(transaction[column]) // Serialize objects to JSON
+          : transaction[column]
+      )
+    );
+
+    // Execute the single query for all transactions
+    await db.run(transactionDatabase, sql, values);
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('Successfully inserted Transactions', transactions.length);
     }
-    await db.run(transactionDatabase, sql, values)
-    if (config.VERBOSE) Logger.mainLogger.debug('Successfully inserted Transactions', transactions.length)
-  } catch (e) {
-    Logger.mainLogger.error(e)
-    Logger.mainLogger.error('Unable to bulk insert Transactions', transactions.length)
+  } catch (err) {
+    Logger.mainLogger.error(err);
+    Logger.mainLogger.error('Unable to bulk insert Transactions', transactions.length);
   }
 }
 

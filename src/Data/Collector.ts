@@ -32,6 +32,8 @@ import { verifyAppReceiptData } from '../shardeum/verifyAppReceiptData'
 import { Cycle as DbCycle } from '../dbstore/types'
 import { Utils as StringUtils } from '@shardus/types'
 import { offloadReceipt } from '../primary-process'
+import { verifyPayload } from '../types/ajv/Helpers'
+import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 
 export let storingAccountData = false
 const processedReceiptsMap: Map<string, number> = new Map()
@@ -276,167 +278,17 @@ const isReceiptRobust = async (
  * @returns boolean
  */
 export const validateArchiverReceipt = (receipt: Receipt.ArchiverReceipt): boolean => {
-  // Add type and field existence check
-  let err = Utils.validateTypes(receipt, {
-    tx: 'o',
-    cycle: 'n',
-    afterStates: 'a',
-    beforeStates: 'a',
-    signedReceipt: 'o',
-    appReceiptData: 'o?',
-    executionShardKey: 's',
-    globalModification: 'b',
-  })
-  if (err) {
-    Logger.mainLogger.error('Invalid receipt data', err)
+
+  let errors = verifyPayload(AJVSchemaEnum.ArchiverReceipt, receipt)
+
+  if (errors) {
+    Logger.mainLogger.error(
+      'Invalid Archiver Receipt',
+      errors,
+      'where receipt was', StringUtils.safeStringify(receipt)
+    );
     return false
   }
-  err = Utils.validateTypes(receipt.tx, {
-    txId: 's',
-    timestamp: 'n',
-    originalTxData: 'o',
-  })
-  if (err) {
-    Logger.mainLogger.error('Invalid receipt tx data', err)
-    return false
-  }
-  for (const account of receipt.beforeStates) {
-    err = Utils.validateTypes(account, {
-      hash: 's',
-      data: 'o',
-      isGlobal: 'b',
-      accountId: 's',
-      timestamp: 'n',
-      // cycleNumber: 'n', it is not present in the beforeStateAccounts data
-    })
-    if (err) {
-      Logger.mainLogger.error('Invalid receipt beforeStateAccounts data', err)
-      return false
-    }
-  }
-  for (const account of receipt.afterStates) {
-    err = Utils.validateTypes(account, {
-      hash: 's',
-      data: 'o',
-      isGlobal: 'b',
-      accountId: 's',
-      timestamp: 'n',
-      // cycleNumber: 'n', it is not present in the beforeStateAccounts data
-    })
-    if (err) {
-      Logger.mainLogger.error('Invalid receipt accounts data', err)
-      return false
-    }
-  }
-  if (receipt.globalModification) {
-    const signedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
-    err = Utils.validateTypes(signedReceipt, {
-      tx: 'o',
-      signs: 'a',
-    })
-    if (err) {
-      Logger.mainLogger.error('Invalid receipt globalModification data', err)
-      return false
-    }
-    err = Utils.validateTypes(signedReceipt.tx, {
-      address: 's',
-      addressHash: 's',
-      value: 'o',
-      when: 'n',
-      source: 's',
-    })
-    if (err) {
-      Logger.mainLogger.error('Invalid receipt globalModification tx data', err)
-      return false
-    }
-    for (const sign of signedReceipt.signs) {
-      err = Utils.validateTypes(sign, {
-        owner: 's',
-        sig: 's',
-      })
-      if (err) {
-        Logger.mainLogger.error('Invalid receipt globalModification signs data', err)
-        return false
-      }
-    }
-    return true
-  }
-  // Global Modification Tx does not have appliedReceipt
-  const signedReceipt = receipt.signedReceipt as Receipt.SignedReceipt
-  const signedReceiptToValidate = {
-    proposal: 'o',
-    proposalHash: 's',
-    signaturePack: 'a',
-    voteOffsets: 'a',
-  }
-  // if (config.newPOQReceipt === false) delete appliedReceiptToValidate.confirmOrChallenge
-  err = Utils.validateTypes(signedReceipt, signedReceiptToValidate)
-  if (err) {
-    Logger.mainLogger.error('Invalid receipt signedReceipt data', err)
-    return false
-  }
-  const proposalToValidate = {
-    txid: 's',
-    applied: 'b',
-    accountIDs: 'a',
-    cant_preApply: 'b',
-    afterStateHashes: 'a',
-    beforeStateHashes: 'a',
-    appReceiptDataHash: 's',
-  }
-  // if (config.newPOQReceipt === false) {
-  // delete appliedVoteToValidate.node_id
-  // delete appliedVoteToValidate.sign
-  // }
-  err = Utils.validateTypes(signedReceipt.proposal, proposalToValidate)
-  if (err) {
-    Logger.mainLogger.error('Invalid receipt signedReceipt appliedVote data', err)
-    return false
-  }
-  for (const signature of signedReceipt.signaturePack) {
-    err = Utils.validateTypes(signature, {
-      owner: 's',
-      sig: 's',
-    })
-    if (err) {
-      Logger.mainLogger.error('Invalid receipt signedReceipt signatures data', err)
-      return false
-    }
-  }
-  for (const voteOffset of signedReceipt.voteOffsets) {
-    const isValid = typeof voteOffset === 'number' || !isNaN(voteOffset)
-    if (!isValid) {
-      Logger.mainLogger.error('Invalid receipt signedReceipt voteOffsets data', voteOffset)
-      return false
-    }
-  }
-  // if (config.newPOQReceipt === false) return true
-  // err = Utils.validateTypes(receipt.appliedReceipt.appliedVote.sign, {
-  //   owner: 's',
-  //   sig: 's',
-  // })
-  // if (err) {
-  //   Logger.mainLogger.error('Invalid receipt appliedReceipt appliedVote signature data', err)
-  //   return false
-  // }
-  // err = Utils.validateTypes(receipt.appliedReceipt.confirmOrChallenge, {
-  //   message: 's',
-  //   nodeId: 's',
-  //   appliedVote: 'o',
-  //   sign: 'o',
-  // })
-  // if (err) {
-  //   Logger.mainLogger.error('Invalid receipt appliedReceipt confirmOrChallenge data', err)
-  //   return false
-  // }
-  // err = Utils.validateTypes(receipt.appliedReceipt.confirmOrChallenge.sign, {
-  //   owner: 's',
-  //   sig: 's',
-  // })
-  // if (err) {
-  //   Logger.mainLogger.error('Invalid receipt appliedReceipt confirmOrChallenge signature data', err)
-  //   return false
-  // }
   return true
 }
 
@@ -1423,25 +1275,18 @@ interface validateResponse {
 }
 
 export const validateOriginalTxData = (originalTxData: OriginalTxsData.OriginalTxData): boolean => {
-  const err = Utils.validateTypes(originalTxData, {
-    txId: 's',
-    timestamp: 'n',
-    cycle: 'n',
-    // sign: 'o',
-    originalTxData: 'o',
-  })
-  if (err) {
-    Logger.mainLogger.error('Invalid originalTxsData', err)
-    return false
+
+  const errors = verifyPayload(AJVSchemaEnum.OriginalTxData, originalTxData)
+
+  if (errors) {
+    Logger.mainLogger.error(
+      'Invalid originalTxsData',
+      errors,
+      'where originalTxData was: ', StringUtils.safeStringify(originalTxData)
+    );
+    return false;
   }
-  // err = Utils.validateTypes(originalTxData.sign, {
-  //   owner: 's',
-  //   sig: 's',
-  // })
-  if (err) {
-    Logger.mainLogger.error('Invalid originalTxsData signature', err)
-    return false
-  }
+  
   return true
 }
 

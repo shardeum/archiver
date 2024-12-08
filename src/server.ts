@@ -45,6 +45,8 @@ import { healthCheckRouter } from './routes/healthCheck'
 import { setupWorkerProcesses } from './primary-process'
 import { initWorkerProcess } from './worker-process'
 import { initializeTickets } from './routes/tickets';
+import { initAjvSchemas } from './types/ajv/Helpers'
+import { initializeSerialization } from './utils/serialization/SchemaHelpers'
 
 const configFile = join(process.cwd(), 'archiver-config.json')
 let logDir: string
@@ -52,6 +54,8 @@ const cluster = clusterModule as unknown as clusterModule.Cluster
 
 async function start(): Promise<void> {
   overrideDefaultConfig(configFile)
+  initAjvSchemas();
+  initializeSerialization()
   // Set crypto hash keys from config
   const hashKey = config.ARCHIVER_HASH_KEY
   Crypto.setCryptoHashKey(hashKey)

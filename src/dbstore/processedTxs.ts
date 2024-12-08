@@ -3,6 +3,7 @@ import { processedTxDatabase } from './'
 import * as Logger from '../Logger'
 import { config } from '../Config'
 
+// const superjson =  require('superjson')
 /**
  * ProcessedTransaction stores transactions which have a receipt
  */
@@ -14,57 +15,77 @@ export interface ProcessedTransaction {
 }
 
 export async function insertProcessedTx(processedTx: ProcessedTransaction): Promise<void> {
-  try {
-    const fields = Object.keys(processedTx).join(', ')
-    const placeholders = Object.keys(processedTx).fill('?').join(', ')
-    const values = db.extractValues(processedTx)
-    const sql =
-      'INSERT INTO processedTxs (' +
-      fields +
-      ') VALUES (' +
-      placeholders +
-      ') ON CONFLICT (txId) DO UPDATE SET ' +
-      'cycle = excluded.cycle, ' +
-      'txTimestamp = excluded.txTimestamp, ' +
-      'applyTimestamp = excluded.applyTimestamp'
 
-    await db.run(processedTxDatabase, sql, values)
+  try {
+
+    // Define the table columns based on schema
+    const columns = ['txId', 'cycle', 'txTimestamp', 'applyTimestamp'];
+
+    // Construct the SQL query with placeholders
+    const placeholders = `(${columns.map(() => '?').join(', ')})`;
+    const sql = `
+      INSERT INTO processedTxs (${columns.join(', ')}) VALUES ${placeholders}
+      ON CONFLICT (txId) DO UPDATE SET 
+      cycle = excluded.cycle, 
+      txTimestamp = excluded.txTimestamp, 
+      applyTimestamp = excluded.applyTimestamp
+    `;
+
+    // Map the `processedTx` object to match the columns
+    const values = columns.map((column) => processedTx[column]);
+
+    // Execute the query directly (single-row insert/update)
+    await db.run(processedTxDatabase, sql, values);
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted ProcessedTransaction', processedTx.txId)
+      Logger.mainLogger.debug('Successfully inserted ProcessedTransaction', processedTx.txId);
     }
-  } catch (e) {
-    Logger.mainLogger.error(e)
+  } catch (err) {
+    Logger.mainLogger.error(err);
     Logger.mainLogger.error(
-      'Unable to insert ProcessedTransaction or it is already stored in to database',
+      'Unable to insert ProcessedTransaction or it is already stored in the database',
       processedTx.txId
-    )
+    );
   }
 }
+
+
 
 export async function bulkInsertProcessedTxs(processedTxs: ProcessedTransaction[]): Promise<void> {
-  try {
-    const fields = Object.keys(processedTxs[0]).join(', ')
-    const placeholders = Object.keys(processedTxs[0]).fill('?').join(', ')
-    const values = db.extractValuesFromArray(processedTxs)
-    let sql = 'INSERT INTO processedTxs (' + fields + ') VALUES (' + placeholders + ')'
-    for (let i = 1; i < processedTxs.length; i++) {
-      sql = sql + ', (' + placeholders + ')'
-    }
-    sql =
-      sql +
-      ' ON CONFLICT (txId) DO UPDATE SET ' +
-      'cycle = excluded.cycle, ' +
-      'txTimestamp = excluded.txTimestamp, ' +
-      'applyTimestamp = excluded.applyTimestamp'
 
-    await db.run(processedTxDatabase, sql, values)
-    if (config.VERBOSE)
-      Logger.mainLogger.debug('Successfully inserted ProcessedTransaction', processedTxs.length)
-  } catch (e) {
-    Logger.mainLogger.error(e)
-    Logger.mainLogger.error('Unable to bulk insert ProcessedTransaction', processedTxs.length)
+  try {
+
+    // Define the table columns based on schema
+    const columns = ['txId', 'cycle', 'txTimestamp', 'applyTimestamp'];
+
+    // Construct the SQL query for bulk insertion
+    const placeholders = processedTxs.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+    const sql = `
+      INSERT INTO processedTxs (${columns.join(', ')}) VALUES ${placeholders}
+      ON CONFLICT (txId) DO UPDATE SET 
+      cycle = excluded.cycle, 
+      txTimestamp = excluded.txTimestamp, 
+      applyTimestamp = excluded.applyTimestamp
+    `;
+
+    // Flatten the `processedTxs` array into a single list of values
+    const values = processedTxs.flatMap((tx) => 
+      columns.map((column) => tx[column])
+    );
+
+    // Execute the single query
+    await db.run(processedTxDatabase, sql, values);
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('Successfully inserted ProcessedTransactions', processedTxs.length);
+    }
+  } catch (err) {
+    Logger.mainLogger.error(err);
+    Logger.mainLogger.error('Unable to bulk insert ProcessedTransactions', processedTxs.length);
   }
 }
+
+
 
 export async function queryProcessedTxByTxId(txId: string): Promise<ProcessedTransaction> {
   try {

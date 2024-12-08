@@ -3,7 +3,7 @@ import * as db from './sqlite3storage'
 import { originalTxDataDatabase } from '.'
 import * as Logger from '../Logger'
 import { config } from '../Config'
-import { DeSerializeFromJsonString } from '../utils/serialization'
+import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
 
 export interface OriginalTxData {
   txId: string
@@ -27,42 +27,73 @@ type DbOriginalTxDataCount = OriginalTxDataCount & {
   'COUNT(*)': number
 }
 
-export async function insertOriginalTxData(OriginalTxData: OriginalTxData): Promise<void> {
+export async function insertOriginalTxData(originalTxData: OriginalTxData): Promise<void> {
+
   try {
-    const fields = Object.keys(OriginalTxData).join(', ')
-    const placeholders = Object.keys(OriginalTxData).fill('?').join(', ')
-    const values = db.extractValues(OriginalTxData)
-    const sql = 'INSERT OR REPLACE INTO originalTxsData (' + fields + ') VALUES (' + placeholders + ')'
-    await db.run(originalTxDataDatabase, sql, values)
+
+    // Define the table columns based on schema
+    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData'];
+
+    // Construct the SQL query with placeholders
+    const placeholders = `(${columns.map(() => '?').join(', ')})`;
+    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES ${placeholders}`;
+
+    // Map the `originalTxData` object to match the columns
+    const values = columns.map((column) =>
+      typeof originalTxData[column] === 'object'
+        ? SerializeToJsonString(originalTxData[column]) // Serialize objects to JSON
+        : originalTxData[column]
+    );
+
+    // Execute the query directly (single-row insert)
+    await db.run(originalTxDataDatabase, sql, values);
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted OriginalTxData', OriginalTxData.txId)
+      Logger.mainLogger.debug('Successfully inserted OriginalTxData', originalTxData.txId);
     }
-  } catch (e) {
-    Logger.mainLogger.error(e)
+  } catch (err) {
+    Logger.mainLogger.error(err);
     Logger.mainLogger.error(
-      'Unable to insert OriginalTxData or it is already stored in to database',
-      OriginalTxData.txId
-    )
+      'Unable to insert OriginalTxData or it is already stored in the database',
+      originalTxData.txId
+    );
   }
 }
 
+
 export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[]): Promise<void> {
+
   try {
-    const fields = Object.keys(originalTxsData[0]).join(', ')
-    const placeholders = Object.keys(originalTxsData[0]).fill('?').join(', ')
-    const values = db.extractValuesFromArray(originalTxsData)
-    let sql = 'INSERT OR REPLACE INTO originalTxsData (' + fields + ') VALUES (' + placeholders + ')'
-    for (let i = 1; i < originalTxsData.length; i++) {
-      sql = sql + ', (' + placeholders + ')'
+    
+    // Define the table columns
+    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData'];
+
+    // Construct the SQL query for bulk insertion with all placeholders
+    const placeholders = originalTxsData.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES ${placeholders}`;
+
+    // Flatten the `originalTxsData` array into a single list of values
+    const values = originalTxsData.flatMap((txData) =>
+      columns.map((column) =>
+        typeof txData[column] === 'object'
+          ? SerializeToJsonString(txData[column]) // Serialize objects to JSON
+          : txData[column]
+      )
+    );
+
+    // Execute the single query for all originalTxsData
+    await db.run(originalTxDataDatabase, sql, values);
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('Successfully inserted OriginalTxsData', originalTxsData.length);
     }
-    await db.run(originalTxDataDatabase, sql, values)
-    if (config.VERBOSE)
-      Logger.mainLogger.debug('Successfully inserted OriginalTxsData', originalTxsData.length)
-  } catch (e) {
-    Logger.mainLogger.error(e)
-    Logger.mainLogger.error('Unable to bulk insert OriginalTxsData', originalTxsData.length)
+  } catch (err) {
+    Logger.mainLogger.error(err);
+    Logger.mainLogger.error('Unable to bulk insert OriginalTxsData', originalTxsData.length);
   }
 }
+
+
 
 export async function queryOriginalTxDataCount(startCycle?: number, endCycle?: number): Promise<number> {
   let originalTxsData

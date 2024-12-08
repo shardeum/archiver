@@ -4,9 +4,10 @@ import * as db from './sqlite3storage'
 import { receiptDatabase } from '.'
 import * as Logger from '../Logger'
 import { config } from '../Config'
-import { DeSerializeFromJsonString } from '../utils/serialization'
+import { DeSerializeFromJsonString , SerializeToJsonString} from '../utils/serialization'
 import { AccountsCopy } from '../dbstore/accounts'
 
+// const superjson =  require('superjson')
 export type Proposal = {
   applied: boolean
   cant_preApply: boolean
@@ -108,39 +109,93 @@ type DbReceiptCount = ReceiptCount & {
 
 export async function insertReceipt(receipt: Receipt): Promise<void> {
   try {
-    const fields = Object.keys(receipt).join(', ')
-    const placeholders = Object.keys(receipt).fill('?').join(', ')
-    const values = db.extractValues(receipt)
-    const sql = 'INSERT OR REPLACE INTO receipts (' + fields + ') VALUES (' + placeholders + ')'
-    await db.run(receiptDatabase, sql, values)
+    // Define the columns to match the database schema
+    const columns = [
+      'receiptId',
+      'tx',
+      'cycle',
+      'applyTimestamp',
+      'timestamp',
+      'signedReceipt',
+      'afterStates',
+      'beforeStates',
+      'appReceiptData',
+      'executionShardKey',
+      'globalModification',
+    ];
+
+    // Create placeholders for the values
+    const placeholders = `(${columns.map(() => '?').join(', ')})`;
+    const sql = `INSERT OR REPLACE INTO receipts (${columns.join(', ')}) VALUES ${placeholders}`;
+
+    // Map the receipt object to match the columns
+    const values = columns.map((column) =>
+      typeof receipt[column] === 'object'
+        ? SerializeToJsonString(receipt[column]) // Serialize objects to JSON strings
+        : receipt[column]
+    );
+
+    // Execute the query directly
+    await db.run(receiptDatabase, sql, values);
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted Receipt', receipt.receiptId)
+      Logger.mainLogger.debug('Successfully inserted Receipt', receipt.receiptId);
     }
-  } catch (e) {
-    Logger.mainLogger.error(e)
+  } catch (err) {
+    Logger.mainLogger.error(err);
     Logger.mainLogger.error(
-      'Unable to insert Receipt or it is already stored in to database',
+      'Unable to insert Receipt or it is already stored in the database',
       receipt.receiptId
-    )
+    );
   }
 }
 
 export async function bulkInsertReceipts(receipts: Receipt[]): Promise<void> {
+
   try {
-    const fields = Object.keys(receipts[0]).join(', ')
-    const placeholders = Object.keys(receipts[0]).fill('?').join(', ')
-    const values = db.extractValuesFromArray(receipts)
-    let sql = 'INSERT OR REPLACE INTO receipts (' + fields + ') VALUES (' + placeholders + ')'
-    for (let i = 1; i < receipts.length; i++) {
-      sql = sql + ', (' + placeholders + ')'
+
+    // Define the table columns based on schema
+    const columns = [
+      'receiptId',
+      'tx',
+      'cycle',
+      'applyTimestamp',
+      'timestamp',
+      'signedReceipt',
+      'afterStates',
+      'beforeStates',
+      'appReceiptData',
+      'executionShardKey',
+      'globalModification',
+    ];
+
+    // Construct the SQL query with placeholders
+    const placeholders = receipts.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+    const sql = `INSERT OR REPLACE INTO receipts (${columns.join(', ')}) VALUES ${placeholders}`;
+
+    // Flatten the `receipts` array into a single list of values
+    const values = receipts.flatMap((receipt) =>
+      columns.map((column) =>
+        typeof receipt[column] === 'object'
+          ? SerializeToJsonString(receipt[column]) // Serialize objects to JSON
+          : receipt[column]
+      )
+    );
+
+    // Execute the query in a single call
+    await db.run(receiptDatabase, sql, values);
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('Successfully inserted Receipts', receipts.length);
     }
-    await db.run(receiptDatabase, sql, values)
-    if (config.VERBOSE) Logger.mainLogger.debug('Successfully inserted Receipts', receipts.length)
-  } catch (e) {
-    Logger.mainLogger.error(e)
-    Logger.mainLogger.error('Unable to bulk insert Receipts', receipts.length)
+  } catch (err) {
+    Logger.mainLogger.error(err);
+    Logger.mainLogger.error('Unable to bulk insert Receipts', receipts.length);
   }
 }
+
+
+
 
 export async function queryReceiptByReceiptId(receiptId: string, timestamp = 0): Promise<Receipt> {
   try {

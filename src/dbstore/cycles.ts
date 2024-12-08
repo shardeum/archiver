@@ -6,38 +6,72 @@ import { config } from '../Config'
 import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
 import { Cycle, DbCycle } from './types'
 
+
 export async function insertCycle(cycle: Cycle): Promise<void> {
+
   try {
-    const fields = Object.keys(cycle).join(', ')
-    const placeholders = Object.keys(cycle).fill('?').join(', ')
-    const values = db.extractValues(cycle)
-    const sql = 'INSERT OR REPLACE INTO cycles (' + fields + ') VALUES (' + placeholders + ')'
-    await db.run(cycleDatabase, sql, values)
-    Logger.mainLogger.debug('Successfully inserted Cycle', cycle.cycleRecord.counter, cycle.cycleMarker)
-  } catch (e) {
-    Logger.mainLogger.error(e)
+    // Define the table columns based on schema
+    const columns = ['cycleMarker', 'counter', 'cycleRecord'];
+
+    // Construct the SQL query with placeholders
+    const placeholders = `(${columns.map(() => '?').join(', ')})`;
+    const sql = `INSERT OR REPLACE INTO cycles (${columns.join(', ')}) VALUES ${placeholders}`;
+
+    // Map the `cycle` object to match the columns
+    const values = columns.map((column) =>
+      typeof cycle[column] === 'object'
+        ? SerializeToJsonString(cycle[column]) // Serialize objects to JSON
+        : cycle[column]
+    );
+
+    // Execute the query directly (single-row insert)
+    await db.run(cycleDatabase, sql, values);
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug(
+        'Successfully inserted Cycle',
+        cycle.counter,
+        cycle.cycleMarker
+      );
+    }
+  } catch (err) {
+    Logger.mainLogger.error(err);
     Logger.mainLogger.error(
-      'Unable to insert cycle or it is already stored in to database',
-      cycle.cycleRecord.counter,
+      'Unable to insert cycle or it is already stored in the database',
+      cycle.counter,
       cycle.cycleMarker
-    )
+    );
   }
 }
 
 export async function bulkInsertCycles(cycles: Cycle[]): Promise<void> {
+
   try {
-    const fields = Object.keys(cycles[0]).join(', ')
-    const placeholders = Object.keys(cycles[0]).fill('?').join(', ')
-    const values = db.extractValuesFromArray(cycles)
-    let sql = 'INSERT OR REPLACE INTO cycles (' + fields + ') VALUES (' + placeholders + ')'
-    for (let i = 1; i < cycles.length; i++) {
-      sql = sql + ', (' + placeholders + ')'
+    // Define the table columns based on schema
+    const columns = ['cycleMarker', 'counter', 'cycleRecord'];
+
+    // Construct the SQL query for bulk insertion with all placeholders
+    const placeholders = cycles.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+    const sql = `INSERT OR REPLACE INTO cycles (${columns.join(', ')}) VALUES ${placeholders}`;
+
+    // Flatten the `cycles` array into a single list of values
+    const values = cycles.flatMap((cycle) =>
+      columns.map((column) =>
+        typeof cycle[column] === 'object'
+          ? SerializeToJsonString(cycle[column]) // Serialize objects to JSON
+          : cycle[column]
+      )
+    );
+
+    // Execute the single query for all cycles
+    await db.run(cycleDatabase, sql, values);
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('Successfully inserted Cycles', cycles.length);
     }
-    await db.run(cycleDatabase, sql, values)
-    if (config.VERBOSE) Logger.mainLogger.debug('Successfully inserted Cycles', cycles.length)
-  } catch (e) {
-    Logger.mainLogger.error(e)
-    Logger.mainLogger.error('Unable to bulk insert Cycles', cycles.length)
+  } catch (err) {
+    Logger.mainLogger.error(err);
+    Logger.mainLogger.error('Unable to bulk insert Cycles', cycles.length);
   }
 }
 
