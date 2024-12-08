@@ -67,3 +67,7 @@ export const initWorkerProcess = async (): Promise<void> => {
 process.on('uncaughtException', (error) => {
   console.error(`Uncaught Exception in Child Process: ${process.pid}`, error)
 })
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection in Child Process:', promise, 'reason:', reason);
+});

@@ -68,6 +68,16 @@ async function start(): Promise<void> {
   if (logsConfig.saveConsoleOutput) {
     startSaving(join(baseDir, logsConfig.dir))
   }
+
+  // Global error handling
+  process.on('uncaughtException', (error) => {
+    Logger.mainLogger.error('Uncaught Exception - Global:', error);
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+      Logger.mainLogger.error('Unhandled Rejection - Global:', promise, 'reason:', reason);
+  });
+
   // Initialize storage
   if (config.experimentalSnapshot) {
     await dbstore.initializeDB(config)
