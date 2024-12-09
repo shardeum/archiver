@@ -92,7 +92,7 @@ const schemaTx = {
     properties: {
         originalTxData: { type: 'object', additionalProperties: true },
         txId: { type: 'string' },
-        timestamp: { type: 'integer' }
+        timestamp: { type: 'integer', minimum: 0 }
     },
     required: ['originalTxData', 'txId', 'timestamp'],
     additionalProperties: false

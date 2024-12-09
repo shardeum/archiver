@@ -5,7 +5,6 @@ import * as Logger from '../Logger'
 import { config } from '../Config'
 import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
 
-// const superjson =  require('superjson')
 /**
  * Transaction is for storing dapp receipt (eg. evm receipt in shardeum)
  * If there is no dapp receipt, we can skip storing in transactions table and use receipts table

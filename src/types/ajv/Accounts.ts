@@ -6,7 +6,7 @@ const schemaAccountsCopy = {
     properties: {
         accountId: { type: 'string' },
         data: { type: 'object', additionalProperties: true }, // Allows nested objects with dynamic keys
-        timestamp: { type: 'integer' },
+        timestamp: { type: 'integer', minimum:0 },
         hash: { type: 'string' },
         cycleNumber: { type: 'integer', nullable: true }, // Optional field
         isGlobal: { type: 'boolean' }
