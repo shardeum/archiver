@@ -1,5 +1,7 @@
 import * as crypto from '../Crypto'
 import { ArchiverReceipt, SignedReceipt } from '../dbstore/receipts'
+import { verifyPayload } from '../types/ajv/Helpers'
+import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 import { verifyGlobalTxAccountChange } from './verifyGlobalTxReceipt'
 
 // account types in Shardeum
@@ -64,7 +66,20 @@ export const verifyAccountHash = (
   nestedCounterMessages = []
 ): boolean => {
   try {
-    if (receipt.globalModification) {
+    let globalReceiptValidationErrors // This is used to store the validation errors of the globalTxReceipt
+    try {
+      globalReceiptValidationErrors = verifyPayload(AJVSchemaEnum.GlobalTxReceipt, receipt?.signedReceipt)
+    } catch (error) {
+      globalReceiptValidationErrors = true
+      failedReasons.push(
+        `Invalid Global Tx Receipt error: ${error}. txId ${receipt.tx.txId} , cycle ${receipt.cycle} , timestamp ${receipt.tx.timestamp}`
+      )
+      nestedCounterMessages.push(
+        `Invalid Global Tx Receipt error: ${error}. txId ${receipt.tx.txId} , cycle ${receipt.cycle} , timestamp ${receipt.tx.timestamp}`
+      )
+      return false
+    }
+    if (!globalReceiptValidationErrors) {
       const result = verifyGlobalTxAccountChange(receipt, failedReasons, nestedCounterMessages)
       if (!result) return false
       return true

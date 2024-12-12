@@ -195,4 +195,5 @@ function addSchemas(): void {
     // addSchema('ReceiptTx', schemaTx);
     addSchema(AJVSchemaEnum.ArchiverReceipt, schemaArchiverReceipt);
     addSchema(AJVSchemaEnum.Receipt, schemaReceipt);
+    addSchema(AJVSchemaEnum.GlobalTxReceipt, schemaGlobalTxReceipt);
 }

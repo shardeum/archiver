@@ -6,6 +6,8 @@ import { config } from '../Config'
 import { EventEmitter } from 'events'
 import { StateManager, Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import * as Utils from '../Utils'
+import { verifyPayload } from '../types/ajv/Helpers'
+import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 
 const MAX_WORKERS = cpus().length - 1 // Leaving 1 core for the master process
 
@@ -235,9 +237,17 @@ export const offloadReceipt = async (
   let verificationResult: ReceiptVerificationResult
 
   // Check if offloading is disabled globally or for global modifications
+  let globalReceiptValidationErrors // This is used to store the validation errors of the globalTxReceipt
+  try {
+    globalReceiptValidationErrors = verifyPayload(AJVSchemaEnum.GlobalTxReceipt, receipt?.signedReceipt)
+  } catch (error) {
+    console.error('Invalid Global Tx Receipt error: ', error)
+    globalReceiptValidationErrors = true
+  }
+
   if (
     config.disableOffloadReceipt ||
-    (config.disableOffloadReceiptForGlobalModification && receipt.globalModification)
+    (config.disableOffloadReceiptForGlobalModification && !globalReceiptValidationErrors)
   ) {
     mainProcessReceiptTracker++
     if (config.workerProcessesDebugLog) console.log('Verifying on the main program', txId, timestamp)

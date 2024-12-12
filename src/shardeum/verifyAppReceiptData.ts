@@ -1,6 +1,8 @@
 import * as crypto from '../Crypto'
 import { ArchiverReceipt, Receipt, SignedReceipt } from '../dbstore/receipts'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { verifyPayload } from '../types/ajv/Helpers'
+import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 
 export type ShardeumReceipt = object & {
   amountSpent: string
@@ -14,8 +16,23 @@ export const verifyAppReceiptData = async (
   nestedCounterMessages = []
 ): Promise<{ valid: boolean; needToSave: boolean }> => {
   let result = { valid: false, needToSave: false }
-  const { appReceiptData, globalModification } = receipt
-  if (globalModification) return { valid: true, needToSave: true }
+  const { appReceiptData } = receipt
+  let globalReceiptValidationErrors // This is used to store the validation errors of the globalTxReceipt
+  try {
+    globalReceiptValidationErrors = verifyPayload(AJVSchemaEnum.GlobalTxReceipt, receipt?.signedReceipt)
+  } catch (error) {
+    globalReceiptValidationErrors = true
+    failedReasons.push(
+      `Invalid Global Tx Receipt error: ${error}. txId ${receipt.tx.txId} , cycle ${receipt.cycle} , timestamp ${receipt.tx.timestamp}`
+    )
+    nestedCounterMessages.push(
+      `Invalid Global Tx Receipt error: ${error}. txId ${receipt.tx.txId} , cycle ${receipt.cycle} , timestamp ${receipt.tx.timestamp}`
+    )
+    return result
+  }
+  if (!globalReceiptValidationErrors) {
+    return { valid: true, needToSave: true }
+  }
   const signedReceipt = receipt.signedReceipt as SignedReceipt
   const newShardeumReceipt = appReceiptData.data as ShardeumReceipt
   if (!newShardeumReceipt.amountSpent || !newShardeumReceipt.readableReceipt) {
