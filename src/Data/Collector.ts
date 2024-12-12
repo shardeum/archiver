@@ -198,7 +198,7 @@ const isReceiptRobust = async (
       const fullReceipt = fullReceiptResult.receipt as Receipt.ArchiverReceipt
       if (
         isReceiptEqual(fullReceipt.signedReceipt, robustQueryReceipt) &&
-        validateArchiverReceipt(fullReceipt)
+        validateReceiptType(fullReceipt)
       ) {
         if (config.verifyAppReceiptData) {
           if (profilerInstance) profilerInstance.profileSectionStart('Verify_app_receipt_data')
@@ -277,20 +277,33 @@ const isReceiptRobust = async (
  * @param receipt
  * @returns boolean
  */
-export const validateArchiverReceipt = (receipt: Receipt.ArchiverReceipt): boolean => {
-
-  let errors = verifyPayload(AJVSchemaEnum.ArchiverReceipt, receipt)
-
-  if (errors) {
-    Logger.mainLogger.error(
-      'Invalid Archiver Receipt',
-      errors,
-      'where receipt was', StringUtils.safeStringify(receipt)
-    );
-    return false
+export const validateReceiptType = (receipt: Receipt.Receipt | Receipt.ArchiverReceipt): boolean => {
+  // Validate against the Receipt schema will come when archiver is syncing from another archiver
+  const errors_validation_receipt = verifyPayload(AJVSchemaEnum.Receipt, receipt);
+  if (!errors_validation_receipt) {
+    return true; // Valid Receipt
   }
-  return true
-}
+
+  // Validate against the ArchiverReceipt schema this will be used when receipt object is getting received from validator
+  const errors_validation_archiver_receipt = verifyPayload(AJVSchemaEnum.ArchiverReceipt, receipt);
+  if (!errors_validation_archiver_receipt) {
+    return true; // Valid ArchiverReceipt
+  }
+
+  // If neither validation passes, log the errors and return false
+  Logger.mainLogger.error(
+    'Invalid Receipt',
+    {
+      receiptType: errors_validation_receipt ? 'ArchiverReceipt' : 'Receipt',
+      receiptErrors: errors_validation_receipt || errors_validation_archiver_receipt,
+    },
+    'where receipt was',
+    StringUtils.safeStringify(receipt)
+  );
+
+  return false; // Invalid receipt
+};
+
 
 export const verifyReceiptData = async (
   receipt: Receipt.ArchiverReceipt,
@@ -804,7 +817,7 @@ export const verifyArchiverReceipt = async (
 }
 
 export const storeReceiptData = async (
-  receipts: Receipt.ArchiverReceipt[],
+  receipts: Receipt.Receipt[] | Receipt.ArchiverReceipt[],
   senderInfo = '',
   verifyData = false,
   saveOnlyGossipData = false
@@ -832,7 +845,7 @@ export const storeReceiptData = async (
     receiptsInValidationMap.set(txId, timestamp)
     if (profilerInstance) profilerInstance.profileSectionStart('Validate_receipt')
     if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Validate_receipt')
-    if (!validateArchiverReceipt(receipt)) {
+    if (!validateReceiptType(receipt)) {
       Logger.mainLogger.error('Invalid receipt: Validation failed', txId, receipt.cycle, timestamp)
       receiptsInValidationMap.delete(txId)
       if (nestedCountersInstance)
