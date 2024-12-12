@@ -109,6 +109,10 @@
       {
         "owner": "0x1e5e12568b7103E8B22cd680A6fa6256DD66ED76",
         "sig": "0x36e4f0cd2180d134c2e8ccd6afdf73966b2a7c4fd58e62d75f3d9963704c59b664ad2b014151ce468c904eec4c92f0d4ecb917bf4ab79e51655dd21a80f676a31c"
+      },
+      {
+        "owner": "0xa58169308e7153B5Ce4ca5cA515cC4d0cBE7770B",
+        "sig": "0xf3c928a262e250caff903352692c2baf636fe832e67330b55c9c0428db76d0854bebb2604a0fdc18c34b1eb6237fa8c0220a6e5d26e4abb36f3bdee7158bfe361b"
       }
     ],
     "type": "silver"
