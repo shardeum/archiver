@@ -64,7 +64,7 @@ export interface ReceiptVerificationResult {
 }
 
 const verifyReceiptMajority = async (
-  receipt: Receipt.ArchiverReceipt,
+  receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   executionGroupNodes: ConsensusNodeInfo[],
   minConfirmations: number = config.RECEIPT_CONFIRMATIONS
 ): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
@@ -94,7 +94,7 @@ const verifyReceiptMajority = async (
  * across all types of receipts processed by the system.
  */
 const verifyReceiptOffline = async (
-  receipt: Receipt.ArchiverReceipt,
+  receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   executionGroupNodes: ConsensusNodeInfo[],
   minConfirmations: number
 ): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
@@ -110,7 +110,7 @@ const verifyReceiptOffline = async (
  * across all types of receipts processed by the system.
  */
 const verifyReceiptWithValidators = async (
-  receipt: Receipt.ArchiverReceipt,
+  receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   executionGroupNodes: ConsensusNodeInfo[],
   minConfirmations: number = config.RECEIPT_CONFIRMATIONS
 ): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
@@ -125,7 +125,7 @@ const verifyReceiptWithValidators = async (
  * @returns boolean
  */
 const verifyNonGlobalTxReceiptWithValidators = async (
-  receipt: Receipt.ArchiverReceipt,
+  receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   executionGroupNodes: ConsensusNodeInfo[],
   minConfirmations: number = config.RECEIPT_CONFIRMATIONS
 ): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
@@ -328,7 +328,7 @@ const verifyNonGlobalTxReceiptWithValidators = async (
 
 // Offline global receipt verification
 const verifyGlobalTxreceiptOffline = async (
-  receipt: Receipt.ArchiverReceipt
+  receipt: Receipt.Receipt | Receipt.ArchiverReceipt
 ): Promise<{ success: boolean; requiredSignatures?: number }> => {
   const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
   const result = { success: false }
@@ -424,7 +424,7 @@ const verifyGlobalTxreceiptOffline = async (
 }
 
 const verifyNonGlobalTxReceiptOffline = async (
-  receipt: Receipt.ArchiverReceipt,
+  receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   executionGroupNodes: ConsensusNodeInfo[],
   minConfirmations: number
 ): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
@@ -497,7 +497,7 @@ export const validateReceiptType = (receipt: Receipt.Receipt | Receipt.ArchiverR
 
 
 export const verifyReceiptData = async (
-  receipt: Receipt.ArchiverReceipt,
+  receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   checkReceiptRobust = true
 ): Promise<{ success: boolean; requiredSignatures?: number; newReceipt?: Receipt.ArchiverReceipt }> => {
   const result = { success: false }
