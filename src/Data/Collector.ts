@@ -87,11 +87,15 @@ const verifyReceiptMajority = async (
 // Offline receipt verification
 /**
  * Note:
- * The `verifyReceiptWithValidators` function currently supports only
- * non-global receipt verification. Future enhancements should include
- * validation logic for global receipts to ensure comprehensive receipt
- * verification. This will help in maintaining consistency and reliability
+ * The `verifyReceiptOffline` function is responsible for verifying receipts
+ * without querying external validators, which is useful when the robust query
+ * feature is disabled. It currently supports only non-global receipt verification.
+ * Future enhancements should include validation logic for global receipts to ensure
+ * comprehensive receipt verification. This will help maintain consistency and reliability
  * across all types of receipts processed by the system.
+ * 
+ * The function delegates the verification process to `verifyNonGlobalTxReceiptOffline`
+ * based on the whether the receipt is global or not.
  */
 const verifyReceiptOffline = async (
   receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
@@ -395,16 +399,7 @@ const verifyGlobalTxreceiptOffline = async (
         )
       continue
     }
-    // Check if the signature is valid
-    if (!Crypto.verify({ ...appliedReceipt.tx, sign: sign })) {
-      Logger.mainLogger.error(`Invalid receipt globalModification signature verification failed`)
-      if (nestedCountersInstance)
-        nestedCountersInstance.countEvent(
-          'receipt',
-          'Invalid_receipt_globalModification_signature_verification_failed'
-        )
-      continue
-    }
+
     uniqueSigners.add(nodePubKey)
   }
   isReceiptMajority = (uniqueSigners.size / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
@@ -535,8 +530,13 @@ export const verifyReceiptData = async (
   } catch (error) {
     globalReceiptValidationErrors = true
     if (nestedCountersInstance)
-      nestedCountersInstance.countEvent('receipt', 'Error processing receipt error', error)
-    Logger.mainLogger.error('Error processing receipt error', error)
+      nestedCountersInstance.countEvent(
+        'receipt',
+        `Failed to validate receipt schema txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
+      )
+    Logger.mainLogger.error(
+      `Failed to validate receipt schema txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
+    )
     return result
   }
 
