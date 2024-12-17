@@ -184,7 +184,7 @@ let config: Config = {
   stopGossipTxData: false,
   usePOQo: true,
   requiredVotesPercentage: 2 / 3,
-  requiredMajorityVotesPercentage: 60,
+  requiredMajorityVotesPercentage: 2 / 3,
   maxCyclesShardDataToKeep: 10,
   configChangeMaxCyclesToKeep: 5,
   configChangeMaxChangesToKeep: 1000,
