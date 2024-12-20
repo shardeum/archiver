@@ -104,13 +104,12 @@ export const verifyAppReceiptData = async (
     // }
   } else result = { valid: true, needToSave: true }
 
-  // Finally verify appReceiptData hash
-  const appReceiptDataCopy = { ...appReceiptData }
-  const calculatedAppReceiptDataHash = calculateAppReceiptDataHash(
-    appReceiptDataCopy,
-    failedReasons,
-    nestedCounterMessages
-  )
+  if (!validateAppReceiptData(appReceiptData, failedReasons, nestedCounterMessages)) {
+    return result
+  }
+
+  const calculatedAppReceiptDataHash = calculateAppReceiptDataHash(appReceiptData)
+
   if (calculatedAppReceiptDataHash !== signedReceipt.proposal.appReceiptDataHash) {
     failedReasons.push(
       `appReceiptData hash mismatch: ${calculatedAppReceiptDataHash} != ${signedReceipt.proposal.appReceiptDataHash}`
@@ -120,19 +119,14 @@ export const verifyAppReceiptData = async (
   }
   return result
 }
-
-// Converting the correct appReceipt data format to get the correct hash
-const calculateAppReceiptDataHash = (
-  appReceiptData: any,
-  failedReasons = [],
-  nestedCounterMessages = []
-): string => {
+const validateAppReceiptData = (appReceiptData: any, failedReasons = [], nestedCounterMessages = []): boolean => {
   try {
     if (appReceiptData.data && appReceiptData.data.receipt) {
-      if (appReceiptData.data.receipt.bitvector)
+      if (appReceiptData.data.receipt.bitvector) {
         appReceiptData.data.receipt.bitvector = Uint8Array.from(
           Object.values(appReceiptData.data.receipt.bitvector)
         )
+      }
       if (appReceiptData.data.receipt.logs && appReceiptData.data.receipt.logs.length > 0) {
         appReceiptData.data.receipt.logs = appReceiptData.data.receipt.logs.map((log) => {
           return log.map((log1) => {
@@ -149,12 +143,15 @@ const calculateAppReceiptDataHash = (
         })
       }
     }
-    const hash = crypto.hashObj(appReceiptData)
-    return hash
+    return true
   } catch (err) {
-    console.error(`calculateAppReceiptDataHash error: ${err}`)
-    failedReasons.push(`calculateAppReceiptDataHash error: ${err}`)
-    nestedCounterMessages.push(`calculateAppReceiptDataHash error`)
-    return ''
+    console.error(`validateAppReceiptData error: ${err}`)
+    failedReasons.push(`validateAppReceiptData error: ${err}`)
+    nestedCounterMessages.push(`validateAppReceiptData error`)
+    return false
   }
+}
+
+const calculateAppReceiptDataHash = (appReceiptData: any): string => {
+  return crypto.hashObj(appReceiptData)
 }
