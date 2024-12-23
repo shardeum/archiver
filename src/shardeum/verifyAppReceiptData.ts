@@ -105,6 +105,7 @@ export const verifyAppReceiptData = async (
   } else result = { valid: true, needToSave: true }
 
   if (!validateAppReceiptData(appReceiptData, failedReasons, nestedCounterMessages)) {
+    result = { valid: false, needToSave: false }
     return result
   }
 
@@ -152,6 +153,7 @@ const validateAppReceiptData = (appReceiptData: any, failedReasons = [], nestedC
   }
 }
 
+// Use validateAppReceiptData to ensure appReceiptData is valid before calculating its hash with calculateAppReceiptDataHash
 const calculateAppReceiptDataHash = (appReceiptData: any): string => {
   return crypto.hashObj(appReceiptData)
 }
