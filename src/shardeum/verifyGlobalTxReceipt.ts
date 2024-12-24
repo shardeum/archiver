@@ -29,6 +29,7 @@ export enum InternalTXType {
   ChangeNetworkParam = 10,
   ApplyNetworkParam = 11,
   Penalty = 12,
+  TransferFromSecureAccount = 13,
 }
 
 export const verifyGlobalTxAccountChange = (
