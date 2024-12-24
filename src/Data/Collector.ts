@@ -34,6 +34,7 @@ import { Utils as StringUtils } from '@shardus/types'
 import { offloadReceipt } from '../primary-process'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
+import { extractKeyFromTx } from './ExtractShardKey'
 
 export let storingAccountData = false
 const processedReceiptsMap: Map<string, number> = new Map()
@@ -196,10 +197,7 @@ const isReceiptRobust = async (
         continue
       }
       const fullReceipt = fullReceiptResult.receipt as Receipt.ArchiverReceipt
-      if (
-        isReceiptEqual(fullReceipt.signedReceipt, robustQueryReceipt) &&
-        validateReceiptType(fullReceipt)
-      ) {
+      if (isReceiptEqual(fullReceipt.signedReceipt, robustQueryReceipt) && validateReceiptType(fullReceipt)) {
         if (config.verifyAppReceiptData) {
           if (profilerInstance) profilerInstance.profileSectionStart('Verify_app_receipt_data')
           if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Verify_app_receipt_data')
@@ -279,15 +277,15 @@ const isReceiptRobust = async (
  */
 export const validateReceiptType = (receipt: Receipt.Receipt | Receipt.ArchiverReceipt): boolean => {
   // Validate against the Receipt schema will come when archiver is syncing from another archiver
-  const errors_validation_receipt = verifyPayload(AJVSchemaEnum.Receipt, receipt);
+  const errors_validation_receipt = verifyPayload(AJVSchemaEnum.Receipt, receipt)
   if (!errors_validation_receipt) {
-    return true; // Valid Receipt
+    return true // Valid Receipt
   }
 
   // Validate against the ArchiverReceipt schema this will be used when receipt object is getting received from validator
-  const errors_validation_archiver_receipt = verifyPayload(AJVSchemaEnum.ArchiverReceipt, receipt);
+  const errors_validation_archiver_receipt = verifyPayload(AJVSchemaEnum.ArchiverReceipt, receipt)
   if (!errors_validation_archiver_receipt) {
-    return true; // Valid ArchiverReceipt
+    return true // Valid ArchiverReceipt
   }
 
   // If neither validation passes, log the errors and return false
@@ -299,11 +297,10 @@ export const validateReceiptType = (receipt: Receipt.Receipt | Receipt.ArchiverR
     },
     'where receipt was',
     StringUtils.safeStringify(receipt)
-  );
+  )
 
-  return false; // Invalid receipt
-};
-
+  return false // Invalid receipt
+}
 
 export const verifyReceiptData = async (
   receipt: Receipt.ArchiverReceipt,
@@ -313,6 +310,7 @@ export const verifyReceiptData = async (
   // Check the signed nodes are part of the execution group nodes of the tx
   const { executionShardKey, cycle, globalModification } = receipt
   const { txId, timestamp } = receipt.tx
+  const extractedKey: string = extractKeyFromTx(receipt.tx)
   if (config.VERBOSE) {
     const currentTimestamp = Date.now()
     // Console log the timetaken between the receipt timestamp and the current time ( both in ms and s)
@@ -338,7 +336,7 @@ export const verifyReceiptData = async (
   const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
   if (globalModification) {
     const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
-  
+
     const { signs } = appliedReceipt
     // Refer to https://github.com/shardeum/shardus-core/blob/7d8877b7e1a5b18140f898a64b932182d8a35298/src/p2p/GlobalAccounts.ts#L397
     let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
@@ -352,8 +350,7 @@ export const verifyReceiptData = async (
       )
       votingGroupCount = cycleShardData.nodes.length
     }
-    let isReceiptMajority =
-      (signs.length / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
+    let isReceiptMajority = (signs.length / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
     if (!isReceiptMajority) {
       Logger.mainLogger.error(
         `Invalid receipt globalModification signs count is less than ${config.requiredMajorityVotesPercentage}% of the votingGroupCount, ${signs.length}, ${votingGroupCount}`
@@ -365,7 +362,7 @@ export const verifyReceiptData = async (
         )
       return result
     }
-    
+
     const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
     // Fill the map with nodes keyed by their public keys
     cycleShardData.nodes.forEach((node) => {
@@ -419,7 +416,6 @@ export const verifyReceiptData = async (
     }
     const requiredSignatures = Math.floor(votingGroupCount * (config.requiredMajorityVotesPercentage / 100))
     return { success: true, requiredSignatures }
-  
   }
   const { signaturePack } = receipt.signedReceipt as Receipt.SignedReceipt
   if (config.newPOQReceipt === false) {
@@ -1288,18 +1284,18 @@ interface validateResponse {
 }
 
 export const validateOriginalTxData = (originalTxData: OriginalTxsData.OriginalTxData): boolean => {
-
   const errors = verifyPayload(AJVSchemaEnum.OriginalTxData, originalTxData)
 
   if (errors) {
     Logger.mainLogger.error(
       'Invalid originalTxsData',
       errors,
-      'where originalTxData was: ', StringUtils.safeStringify(originalTxData)
-    );
-    return false;
+      'where originalTxData was: ',
+      StringUtils.safeStringify(originalTxData)
+    )
+    return false
   }
-  
+
   return true
 }
 
