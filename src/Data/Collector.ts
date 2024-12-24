@@ -34,6 +34,7 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 import {verifyTransaction} from "../services/transactionVerification";
+import { extractKeyFromTx } from './ExtractShardKey'
 
 export let storingAccountData = false
 const processedReceiptsMap: Map<string, number> = new Map()
@@ -503,6 +504,7 @@ export const verifyReceiptData = async (
   // Check the signed nodes are part of the execution group nodes of the tx
   const { executionShardKey, cycle, globalModification } = receipt
   const { txId, timestamp } = receipt.tx
+  const extractedKey: string = await extractKeyFromTx(receipt.tx)
   if (config.VERBOSE) {
     const currentTimestamp = Date.now()
     // Console log the timetaken between the receipt timestamp and the current time ( both in ms and s)
