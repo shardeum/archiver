@@ -227,3 +227,26 @@ export async function extractKeyFromTx(receiptTx: any): Promise<string> {
   // return transformedSourceKey // executionShardKey
   return 'placeholder'
 }
+
+export function getTransactionObj(tx: any): Transaction[TransactionType.Legacy] | Transaction[TransactionType.AccessListEIP2930] {
+  if (!tx.raw) throw Error('fail')
+    let transactionObj
+    const serializedInput = toBytes(tx.raw)
+    try {
+      transactionObj = TransactionFactory.fromSerializedData<TransactionType.Legacy>(serializedInput)
+    } catch (e) {
+      if (config.VERBOSE) console.log('Unable to get legacy transaction obj', e)
+    }
+    if (!transactionObj) {
+      try {
+        transactionObj =
+          TransactionFactory.fromSerializedData<TransactionType.AccessListEIP2930>(serializedInput)
+      } catch (e) {
+        if (config.VERBOSE) console.log('Unable to get transaction obj', e)
+      }
+    }
+  
+    if (transactionObj) {
+      return transactionObj
+    } else throw Error('tx obj fail')
+} 
