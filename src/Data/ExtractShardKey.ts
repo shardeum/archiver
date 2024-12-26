@@ -4,6 +4,15 @@ import { InternalTXType } from '../shardeum/verifyGlobalTxReceipt'
 import * as NodeList from '../NodeList'
 import { getJson } from '../P2P'
 import * as Utils from '../Utils'
+import { Address } from '@ethereumjs/util'
+import { TypedTransaction } from '@ethereumjs/tx'
+import { getSenderAddress } from '@shardus/net'
+
+type GetTxSenderAddressResult = { address: Address; isValid: boolean; gasValid: boolean }
+
+const txSenderCache: Map<string, GetTxSenderAddressResult> = new Map()
+let simpleTTL = 0
+const cacheMaxSize = 20000
 
 export async function crackKeyFromSecureAccount(tx: any): Promise<string> {
   // Define the query function for robustQuery
@@ -146,6 +155,56 @@ async function extractKeyFromInternalTx(tx: any): Promise<string> {
     // keys.targetKeys = targetKeys
   }
   return extractedKey
+}
+
+function toHexString(byteArray: Uint8Array): string {
+  return Array.from(byteArray, (byte) => {
+    return ('0' + (byte & 0xff).toString(16)).slice(-2)
+  }).join('')
+}
+
+export function getTxSenderAddress(
+  tx: TypedTransaction,
+  txid: string = undefined,
+  overrideSender: Address = undefined
+): GetTxSenderAddressResult {
+  try {
+    if (overrideSender != null) {
+      const res = { address: overrideSender, isValid: true, gasValid: true }
+      if (txid != null) {
+        txSenderCache.set(txid, res)
+      }
+      return res
+    }
+
+    if (txid != null) {
+      const cached = txSenderCache.get(txid)
+      if (cached != null) {
+        return cached
+      }
+    }
+
+    const rawTx = '0x' + toHexString(tx.serialize())
+    const { address, isValid, gasValid } = getSenderAddress(rawTx)
+    if (config.VERBOSE) console.log('Sender address retrieved from signed txn', address)
+    const res = { address: Address.fromString(address), isValid, gasValid }
+    if (txid != null) {
+      simpleTTL++
+      if (simpleTTL > cacheMaxSize) {
+        simpleTTL = cacheMaxSize
+        txSenderCache.clear()
+      }
+      txSenderCache.set(txid, res)
+    }
+    return res
+  } catch (e) {
+    if (config.VERBOSE) console.error('Error getting sender address from tx', e)
+    const res = { address: null, isValid: false, gasValid: false }
+    if (txid != null) {
+      txSenderCache.set(txid, res)
+    }
+    return res
+  }
 }
 
 export async function extractKeyFromTx(receiptTx: any): Promise<string> {
