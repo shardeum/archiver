@@ -1,6 +1,44 @@
 import { config } from '../Config'
 import { AccountType } from '../shardeum/calculateAccountHash'
 import { InternalTXType } from '../shardeum/verifyGlobalTxReceipt'
+import * as NodeList from '../NodeList'
+import { getJson } from '../P2P'
+import * as Utils from '../Utils'
+
+export async function crackKeyFromSecureAccount(tx: any): Promise<string> {
+  // Define the query function for robustQuery
+  const queryFn = async (node: NodeList.ConsensusNodeInfo): Promise<any[]> => {
+    const response = (await getJson(`http://${node.ip}:${node.port}/secure_accounts`)) as any
+
+    if (response.accounts) {
+      return response.accounts
+    }
+
+    throw new Error(`Secure account data not found on node ${node.ip}`)
+  }
+
+  // Use robustQuery to fetch secure accounts
+  const activeNodes = NodeList.getActiveList()
+  const result = await Utils.robustQuery(activeNodes, queryFn)
+
+  if (!result.value || !Array.isArray(result.value)) {
+    throw new Error(`Unable to retrieve secure accounts`)
+  }
+
+  // Find the matching secure account from the result
+  const matchingAccount = result.value.find(
+    (account: any) => account.secureAccountConfig.Name === tx.accountName
+  )
+
+  if (!matchingAccount) {
+    throw new Error(`Secure account ${tx.accountName} not found`)
+  }
+
+  const secureAccountConfig = matchingAccount.secureAccountConfig
+
+  // Return the SourceFundsAddress formatted as a Shardus address
+  return toShardusAddress(secureAccountConfig.SourceFundsAddress, AccountType.Account)
+}
 
 export function toShardusAddress(addressStr: string, accountType: AccountType): string {
   if (config.VERBOSE) {
@@ -74,7 +112,7 @@ function isInternalTx(timestampedTx: any): boolean {
   return false
 }
 
-function extractKeyFromInternalTx(tx: any): string {
+async function extractKeyFromInternalTx(tx: any): Promise<string> {
   let extractedKey: string
   const internalTx = tx
   if (internalTx.internalTXType === InternalTXType.SetGlobalCodeBytes) {
@@ -104,18 +142,17 @@ function extractKeyFromInternalTx(tx: any): string {
     extractedKey = tx.reportedNodePublickKey
     // keys.targetKeys = [toShardusAddress(tx.operatorEVMAddress, AccountType.Account), networkAccount]
   } else if (internalTx.internalTXType === InternalTXType.TransferFromSecureAccount) {
-    const sourceKeys = crackTransferFromSecureAccount(tx) // task 1
-    extractedKey = sourceKeys[0]
+    extractedKey = await crackKeyFromSecureAccount(tx)
     // keys.targetKeys = targetKeys
   }
   return extractedKey
 }
 
-export function extractKeyFromTx(receiptTx: any): string {
+export async function extractKeyFromTx(receiptTx: any): Promise<string> {
   const { txId, originalTxData } = receiptTx.tx
   const tx = originalTxData.tx
   if (isInternalTx(tx)) {
-    return extractKeyFromInternalTx(tx)
+    return await extractKeyFromInternalTx(tx)
   }
 
   if (isDebugTx(tx)) {
@@ -124,9 +161,10 @@ export function extractKeyFromTx(receiptTx: any): string {
     return transformedSourceKey
   }
 
-  const transaction = getTransactionObj(tx) // task 2
-  const senderAddress = getTxSenderAddress(transaction, txId).address // task 3
-  const txSenderEvmAddr = senderAddress.toString()
-  const transformedSourceKey = toShardusAddress(txSenderEvmAddr, AccountType.Account)
-  return transformedSourceKey // executionShardKey
+  // const transaction = getTransactionObj(tx) // task 2
+  // const senderAddress = getTxSenderAddress(transaction, txId).address // task 3
+  // const txSenderEvmAddr = senderAddress.toString()
+  // const transformedSourceKey = toShardusAddress(txSenderEvmAddr, AccountType.Account)
+  // return transformedSourceKey // executionShardKey
+  return 'placeholder'
 }

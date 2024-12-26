@@ -310,7 +310,7 @@ export const verifyReceiptData = async (
   // Check the signed nodes are part of the execution group nodes of the tx
   const { executionShardKey, cycle, globalModification } = receipt
   const { txId, timestamp } = receipt.tx
-  const extractedKey: string = extractKeyFromTx(receipt.tx)
+  const extractedKey: string = await extractKeyFromTx(receipt.tx)
   if (config.VERBOSE) {
     const currentTimestamp = Date.now()
     // Console log the timetaken between the receipt timestamp and the current time ( both in ms and s)
