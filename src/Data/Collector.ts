@@ -1467,11 +1467,12 @@ export const validateOriginalTxDataSchema = (originalTxData: OriginalTxsData.Ori
     Logger.mainLogger.error(
       'Invalid originalTxsData',
       errors,
-      'where originalTxData was: ', StringUtils.safeStringify(originalTxData)
-    );
-    return false;
+      'where originalTxData was: ',
+      StringUtils.safeStringify(originalTxData)
+    )
+    return false
   }
-  
+
   return true
 }
 
