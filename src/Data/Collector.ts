@@ -279,15 +279,15 @@ const isReceiptRobust = async (
  * @returns boolean
  */
 export const validateArchiverReceipt = (receipt: Receipt.ArchiverReceipt): boolean => {
-
   let errors = verifyPayload(AJVSchemaEnum.ArchiverReceipt, receipt)
 
   if (errors) {
     Logger.mainLogger.error(
       'Invalid Archiver Receipt',
       errors,
-      'where receipt was', StringUtils.safeStringify(receipt)
-    );
+      'where receipt was',
+      StringUtils.safeStringify(receipt)
+    )
     return false
   }
   return true
@@ -327,7 +327,7 @@ export const verifyReceiptData = async (
   const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
   if (globalModification) {
     const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
-  
+
     const { signs } = appliedReceipt
     // Refer to https://github.com/shardeum/shardus-core/blob/7d8877b7e1a5b18140f898a64b932182d8a35298/src/p2p/GlobalAccounts.ts#L397
     let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
@@ -341,8 +341,7 @@ export const verifyReceiptData = async (
       )
       votingGroupCount = cycleShardData.nodes.length
     }
-    let isReceiptMajority =
-      (signs.length / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
+    let isReceiptMajority = (signs.length / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
     if (!isReceiptMajority) {
       Logger.mainLogger.error(
         `Invalid receipt globalModification signs count is less than ${config.requiredMajorityVotesPercentage}% of the votingGroupCount, ${signs.length}, ${votingGroupCount}`
@@ -354,7 +353,7 @@ export const verifyReceiptData = async (
         )
       return result
     }
-    
+
     const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
     // Fill the map with nodes keyed by their public keys
     cycleShardData.nodes.forEach((node) => {
@@ -408,7 +407,6 @@ export const verifyReceiptData = async (
     }
     const requiredSignatures = Math.floor(votingGroupCount * (config.requiredMajorityVotesPercentage / 100))
     return { success: true, requiredSignatures }
-  
   }
   const { signaturePack } = receipt.signedReceipt as Receipt.SignedReceipt
   if (config.newPOQReceipt === false) {
@@ -1277,18 +1275,18 @@ interface validateResponse {
 }
 
 export const validateOriginalTxData = (originalTxData: OriginalTxsData.OriginalTxData): boolean => {
-
   const errors = verifyPayload(AJVSchemaEnum.OriginalTxData, originalTxData)
 
   if (errors) {
     Logger.mainLogger.error(
       'Invalid originalTxsData',
       errors,
-      'where originalTxData was: ', StringUtils.safeStringify(originalTxData)
-    );
-    return false;
+      'where originalTxData was: ',
+      StringUtils.safeStringify(originalTxData)
+    )
+    return false
   }
-  
+
   return true
 }
 
