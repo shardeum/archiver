@@ -1,6 +1,53 @@
 import { config } from '../Config'
 import { AccountType } from '../shardeum/calculateAccountHash'
 import { InternalTXType } from '../shardeum/verifyGlobalTxReceipt'
+import * as NodeList from '../NodeList'
+import { getJson } from '../P2P'
+import * as Utils from '../Utils'
+import { Address } from '@ethereumjs/util'
+import { TypedTransaction } from '@ethereumjs/tx'
+import { getSenderAddress } from '@shardus/net'
+
+type GetTxSenderAddressResult = { address: Address; isValid: boolean; gasValid: boolean }
+
+const txSenderCache: Map<string, GetTxSenderAddressResult> = new Map()
+let simpleTTL = 0
+const cacheMaxSize = 20000
+
+export async function crackKeyFromSecureAccount(tx: any): Promise<string> {
+  // Define the query function for robustQuery
+  const queryFn = async (node: NodeList.ConsensusNodeInfo): Promise<any[]> => {
+    const response = (await getJson(`http://${node.ip}:${node.port}/secure_accounts`)) as any
+
+    if (response.accounts) {
+      return response.accounts
+    }
+
+    throw new Error(`Secure account data not found on node ${node.ip}`)
+  }
+
+  // Use robustQuery to fetch secure accounts
+  const activeNodes = NodeList.getActiveList()
+  const result = await Utils.robustQuery(activeNodes, queryFn)
+
+  if (!result.value || !Array.isArray(result.value)) {
+    throw new Error(`Unable to retrieve secure accounts`)
+  }
+
+  // Find the matching secure account from the result
+  const matchingAccount = result.value.find(
+    (account: any) => account.secureAccountConfig.Name === tx.accountName
+  )
+
+  if (!matchingAccount) {
+    throw new Error(`Secure account ${tx.accountName} not found`)
+  }
+
+  const secureAccountConfig = matchingAccount.secureAccountConfig
+
+  // Return the SourceFundsAddress formatted as a Shardus address
+  return toShardusAddress(secureAccountConfig.SourceFundsAddress, AccountType.Account)
+}
 
 export function toShardusAddress(addressStr: string, accountType: AccountType): string {
   if (config.VERBOSE) {
@@ -74,7 +121,7 @@ function isInternalTx(timestampedTx: any): boolean {
   return false
 }
 
-function extractKeyFromInternalTx(tx: any): string {
+async function extractKeyFromInternalTx(tx: any): Promise<string> {
   let extractedKey: string
   const internalTx = tx
   if (internalTx.internalTXType === InternalTXType.SetGlobalCodeBytes) {
@@ -104,18 +151,67 @@ function extractKeyFromInternalTx(tx: any): string {
     extractedKey = tx.reportedNodePublickKey
     // keys.targetKeys = [toShardusAddress(tx.operatorEVMAddress, AccountType.Account), networkAccount]
   } else if (internalTx.internalTXType === InternalTXType.TransferFromSecureAccount) {
-    const sourceKeys = crackTransferFromSecureAccount(tx) // task 1
-    extractedKey = sourceKeys[0]
+    extractedKey = await crackKeyFromSecureAccount(tx)
     // keys.targetKeys = targetKeys
   }
   return extractedKey
 }
 
-export function extractKeyFromTx(receiptTx: any): string {
+function toHexString(byteArray: Uint8Array): string {
+  return Array.from(byteArray, (byte) => {
+    return ('0' + (byte & 0xff).toString(16)).slice(-2)
+  }).join('')
+}
+
+export function getTxSenderAddress(
+  tx: TypedTransaction,
+  txid: string = undefined,
+  overrideSender: Address = undefined
+): GetTxSenderAddressResult {
+  try {
+    if (overrideSender != null) {
+      const res = { address: overrideSender, isValid: true, gasValid: true }
+      if (txid != null) {
+        txSenderCache.set(txid, res)
+      }
+      return res
+    }
+
+    if (txid != null) {
+      const cached = txSenderCache.get(txid)
+      if (cached != null) {
+        return cached
+      }
+    }
+
+    const rawTx = '0x' + toHexString(tx.serialize())
+    const { address, isValid, gasValid } = getSenderAddress(rawTx)
+    if (config.VERBOSE) console.log('Sender address retrieved from signed txn', address)
+    const res = { address: Address.fromString(address), isValid, gasValid }
+    if (txid != null) {
+      simpleTTL++
+      if (simpleTTL > cacheMaxSize) {
+        simpleTTL = cacheMaxSize
+        txSenderCache.clear()
+      }
+      txSenderCache.set(txid, res)
+    }
+    return res
+  } catch (e) {
+    if (config.VERBOSE) console.error('Error getting sender address from tx', e)
+    const res = { address: null, isValid: false, gasValid: false }
+    if (txid != null) {
+      txSenderCache.set(txid, res)
+    }
+    return res
+  }
+}
+
+export async function extractKeyFromTx(receiptTx: any): Promise<string> {
   const { txId, originalTxData } = receiptTx.tx
   const tx = originalTxData.tx
   if (isInternalTx(tx)) {
-    return extractKeyFromInternalTx(tx)
+    return await extractKeyFromInternalTx(tx)
   }
 
   if (isDebugTx(tx)) {
@@ -124,9 +220,10 @@ export function extractKeyFromTx(receiptTx: any): string {
     return transformedSourceKey
   }
 
-  const transaction = getTransactionObj(tx) // task 2
-  const senderAddress = getTxSenderAddress(transaction, txId).address // task 3
-  const txSenderEvmAddr = senderAddress.toString()
-  const transformedSourceKey = toShardusAddress(txSenderEvmAddr, AccountType.Account)
-  return transformedSourceKey // executionShardKey
+  // const transaction = getTransactionObj(tx) // task 2
+  // const senderAddress = getTxSenderAddress(transaction, txId).address // task 3
+  // const txSenderEvmAddr = senderAddress.toString()
+  // const transformedSourceKey = toShardusAddress(txSenderEvmAddr, AccountType.Account)
+  // return transformedSourceKey // executionShardKey
+  return 'placeholder'
 }
