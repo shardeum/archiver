@@ -504,7 +504,14 @@ export const verifyReceiptData = async (
   // Check the signed nodes are part of the execution group nodes of the tx
   const { executionShardKey, cycle, globalModification } = receipt
   const { txId, timestamp } = receipt.tx
+  if (config.VERBOSE) console.log('The Incoming executionShardKey key is', executionShardKey)
   const extractedKey: string = await extractKeyFromTx(receipt.tx)
+  if (extractedKey != executionShardKey) {
+    if (config.VERBOSE) {
+      console.log('Execution Shard Key in receipt does not match the calculated key from transaction data.')
+    }
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'executionShardKey mismatch')
+  }
   if (config.VERBOSE) {
     const currentTimestamp = Date.now()
     // Console log the timetaken between the receipt timestamp and the current time ( both in ms and s)

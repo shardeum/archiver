@@ -127,17 +127,17 @@ async function extractKeyFromInternalTx(tx: any): Promise<string> {
   if (internalTx.internalTXType === InternalTXType.SetGlobalCodeBytes) {
     extractedKey = internalTx.from
   } else if (internalTx.internalTXType === InternalTXType.InitNetwork) {
-    extractedKey = internalTx.networkAccount
+    extractedKey = internalTx.network
   } else if (internalTx.internalTXType === InternalTXType.ChangeConfig) {
     extractedKey = tx.from
     // keys.targetKeys = [networkAccount]
   } else if (internalTx.internalTXType === InternalTXType.ApplyChangeConfig) {
-    extractedKey = internalTx.networkAccount
+    extractedKey = internalTx.network
   } else if (internalTx.internalTXType === InternalTXType.ChangeNetworkParam) {
     extractedKey = tx.from
     // keys.targetKeys = [networkAccount]
   } else if (internalTx.internalTXType === InternalTXType.ApplyNetworkParam) {
-    extractedKey = internalTx.networkAccount
+    extractedKey = internalTx.network
   } else if (internalTx.internalTXType === InternalTXType.SetCertTime) {
     extractedKey = tx.nominee
     // keys.targetKeys = [toShardusAddress(tx.nominator, AccountType.Account), networkAccount]
@@ -208,24 +208,29 @@ export function getTxSenderAddress(
 }
 
 export async function extractKeyFromTx(receiptTx: any): Promise<string> {
-  const { txId, originalTxData } = receiptTx.tx
+  const originalTxData = receiptTx.originalTxData
   const tx = originalTxData.tx
+
   if (isInternalTx(tx)) {
-    return await extractKeyFromInternalTx(tx)
+    let key = await extractKeyFromInternalTx(tx)
+    if(config.VERBOSE) console.log('The generated executionShardkey is', key)
+    return key
   }
 
   if (isDebugTx(tx)) {
     const debugTx = tx
     const transformedSourceKey = toShardusAddress(debugTx.from, AccountType.Debug)
+    if(config.VERBOSE) console.log('The generated executionShardkey is', transformedSourceKey)
     return transformedSourceKey
   }
 
-  // const transaction = getTransactionObj(tx) // task 2
-  // const senderAddress = getTxSenderAddress(transaction, txId).address // task 3
-  // const txSenderEvmAddr = senderAddress.toString()
-  // const transformedSourceKey = toShardusAddress(txSenderEvmAddr, AccountType.Account)
-  // return transformedSourceKey // executionShardKey
-  return 'placeholder'
+  const txId = receiptTx.txId
+  const transaction = getTransactionObj(tx)
+  const senderAddress = getTxSenderAddress(transaction, txId).address
+  const txSenderEvmAddr = senderAddress.toString()
+  const transformedSourceKey = toShardusAddress(txSenderEvmAddr, AccountType.Account)
+  if(config.VERBOSE) console.log('The generated executionShardkey is', transformedSourceKey)
+  return transformedSourceKey // executionShardKey
 }
 
 export function getTransactionObj(
