@@ -4,8 +4,8 @@ import { InternalTXType } from '../shardeum/verifyGlobalTxReceipt'
 import * as NodeList from '../NodeList'
 import { getJson } from '../P2P'
 import * as Utils from '../Utils'
-import { Address } from '@ethereumjs/util'
-import { TypedTransaction } from '@ethereumjs/tx'
+import { Address, toBytes } from '@ethereumjs/util'
+import { Transaction, TransactionFactory, TransactionType, TypedTransaction } from '@ethereumjs/tx'
 import { getSenderAddress } from '@shardus/net'
 
 type GetTxSenderAddressResult = { address: Address; isValid: boolean; gasValid: boolean }
@@ -228,25 +228,27 @@ export async function extractKeyFromTx(receiptTx: any): Promise<string> {
   return 'placeholder'
 }
 
-export function getTransactionObj(tx: any): Transaction[TransactionType.Legacy] | Transaction[TransactionType.AccessListEIP2930] {
+export function getTransactionObj(
+  tx: any
+): Transaction[TransactionType.Legacy] | Transaction[TransactionType.AccessListEIP2930] {
   if (!tx.raw) throw Error('fail')
-    let transactionObj
-    const serializedInput = toBytes(tx.raw)
+  let transactionObj
+  const serializedInput = toBytes(tx.raw)
+  try {
+    transactionObj = TransactionFactory.fromSerializedData<TransactionType.Legacy>(serializedInput)
+  } catch (e) {
+    if (config.VERBOSE) console.log('Unable to get legacy transaction obj', e)
+  }
+  if (!transactionObj) {
     try {
-      transactionObj = TransactionFactory.fromSerializedData<TransactionType.Legacy>(serializedInput)
+      transactionObj =
+        TransactionFactory.fromSerializedData<TransactionType.AccessListEIP2930>(serializedInput)
     } catch (e) {
-      if (config.VERBOSE) console.log('Unable to get legacy transaction obj', e)
+      if (config.VERBOSE) console.log('Unable to get transaction obj', e)
     }
-    if (!transactionObj) {
-      try {
-        transactionObj =
-          TransactionFactory.fromSerializedData<TransactionType.AccessListEIP2930>(serializedInput)
-      } catch (e) {
-        if (config.VERBOSE) console.log('Unable to get transaction obj', e)
-      }
-    }
-  
-    if (transactionObj) {
-      return transactionObj
-    } else throw Error('tx obj fail')
-} 
+  }
+
+  if (transactionObj) {
+    return transactionObj
+  } else throw Error('tx obj fail')
+}
