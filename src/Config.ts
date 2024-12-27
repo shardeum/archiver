@@ -112,6 +112,7 @@ export interface Config {
   }
   maxRecordsPerRequest: number // this is the equiavlent of the accountBucketSize config variable used by the validators to fetch records from the archiver
   multisigKeysSyncFromNetworkInternal: number // in seconds
+  enableKeyExtraction: boolean // To enable extraction of executionShardKey from receipt's transaction data
 }
 
 let config: Config = {
@@ -205,7 +206,7 @@ let config: Config = {
   disableOffloadReceipt: false,
   disableOffloadReceiptForGlobalModification: true,
   restoreNGTsFromSnapshot: false,
-  tickets: {  
+  tickets: {
     allowedTicketSigners: {
       '0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5': 5,
       '0x0a0844DA5e01E391d12999ca859Da8a897D5979A': 5,
@@ -242,10 +243,11 @@ let config: Config = {
       '0xa58169308e7153B5Ce4ca5cA515cC4d0cBE7770B': 5,
     },
     minSigRequired: 1,
-    requiredSecurityLevel: 5
+    requiredSecurityLevel: 5,
   },
   maxRecordsPerRequest: 200,
   multisigKeysSyncFromNetworkInternal: 600
+  enableKeyExtraction: false,
 }
 // Override default config params from config file, env vars, and cli args
 export async function overrideDefaultConfig(file: string): Promise<void> {
