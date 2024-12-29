@@ -20,7 +20,6 @@
     "start": "npm run prepare && node build/server.js",
     "txDigestCronServer": "npm run prepare && node build/txDigester.js",
     "txDigestApiServer": "npm run prepare && node build/txDigestAPIserver.js",
-    "release": "npm run prepare && np --no-cleanup --no-tests --no-yarn --any-branch",
     "check": "gts check",
     "clean": "npm-run-all clean:*",
     "clean:typescript": "gts clean",
@@ -38,7 +37,11 @@
     "update-docker-dev": "docker build -t registry.gitlab.com/shardus/archive/archive-server:dev . && docker push registry.gitlab.com/shardus/archive/archive-server:dev",
     "update-schemas": "typescript-json-schema tsconfig.json NewData -o src/Data/schemas/NewData.json & typescript-json-schema tsconfig.json DataResponse -o src/Data/schemas/DataResponse.json",
     "build": "tsc && npm run copy-static",
-    "copy-static": "cp -r static dist/"
+    "copy-static": "cp -r static dist/",
+    "release:prerelease": "npm run prepare && npm version prerelease --preid=prerelease && git push --follow-tags && npm publish --tag prerelease",
+    "release:patch": "npm run prepare && npm version patch && git push --follow-tags && npm publish",
+    "release:minor": "npm run prepare && npm version minor && git push --follow-tags && npm publish",
+    "release:major": "npm run prepare && npm version major && git push --follow-tags && npm publish"
   },
   "repository": {
     "type": "git",
