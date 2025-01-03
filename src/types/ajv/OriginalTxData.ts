@@ -8,7 +8,7 @@ const schemaOriginalTxData = {
   properties: {
     txId: { type: 'string' },                   // txId must be a string
     timestamp: { type: 'integer', minimum: 0 },             // timestamp must be an integer
-    cycle: { type: 'integer', minimum: 0 },                 // cycle must be an integer
+    cycle: { type: 'integer', minimum: -1 },                 // cycle must be an integer
     originalTxData: { type: 'object' },         // originalTxData must be an object
     // Uncomment if sign is required:
     // sign: { type: 'string' }                 // Sign (if used) must be a string
