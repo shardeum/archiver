@@ -38,6 +38,9 @@ import * as ServiceQueue from './ServiceQueue'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import ticketRoutes from './routes/tickets'
+import path = require('path')
+import fs = require('fs')
+
 const { version } = require('../package.json') // eslint-disable-line @typescript-eslint/no-var-requires
 
 const TXID_LENGTH = 64
@@ -292,6 +295,19 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       })
     } else {
       request.raw.socket.destroy()
+    }
+  })
+  server.get('/allowed-archivers', async (request, reply) => {
+    try {
+      const allowedArchiversPath = path.resolve(__dirname, '../allowed-archivers.json')
+      const allowedArchiversData = fs.readFileSync(allowedArchiversPath, 'utf8')
+      const allowedArchivers = StringUtils.safeJsonParse(allowedArchiversData)
+      return reply.send(allowedArchivers)
+    } catch (error) {
+      request.log.error('Error reading/validating allowed-archivers.json:', error)
+      return reply.status(500).send({
+        error: 'Internal server error while reading allowed archivers configuration'
+      })
     }
   })
 
