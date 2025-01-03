@@ -42,8 +42,6 @@ import { setShutdownCycleRecord, cycleRecordWithShutDownMode } from './Data/Cycl
 import { registerRoutes } from './API'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { healthCheckRouter } from './routes/healthCheck'
-import { setupWorkerProcesses } from './primary-process'
-import { initWorkerProcess } from './worker-process'
 import { initializeTickets } from './routes/tickets';
 import { initAjvSchemas } from './types/ajv/Helpers'
 import { initializeSerialization } from './utils/serialization/SchemaHelpers'
@@ -93,7 +91,7 @@ async function start(): Promise<void> {
   if (!cluster.isPrimary) {
     // Initialize state from config
     await State.initFromConfig(config, false, false)
-    await initWorkerProcess()
+    // await initWorkerProcess()
     return
   }
 
@@ -497,7 +495,7 @@ async function startServer(): Promise<void> {
       Logger.mainLogger.info(`Worker ${process.pid}: Archive-server is listening on http://0.0.0.0:${config.ARCHIVER_PORT}`)
       State.setActive()
       Collector.scheduleMissingTxsDataQuery()
-      setupWorkerProcesses(cluster)
+      // setupWorkerProcesses(cluster)
     }
   )
 }
