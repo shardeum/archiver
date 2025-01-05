@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { join } from 'path'
-import { Utils } from '@shardus/types'
-import * as crypto from '@shardus/crypto-utils'
+import { Utils } from '@shardeum-foundation/lib-types'
+import * as crypto from '@shardeum-foundation/lib-crypto-utils'
 import { config, overrideDefaultConfig } from '../src/Config'
 
 const configFile = join(process.cwd(), 'archiver-config.json')

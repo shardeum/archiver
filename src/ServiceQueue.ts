@@ -1,4 +1,4 @@
-import { P2P } from "@shardus/types";
+import { P2P } from '@shardeum-foundation/lib-types';
 import * as Logger from './Logger'
 import { stringifyReduce } from "./profiler/StringifyReduce";
 import * as crypto from './Crypto'

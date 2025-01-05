@@ -1,8 +1,8 @@
 import Logger from './Logger'
-import { StateManager, P2P } from '@shardus/types'
+import { StateManager, P2P } from '@shardeum-foundation/lib-types'
 import * as log4js from 'log4js'
 import { config } from './Config'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { Ordering } from './utils/ordering'
 
 type ShardGlobals = StateManager.shardFunctionTypes.ShardGlobals

@@ -3,9 +3,9 @@ import { Config } from '../Config'
 import * as StateMetaData from './StateMetaData'
 import { Database, FS_Persistence_Adapter } from 'tydb'
 import * as Logger from '../Logger'
-import { StateManager } from '@shardus/types'
+import { StateManager } from '@shardeum-foundation/lib-types'
 import { ArchivedCycle } from './StateMetaData'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardeum-foundation/lib-types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export let Collection: Database<any>

@@ -1,5 +1,5 @@
 import { getJson } from '../../P2P'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 
 interface ReceiptResponse {
   receipts: Array<{ cycle: number; receipts: unknown[] }>

@@ -5,7 +5,7 @@
  * Code is duplicated from shardus-global-server.
  */
 
-import { hexstring, P2P } from '@shardus/types'
+import { hexstring, P2P } from '@shardeum-foundation/lib-types'
 import { errAsync, ResultAsync } from 'neverthrow'
 import { attempt, robustQuery } from '../Utils'
 import { get } from '../P2P'

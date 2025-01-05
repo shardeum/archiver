@@ -4,7 +4,7 @@ import * as State from '../State'
 import * as P2P from '../P2P'
 import { config } from '../Config'
 import * as Logger from '../Logger'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 
 interface HashItem {
   counter: number

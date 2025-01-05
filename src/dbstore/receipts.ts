@@ -1,5 +1,5 @@
-import { Signature } from '@shardus/crypto-utils'
-import { P2P } from '@shardus/types'
+import { Signature } from '@shardeum-foundation/lib-crypto-utils'
+import { P2P } from '@shardeum-foundation/lib-types'
 import * as db from './sqlite3storage'
 import { receiptDatabase } from '.'
 import * as Logger from '../Logger'

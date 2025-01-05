@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events'
-import { publicKey, SignedObject } from '@shardus/crypto-utils'
+import { publicKey, SignedObject } from '@shardeum-foundation/lib-crypto-utils'
 import * as Crypto from '../Crypto'
 import * as NodeList from '../NodeList'
 import * as Cycles from './Cycles'
@@ -18,7 +18,7 @@ import * as State from '../State'
 import * as P2P from '../P2P'
 import * as Utils from '../Utils'
 import { config, updateConfig } from '../Config'
-import { P2P as P2PTypes } from '@shardus/types'
+import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import * as Logger from '../Logger'
 import { nestedCountersInstance } from '../profiler/nestedCounters'
 import {
@@ -40,7 +40,7 @@ import { Transaction } from '../dbstore/transactions'
 import { AccountsCopy } from '../dbstore/accounts'
 import { getJson } from '../P2P'
 import { robustQuery } from '../Utils'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 
 export const socketClients: Map<string, SocketIOClientStatic['Socket']> = new Map()
 export let combineAccountsData = {

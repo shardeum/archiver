@@ -1,4 +1,4 @@
-import { Signature } from '@shardus/crypto-utils'
+import { Signature } from '@shardeum-foundation/lib-crypto-utils'
 import * as Crypto from '../Crypto'
 import * as Account from '../dbstore/accounts'
 import * as Logger from '../Logger'

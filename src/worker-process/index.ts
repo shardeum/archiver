@@ -1,7 +1,7 @@
 import { verifyArchiverReceipt, ReceiptVerificationResult } from '../Data/Collector'
 import { ChildMessageInterface } from '../primary-process'
 import { config } from '../Config'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { ArchiverReceipt } from '../dbstore/receipts'
 
 export const initWorkerProcess = async (): Promise<void> => {

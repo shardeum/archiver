@@ -1,4 +1,4 @@
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardeum-foundation/lib-types'
 import { config } from '../Config'
 import { queryLatestCycleRecords } from '../dbstore/cycles'
 import * as Crypto from '../Crypto'
