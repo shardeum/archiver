@@ -7,7 +7,7 @@ import * as dbstore from '../src/dbstore'
 import * as CycleDB from '../src/dbstore/cycles'
 import { startSaving } from '../src/saveConsoleOutput'
 import * as Logger from '../src/Logger'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 
 const patchCycleData = false
 

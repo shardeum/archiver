@@ -1,4 +1,4 @@
-import * as crypto from '@shardus/crypto-utils'
+import * as crypto from '@shardeum-foundation/lib-crypto-utils'
 import { join } from 'path'
 import { config, overrideDefaultConfig } from '../src/Config'
 import { postJson, getJson } from '../src/P2P'

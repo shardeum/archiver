@@ -4,10 +4,10 @@ import * as Data from './Data/Data'
 import * as NodeList from './NodeList'
 import 'node-fetch'
 import fetch from 'node-fetch'
-import { P2P as P2PTypes } from '@shardus/types'
+import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import { RequestInit, Response } from 'node-fetch'
-import { SignedObject } from '@shardus/crypto-utils'
-import { Utils as StringUtils } from '@shardus/types'
+import { SignedObject } from '@shardeum-foundation/lib-crypto-utils'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { version } = require('../package.json')
 

@@ -1,6 +1,6 @@
 import * as fastify from 'fastify'
 import { stringifyReduce } from './StringifyReduce'
-import * as core from '@shardus/crypto-utils'
+import * as core from '@shardeum-foundation/lib-crypto-utils'
 import { isDebugMiddleware } from '../DebugMode'
 
 type CounterMap = Map<string, CounterNode>

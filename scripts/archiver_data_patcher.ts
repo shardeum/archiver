@@ -15,7 +15,7 @@ import * as Crypto from '../src/Crypto'
 import { join } from 'path'
 import * as Logger from '../src/Logger'
 import { startSaving } from '../src/saveConsoleOutput'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 const {
   MAX_RECEIPTS_PER_REQUEST,
   MAX_BETWEEN_CYCLES_PER_REQUEST,

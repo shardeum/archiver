@@ -1,4 +1,4 @@
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardeum-foundation/lib-types'
 import { Receipt, SignedReceipt } from '../../../../src/dbstore/receipts'
 import { InternalTXType, verifyGlobalTxAccountChange } from '../../../../src/shardeum/verifyGlobalTxReceipt'
 import { accountSpecificHash } from '../../../../src/shardeum/calculateAccountHash'

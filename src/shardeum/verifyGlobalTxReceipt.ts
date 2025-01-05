@@ -1,4 +1,4 @@
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardeum-foundation/lib-types'
 import { ArchiverReceipt } from '../dbstore/receipts'
 import { accountSpecificHash } from './calculateAccountHash'
 

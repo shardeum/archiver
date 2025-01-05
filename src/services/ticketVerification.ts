@@ -1,5 +1,5 @@
 import { ethers } from 'ethers'
-import { Utils } from '@shardus/types'
+import { Utils } from '@shardeum-foundation/lib-types'
 import { Ticket, Sign } from '../schemas/ticketSchema'
 import { DevSecurityLevel } from '../types/security'
 import * as Ajv from 'ajv'

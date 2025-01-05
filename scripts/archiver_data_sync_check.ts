@@ -1,10 +1,10 @@
-import * as crypto from '@shardus/crypto-utils'
+import * as crypto from '@shardeum-foundation/lib-crypto-utils'
 import { writeFileSync } from 'fs'
 import { join } from 'path'
 import { postJson } from '../src/P2P'
 import { config, overrideDefaultConfig } from '../src/Config'
 import { ArchiverNodeInfo } from '../src/State'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 
 const configFile = join(process.cwd(), 'archiver-config.json')
 overrideDefaultConfig(configFile)

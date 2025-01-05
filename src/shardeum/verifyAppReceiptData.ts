@@ -1,6 +1,6 @@
 import * as crypto from '../Crypto'
 import { ArchiverReceipt, Receipt, SignedReceipt } from '../dbstore/receipts'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 
 export type ShardeumReceipt = object & {
   amountSpent: string

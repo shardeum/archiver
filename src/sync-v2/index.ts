@@ -4,7 +4,7 @@
  */
 
 import { okAsync, errAsync, ResultAsync } from 'neverthrow'
-import { hexstring, P2P as P2PTypes } from '@shardus/types'
+import { hexstring, P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import {
   getCurrentCycleDataFromNode,
   robustQueryForCycleRecordHash,

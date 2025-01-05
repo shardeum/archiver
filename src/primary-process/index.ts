@@ -4,7 +4,7 @@ import { ArchiverReceipt } from '../dbstore/receipts'
 import { verifyArchiverReceipt, ReceiptVerificationResult } from '../Data/Collector'
 import { config } from '../Config'
 import { EventEmitter } from 'events'
-import { StateManager, Utils as StringUtils } from '@shardus/types'
+import { StateManager, Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import * as Utils from '../Utils'
 
 const MAX_WORKERS = cpus().length - 1 // Leaving 1 core for the master process

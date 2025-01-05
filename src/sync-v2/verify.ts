@@ -5,8 +5,8 @@
  * This module is functionally identical to the one in shardus-global-server/p2p/SyncV2/verify.ts.
  */
 
-import { hashObj, Signature } from '@shardus/crypto-utils'
-import { P2P, hexstring } from '@shardus/types'
+import { hashObj, Signature } from '@shardeum-foundation/lib-crypto-utils'
+import { P2P, hexstring } from '@shardeum-foundation/lib-types'
 import { err, ok, Result } from 'neverthrow'
 import { computeCycleMarker } from '../Data/Cycles'
 

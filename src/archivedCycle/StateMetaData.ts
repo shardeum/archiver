@@ -18,7 +18,7 @@ import {
   activeNodeCount,
   applyNodeListChange,
 } from '../Data/CycleParser'
-import { publicKey } from '@shardus/crypto-utils'
+import { publicKey } from '@shardeum-foundation/lib-crypto-utils'
 
 import * as State from '../State'
 import * as P2P from '../P2P'
@@ -27,7 +27,7 @@ import * as Gossip from './Gossip'
 import { isDeepStrictEqual } from 'util'
 import { config } from '../Config'
 import { BaseModel } from 'tydb'
-import { P2P as P2PTypes, StateManager } from '@shardus/types'
+import { P2P as P2PTypes, StateManager } from '@shardeum-foundation/lib-types'
 import * as Logger from '../Logger'
 import { nestedCountersInstance } from '../profiler/nestedCounters'
 import { profilerInstance } from '../profiler/profiler'
@@ -36,7 +36,7 @@ import type { Server } from 'socket.io'
 // Socket modules
 export let socketServer: Server
 import * as ioclient from 'socket.io-client'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 let socketClient: SocketIOClientStatic['Socket']
 export const socketClients: Map<string, SocketIOClientStatic['Socket']> = new Map()
 const socketConnectionsTracker: Map<string, string> = new Map()

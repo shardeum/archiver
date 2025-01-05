@@ -1,4 +1,4 @@
-import { Signature } from '@shardus/crypto-utils'
+import { Signature } from '@shardeum-foundation/lib-crypto-utils'
 import { FastifyInstance, FastifyRequest } from 'fastify'
 import { Server, IncomingMessage, ServerResponse } from 'http'
 import { config, updateConfig, Config as ConfigInterface } from './Config'
@@ -12,7 +12,7 @@ import * as Cycles from './Data/Cycles'
 import * as Utils from './Utils'
 import { addHashesGossip } from './archivedCycle/Gossip'
 import * as Logger from './Logger'
-import { P2P as P2PTypes } from '@shardus/types'
+import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import { Readable } from 'stream'
 import { nestedCountersInstance } from './profiler/nestedCounters'
 import { profilerInstance } from './profiler/profiler'
@@ -27,7 +27,7 @@ import * as AccountDataProvider from './Data/AccountDataProvider'
 import { getGlobalNetworkAccount } from './GlobalAccount'
 import { cycleRecordWithShutDownMode } from './Data/Cycles'
 import { isDebugMiddleware } from './DebugMode'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import {
   receivedReceiptCount,
   verifiedReceiptCount,

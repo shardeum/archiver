@@ -7,10 +7,10 @@ import * as dbstore from '../src/dbstore'
 import * as CycleDB from '../src/dbstore/cycles'
 import { startSaving } from '../src/saveConsoleOutput'
 import * as Logger from '../src/Logger'
-import { P2P } from '@shardus/types'
+import { P2P } from '@shardeum-foundation/lib-types'
 import { addSigListeners } from '../src/State'
 import { computeCycleMarker } from '../src/Data/Cycles'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 
 const archiversAtShutdown = [
   {
