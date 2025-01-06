@@ -1,4 +1,4 @@
-const _startingMessage = `@shardus/archiver starting at
+const _startingMessage = `@shardeum-foundation/archiver starting at
   locale:  ${new Date().toLocaleString()}
   ISO/UTC: ${new Date().toISOString()}`
 console.log(_startingMessage)
