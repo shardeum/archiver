@@ -93,7 +93,7 @@ const runProgram = async (): Promise<void> => {
         console.log(`archiver ${archiver.ip}:${archiver.port} failed to respond`)
         break
       }
-      const receiptsCountByCycles = await ReceiptDB.queryReceiptCountByCycles(i, nextEnd)
+      const receiptsCountByCycles = await ReceiptDB.queryReceiptCountByCycles(i, nextEnd) || [];
       // console.log(receiptsCountByCycles)
       for (let j = i; j <= nextEnd; j++) {
         const downloadedReceipts = downloadedReceiptCountByCycles.receipts.filter((d) => d.cycle === j)
