@@ -67,7 +67,7 @@ const verifyReceiptMajority = async (
   receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   executionGroupNodes: ConsensusNodeInfo[],
   minConfirmations: number = config.RECEIPT_CONFIRMATIONS
-): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
+): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt | Receipt.Receipt }> => {
   /**
    * Note:
    * Currently, only the non-global receipt flow is implemented in `verifyReceiptMajority`,
@@ -101,7 +101,7 @@ const verifyReceiptOffline = async (
   receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   executionGroupNodes: ConsensusNodeInfo[],
   minConfirmations: number
-): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
+): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt | Receipt.Receipt }> => {
   return verifyNonGlobalTxReceiptOffline(receipt, executionGroupNodes, minConfirmations)
 }
 
@@ -117,7 +117,7 @@ const verifyReceiptWithValidators = async (
   receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   executionGroupNodes: ConsensusNodeInfo[],
   minConfirmations: number = config.RECEIPT_CONFIRMATIONS
-): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
+): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt | Receipt.Receipt }> => {
   return verifyNonGlobalTxReceiptWithValidators(receipt, executionGroupNodes, minConfirmations)
 }
 
@@ -132,7 +132,7 @@ const verifyNonGlobalTxReceiptWithValidators = async (
   receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   executionGroupNodes: ConsensusNodeInfo[],
   minConfirmations: number = config.RECEIPT_CONFIRMATIONS
-): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
+): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt | Receipt.Receipt }> => {
   const result = { success: false }
   // Created signedData with full_receipt = false outside of queryReceipt to avoid signing the same data multiple times
   let signedData = Crypto.sign({
@@ -253,7 +253,7 @@ const verifyNonGlobalTxReceiptWithValidators = async (
         )
         continue
       }
-      const fullReceipt = fullReceiptResult.receipt as Receipt.ArchiverReceipt
+      const fullReceipt = fullReceiptResult.receipt as Receipt.ArchiverReceipt | Receipt.Receipt
       if (
         isReceiptEqual(fullReceipt.signedReceipt, robustQueryReceipt) &&
         validateReceiptType(fullReceipt)
@@ -422,7 +422,7 @@ const verifyNonGlobalTxReceiptOffline = async (
   receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   executionGroupNodes: ConsensusNodeInfo[],
   minConfirmations: number
-): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt }> => {
+): Promise<{ success: boolean; newReceipt?: Receipt.ArchiverReceipt | Receipt.Receipt }> => {
   // Code for normal receipts verification
   const normalReceipt = receipt.signedReceipt as Receipt.SignedReceipt
   const validSigners = new Set<string>()
@@ -494,7 +494,11 @@ export const validateReceiptType = (receipt: Receipt.Receipt | Receipt.ArchiverR
 export const verifyReceiptData = async (
   receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
   checkReceiptRobust = true
-): Promise<{ success: boolean; requiredSignatures?: number; newReceipt?: Receipt.ArchiverReceipt }> => {
+): Promise<{
+  success: boolean
+  requiredSignatures?: number
+  newReceipt?: Receipt.ArchiverReceipt | Receipt.Receipt
+}> => {
   const result = { success: false }
   // Check the signed nodes are part of the execution group nodes of the tx
   const { executionShardKey, cycle, globalModification } = receipt
@@ -720,7 +724,7 @@ export const verifyReceiptData = async (
 }
 
 const verifyAppliedReceiptSignatures = (
-  receipt: Receipt.ArchiverReceipt,
+  receipt: Receipt.ArchiverReceipt | Receipt.Receipt,
   requiredSignatures: number,
   failedReasons = [],
   nestedCounterMessages = []
@@ -892,7 +896,7 @@ const calculateVoteHash = (
 }
 
 export const verifyArchiverReceipt = async (
-  receipt: Receipt.ArchiverReceipt,
+  receipt: Receipt.ArchiverReceipt | Receipt.Receipt,
   requiredSignatures: number
 ): Promise<ReceiptVerificationResult> => {
   const { txId, timestamp } = receipt.tx
