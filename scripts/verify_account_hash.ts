@@ -10,9 +10,14 @@ import * as Logger from '../src/Logger'
 import { AccountType, accountSpecificHash } from '../src/shardeum/calculateAccountHash'
 import { addSigListeners } from '../src/State'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { initAjvSchemas } from '../src/types/ajv/Helpers'
+import { initializeSerialization } from '../src/utils/serialization/SchemaHelpers'
+
 
 const updateHash = false
 const runProgram = async (): Promise<void> => {
+  initAjvSchemas()
+  initializeSerialization()
   // Override default config params from config file, env vars, and cli args
   const file = join(process.cwd(), 'archiver-config.json')
   overrideDefaultConfig(file)

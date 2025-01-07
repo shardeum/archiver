@@ -11,6 +11,9 @@ import { P2P } from '@shardeum-foundation/lib-types'
 import { addSigListeners } from '../src/State'
 import { computeCycleMarker } from '../src/Data/Cycles'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { initAjvSchemas } from '../src/types/ajv/Helpers'
+import { initializeSerialization } from '../src/utils/serialization/SchemaHelpers'
+
 
 const archiversAtShutdown = [
   {
@@ -31,6 +34,8 @@ const archiversAtShutdown = [
 ]
 
 const runProgram = async (): Promise<void> => {
+  initAjvSchemas()
+  initializeSerialization()
   // Override default config params from config file, env vars, and cli args
   const file = join(process.cwd(), 'archiver-config.json')
   overrideDefaultConfig(file)

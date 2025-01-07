@@ -5,6 +5,9 @@ import { postJson } from '../src/P2P'
 import { config, overrideDefaultConfig } from '../src/Config'
 import { ArchiverNodeInfo } from '../src/State'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { initAjvSchemas } from '../src/types/ajv/Helpers'
+import { initializeSerialization } from '../src/utils/serialization/SchemaHelpers'
+
 
 const configFile = join(process.cwd(), 'archiver-config.json')
 overrideDefaultConfig(configFile)
@@ -36,6 +39,8 @@ const endCycle = 0
 const URL = 'receipt'
 
 const runProgram = async (): Promise<void> => {
+  initAjvSchemas()
+  initializeSerialization()
   for (const archiver of archivers) {
     const archiverInfo = archiver.ip + ':' + archiver.port
     const responses = {}

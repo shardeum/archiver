@@ -3,6 +3,8 @@ import { join } from 'path'
 import { config, overrideDefaultConfig } from '../src/Config'
 import { postJson, getJson } from '../src/P2P'
 import { isEqual } from 'lodash'
+import { initAjvSchemas } from '../src/types/ajv/Helpers'
+import { initializeSerialization } from '../src/utils/serialization/SchemaHelpers'
 
 const configFile = join(process.cwd(), 'archiver-config.json')
 overrideDefaultConfig(configFile)
@@ -20,6 +22,8 @@ const timestamp = 0
 const full_receipt = false
 
 const runProgram = async (): Promise<void> => {
+  initAjvSchemas()
+  initializeSerialization()
   const res: any = await getJson(`${ARCHIVER_URL}/full-nodelist?activeOnly=true`)
   if (!res || !res.nodeList) throw new Error('No active nodes found')
   const nodeList = res.nodeList

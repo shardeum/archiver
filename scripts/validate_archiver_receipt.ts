@@ -5,11 +5,15 @@ import * as Utils from '../src/Utils'
 import * as Receipt from '../src/dbstore/receipts'
 import { AccountType, accountSpecificHash } from '../src/shardeum/calculateAccountHash'
 import { ShardeumReceipt } from '../src/shardeum/verifyAppReceiptData'
+import { initAjvSchemas } from '../src/types/ajv/Helpers'
+import { initializeSerialization } from '../src/utils/serialization/SchemaHelpers'
 
 // Add the full receipt data here
 const receipt: any = {}
 
 const runProgram = async (): Promise<void> => {
+  initAjvSchemas()
+  initializeSerialization()
   // Override default config params from config file, env vars, and cli args
   const file = join(process.cwd(), 'archiver-config.json')
   overrideDefaultConfig(file)
@@ -41,6 +45,8 @@ const runProgram = async (): Promise<void> => {
 
 // validating appReceiptData
 const validateReceiptData = (receipt: Receipt.ArchiverReceipt): boolean => {
+
+  
   // Add type and field existence check
   let err = Utils.validateTypes(receipt, {
     tx: 'o',

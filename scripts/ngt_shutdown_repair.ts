@@ -1,6 +1,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as crypto from 'crypto'
+import { initAjvSchemas } from '../src/types/ajv/Helpers'
+import { initializeSerialization } from '../src/utils/serialization/SchemaHelpers'
 
 interface TxData {
   nodeId: string
@@ -118,7 +120,8 @@ async function main() {
     console.error('Please provide endCycle and endTime as arguments.')
     process.exit(1)
   }
-
+  initAjvSchemas()
+  initializeSerialization()
   console.log(`Reading data from ${filePath}...`)
   const rawData = fs.readFileSync(filePath, 'utf-8')
   const transactions: TransactionEntry[] = JSON.parse(rawData)
