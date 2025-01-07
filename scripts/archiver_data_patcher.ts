@@ -94,7 +94,7 @@ const runProgram = async (): Promise<void> => {
         break
       }
       const receiptsCountByCycles = await ReceiptDB.queryReceiptCountByCycles(i, nextEnd)
-      console.log(receiptsCountByCycles)
+      // console.log(receiptsCountByCycles)
       for (let j = i; j <= nextEnd; j++) {
         const downloadedReceipts = downloadedReceiptCountByCycles.receipts.filter((d) => d.cycle === j)
         const existingReceipts = receiptsCountByCycles.filter((d) => d.cycle === j)
