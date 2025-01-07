@@ -40,9 +40,10 @@ import { join } from 'path'
 import ticketRoutes from './routes/tickets'
 import path = require('path')
 import fs = require('fs')
+import { verifyMultiSigs } from './Utils'
+import { ethers } from 'ethers'
 
 const { version } = require('../package.json') // eslint-disable-line @typescript-eslint/no-var-requires
-
 const TXID_LENGTH = 64
 const {
   MAX_CYCLES_PER_REQUEST,
@@ -53,6 +54,8 @@ const {
 } = config.REQUEST_LIMIT
 
 let reachabilityAllowed = true
+let previousConfigHash = ''
+let lastSeenCounter = 0
 
 export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, ServerResponse>): void {
   type Request = FastifyRequest<{
@@ -284,6 +287,73 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     reply.send(res)
   })
 
+  server.get('/allowed-archivers', async (request, reply) => {
+    try {
+      // Get path to allowed archivers config file
+      const allowedArchiversPath = path.resolve(__dirname, '../allowed-archivers.json')
+
+      // Load and parse initial config
+      const loadConfig = () => {
+        const data = fs.readFileSync(allowedArchiversPath, 'utf8')
+        return StringUtils.safeJsonParse(data)
+      }
+
+      let allowedArchivers = loadConfig()
+
+      // Watch for config file changes
+      fs.watchFile(allowedArchiversPath, (curr, prev) => {
+        if (curr.mtime !== prev.mtime) {
+          allowedArchivers = loadConfig()
+        }
+      })
+
+      // Extract payload fields for signature verification
+      const payload = {
+        allowedArchivers: allowedArchivers.allowedArchivers,
+        allowedAccounts: allowedArchivers.allowedAccounts,
+        minSigRequired: allowedArchivers.minSigRequired,
+        counter: allowedArchivers.counter
+      }
+
+      // Verify signatures on config
+      const isValidList = verifyMultiSigs(
+        payload,
+        allowedArchivers.signatures,
+        allowedArchivers.allowedAccounts,
+        allowedArchivers.minSigRequired
+      )
+
+      if (!isValidList) {
+        return reply.status(403).send({
+          error: 'Forbidden'  // Validators will use previous valid list
+        })
+      }
+
+      const payload_hash = ethers.keccak256(ethers.toUtf8Bytes(StringUtils.safeStringify(payload)))
+      if (previousConfigHash == '') {
+        previousConfigHash = payload_hash
+      } else if (previousConfigHash != payload_hash) {
+        // New list found; increment counter and update previous hash
+        if (payload.counter > lastSeenCounter) {
+          lastSeenCounter += 1
+          previousConfigHash = payload_hash
+        }
+        else { // New list without incrementing counter should be rejected
+          Logger.mainLogger.error('Forbidden: counter is not incrementing')
+          return reply.status(403).send({
+            error: 'Forbidden'  // Validators will use previous valid list
+          })
+        }
+      }
+      return reply.send(allowedArchivers)
+    } catch (error) {
+      Logger.mainLogger.error('Error reading/validating allowed-archivers.json:', error)
+      return reply.status(500).send({
+        error: 'Internal server error'
+      })
+    }
+  })
+
   server.get('/nodeInfo', (request, reply) => {
     if (reachabilityAllowed) {
       reply.send({
@@ -295,19 +365,6 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       })
     } else {
       request.raw.socket.destroy()
-    }
-  })
-  server.get('/allowed-archivers', async (request, reply) => {
-    try {
-      const allowedArchiversPath = path.resolve(__dirname, '../allowed-archivers.json')
-      const allowedArchiversData = fs.readFileSync(allowedArchiversPath, 'utf8')
-      const allowedArchivers = StringUtils.safeJsonParse(allowedArchiversData)
-      return reply.send(allowedArchivers)
-    } catch (error) {
-      request.log.error('Error reading/validating allowed-archivers.json:', error)
-      return reply.status(500).send({
-        error: 'Internal server error while reading allowed archivers configuration'
-      })
     }
   })
 
@@ -1312,18 +1369,93 @@ export const validateRequestData = (
       Logger.mainLogger.error('Data sender publicKey and sign owner key does not match')
       return { success: false, error: 'Data sender publicKey and sign owner key does not match' }
     }
-    if (!skipArchiverCheck && config.limitToArchiversOnly) {
-      // Check if the sender is in the archiver list or is the devPublicKey
-      const approvedSender =
-        State.activeArchivers.some((archiver) => archiver.publicKey === data.sender) ||
-        config.DevPublicKey === data.sender
-      if (!approvedSender) {
-        return { success: false, error: 'Data request sender is not an archiver' }
-      }
-    }
+
     if (!Crypto.verify(data)) {
       Logger.mainLogger.error('Invalid signature', data)
       return { success: false, error: 'Invalid signature' }
+    }
+
+    if (!skipArchiverCheck && config.limitToArchiversOnly) {
+      try {
+        // Load and validate allowed archivers config
+        const allowedArchiversPath = path.resolve(__dirname, '../allowed-archivers.json')
+        const allowedArchiversConfig = StringUtils.safeJsonParse(
+          fs.readFileSync(allowedArchiversPath, 'utf8')
+        )
+
+        // Extract payload for signature verification
+        const payload = {
+          allowedArchivers: allowedArchiversConfig.allowedArchivers,
+          allowedAccounts: allowedArchiversConfig.allowedAccounts,
+          minSigRequired: allowedArchiversConfig.minSigRequired,
+          counter: allowedArchiversConfig.counter
+        }
+
+        // Verify signatures on config
+        const isValidConfig = Utils.verifyMultiSigs(
+          payload,
+          allowedArchiversConfig.signatures,
+          allowedArchiversConfig.allowedAccounts,
+          allowedArchiversConfig.minSigRequired
+        )
+
+        if (!isValidConfig) {
+          Logger.mainLogger.error('Invalid allowed-archivers.json signatures')
+          return {
+            success: false,
+            error: 'Invalid archiver configuration'
+          }
+        }
+
+        const payload_hash = ethers.keccak256(ethers.toUtf8Bytes(StringUtils.safeStringify(payload)))
+        if (previousConfigHash == '') {
+          previousConfigHash = payload_hash
+        }
+
+        if (previousConfigHash != payload_hash) {
+          if (payload.counter > lastSeenCounter) {
+            lastSeenCounter = payload.counter
+            previousConfigHash = payload_hash
+          }
+          else {
+            Logger.mainLogger.error('Forbidden: counter is not incrementing')
+            return {
+              success: false,
+              error: 'Forbidden: counter is not incrementing'
+            }
+          }
+        }
+
+        // Check if sender is in the allowed archivers list
+        const isAllowedArchiver = allowedArchiversConfig.allowedArchivers.some(
+          (archiver) => archiver.publicKey === data.sender
+        )
+
+        // Check if the sender is in the active archiver list or is the devPublicKey
+        const isActiveArchiver = State.activeArchivers.some(
+          (archiver) => archiver.publicKey === data.sender
+        )
+
+        const approvedSender =
+          (isAllowedArchiver && isActiveArchiver) ||
+          config.DevPublicKey === data.sender
+
+        if (!approvedSender) {
+          return {
+            success: false,
+            error: isAllowedArchiver
+              ? 'Archiver is not active'
+              : 'Data request sender is not an authorized archiver'
+          }
+        }
+
+      } catch (error) {
+        Logger.mainLogger.error('Error checking allowed archivers:', error)
+        return {
+          success: false,
+          error: 'Failed to verify archiver authorization'
+        }
+      }
     }
     return { success: true }
   } catch (e) {
