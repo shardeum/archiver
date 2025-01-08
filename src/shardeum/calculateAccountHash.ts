@@ -1,5 +1,5 @@
 import * as crypto from '../Crypto'
-import { ArchiverReceipt, SignedReceipt } from '../dbstore/receipts'
+import { ArchiverReceipt, SignedReceipt, Receipt } from '../dbstore/receipts'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 import { verifyGlobalTxAccountChange } from './verifyGlobalTxReceipt'
@@ -61,7 +61,7 @@ export const accountSpecificHash = (account: any): string => {
 }
 
 export const verifyAccountHash = (
-  receipt: ArchiverReceipt,
+  receipt: ArchiverReceipt | Receipt,
   failedReasons = [],
   nestedCounterMessages = []
 ): boolean => {

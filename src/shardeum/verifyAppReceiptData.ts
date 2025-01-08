@@ -10,7 +10,7 @@ export type ShardeumReceipt = object & {
 }
 
 export const verifyAppReceiptData = async (
-  receipt: ArchiverReceipt,
+  receipt: ArchiverReceipt | Receipt,
   existingReceipt?: Receipt | null,
   failedReasons = [],
   nestedCounterMessages = []

@@ -31,7 +31,6 @@ import { accountSpecificHash, verifyAccountHash } from '../shardeum/calculateAcc
 import { verifyAppReceiptData } from '../shardeum/verifyAppReceiptData'
 import { Cycle as DbCycle } from '../dbstore/types'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
-import { offloadReceipt } from '../primary-process'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 
