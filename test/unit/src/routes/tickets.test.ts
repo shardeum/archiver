@@ -27,6 +27,7 @@ jest.mock('../../../../src/Config', () => ({
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { readFileSync } from 'fs'
 import { ticketsRouter, ticketCache } from '../../../../src/routes/tickets'
+import * as path from 'path';
 
 // Updated mock data to match schema
 const mockValidTickets = [{
@@ -37,6 +38,8 @@ const mockValidTickets = [{
     }],
     type: "silver"
 }];
+
+const TICKETS_PATH = path.resolve(process.cwd(), 'static', 'tickets.json');
 
 function createMockReply() {
     const mockSend = jest.fn();
@@ -103,7 +106,7 @@ describe('Ticket Routes', () => {
             expect(code).toHaveBeenCalledWith(500);
             expect(send).toHaveBeenCalledWith({
                 code: 'TICKETS_FILE_NOT_ACCESSIBLE',
-                error: 'Unable to access tickets configuration: /home/sothakur/work/SHARD-1377/archive-server/static/tickets.json'
+                error: `Unable to access tickets configuration: ${TICKETS_PATH}`
             });
         });
 
