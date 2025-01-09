@@ -230,4 +230,152 @@ describe('Allowed Archivers Tests', () => {
         });
     });
 
+    describe('Archiver Management', () => {
+        const basePayload = {
+            allowedArchivers: [{
+                ip: '127.0.0.1',
+                port: 4000,
+                publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3'
+            }],
+            allowedAccounts: [signer1.address, signer2.address],
+            counter: 1,
+            minSigRequired: 2
+        };
+
+        it('should add new archiver with valid signatures', async () => {
+            const newPayload = {
+                ...basePayload,
+                allowedArchivers: [
+                    ...basePayload.allowedArchivers,
+                    {
+                        ip: '127.0.0.2',
+                        port: 4001,
+                        publicKey: 'newArchiverKey'
+                    }
+                ],
+                counter: 2
+            };
+
+            const sig1 = await createSignature(signer1, newPayload);
+            const sig2 = await createSignature(signer2, newPayload);
+            const signatures = [
+                { owner: signer1.address, sig: sig1 },
+                { owner: signer2.address, sig: sig2 }
+            ];
+
+            const isValid = verifyMultiSigs(
+                newPayload,
+                signatures,
+                [signer1.address, signer2.address],
+                2
+            );
+            expect(isValid).toBe(true);
+        });
+
+        it('should reject adding archiver without sufficient signatures', async () => {
+            const newPayload = {
+                ...basePayload,
+                allowedArchivers: [
+                    ...basePayload.allowedArchivers,
+                    {
+                        ip: '127.0.0.2',
+                        port: 4001,
+                        publicKey: 'newArchiverKey'
+                    }
+                ],
+                counter: 2
+            };
+
+            const sig1 = await createSignature(signer1, newPayload);
+            const signatures = [
+                { owner: signer1.address, sig: sig1 }
+            ];
+
+            const isValid = verifyMultiSigs(
+                newPayload,
+                signatures,
+                [signer1.address, signer2.address],
+                2
+            );
+            expect(isValid).toBe(false);
+        });
+
+        it('should remove archiver with valid signatures', async () => {
+            const newPayload = {
+                ...basePayload,
+                allowedArchivers: [],
+                counter: 2
+            };
+
+            const sig1 = await createSignature(signer1, newPayload);
+            const sig2 = await createSignature(signer2, newPayload);
+            const signatures = [
+                { owner: signer1.address, sig: sig1 },
+                { owner: signer2.address, sig: sig2 }
+            ];
+
+            const isValid = verifyMultiSigs(
+                newPayload,
+                signatures,
+                [signer1.address, signer2.address],
+                2
+            );
+            expect(isValid).toBe(true);
+        });
+
+        it('should reject removing archiver without sufficient signatures', async () => {
+            const newPayload = {
+                ...basePayload,
+                allowedArchivers: [],
+                counter: 2
+            };
+
+            const sig1 = await createSignature(signer1, newPayload);
+            const signatures = [
+                { owner: signer1.address, sig: sig1 }
+            ];
+
+            const isValid = verifyMultiSigs(
+                newPayload,
+                signatures,
+                [signer1.address, signer2.address],
+                2
+            );
+            expect(isValid).toBe(false);
+        });
+
+        it('should handle multiple simultaneous archiver updates', async () => {
+            const newPayload = {
+                ...basePayload,
+                allowedArchivers: [
+                    {
+                        ip: '127.0.0.2',
+                        port: 4001,
+                        publicKey: 'archiver2'
+                    },
+                    {
+                        ip: '127.0.0.3',
+                        port: 4002,
+                        publicKey: 'archiver3'
+                    }
+                ],
+                counter: 2
+            };
+
+            const sig1 = await createSignature(signer1, newPayload);
+            const sig2 = await createSignature(signer2, newPayload);
+            const signatures = [
+                { owner: signer1.address, sig: sig1 },
+                { owner: signer2.address, sig: sig2 }
+            ];
+
+            const isValid = verifyMultiSigs(
+                newPayload,
+                signatures,
+                [signer1.address, signer2.address],
+                2
+            );
+            expect(isValid).toBe(true);
+        });
+    });
 });
