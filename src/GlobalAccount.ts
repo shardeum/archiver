@@ -160,7 +160,7 @@ const pruneNetworkChangeQueue = (
 }
 
 const updateNetworkChangeQueue = (data: object, appData: object): void => {
-  if ('current' in data) patchAndUpdate(data?.current, appData)
+  if ('current' in data) patchAndUpdate((data as { current: any }).current, appData)
 }
 
 const patchAndUpdate = (existingObject: any, changeObj: any, parentPath = ''): void => {
