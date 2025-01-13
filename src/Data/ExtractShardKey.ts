@@ -1,12 +1,23 @@
 import { config } from '../Config'
 import { AccountType } from '../shardeum/calculateAccountHash'
 import { InternalTXType } from '../shardeum/verifyGlobalTxReceipt'
-import * as NodeList from '../NodeList'
-import { getJson } from '../P2P'
-import * as Utils from '../Utils'
 import { Address, toBytes } from '@ethereumjs/util'
 import { Transaction, TransactionFactory, TransactionType, TypedTransaction } from '@ethereumjs/tx'
 import { getSenderAddress } from '@shardus/net'
+import { Utils as StringUtils } from '@shardus/types'
+import * as fs from 'fs'
+import { resolve } from 'path'
+
+const genesisSecureAccounts = StringUtils.safeJsonParse(
+  fs.readFileSync(resolve(__dirname, '../../genesis-secure-accounts.json'), 'utf8')
+)
+
+interface SecureAccountData {
+  Name: string
+  SourceFundsAddress: string
+  RecipientFundsAddress: string
+  SecureAccountAddress: string
+}
 
 type GetTxSenderAddressResult = { address: Address; isValid: boolean; gasValid: boolean }
 
@@ -15,38 +26,16 @@ let simpleTTL = 0
 const cacheMaxSize = 20000
 
 export async function crackKeyFromSecureAccount(tx: any): Promise<string> {
-  // Define the query function for robustQuery
-  const queryFn = async (node: NodeList.ConsensusNodeInfo): Promise<any[]> => {
-    const response = (await getJson(`http://${node.ip}:${node.port}/secure_accounts`)) as any
-
-    if (response.accounts) {
-      return response.accounts
-    }
-
-    throw new Error(`Secure account data not found on node ${node.ip}`)
-  }
-
-  // Use robustQuery to fetch secure accounts
-  const activeNodes = NodeList.getActiveList()
-  const result = await Utils.robustQuery(activeNodes, queryFn)
-
-  if (!result.value || !Array.isArray(result.value)) {
-    throw new Error(`Unable to retrieve secure accounts`)
-  }
-
-  // Find the matching secure account from the result
-  const matchingAccount = result.value.find(
-    (account: any) => account.secureAccountConfig.Name === tx.accountName
+  const secureAccountDataMap: Map<string, SecureAccountData> = new Map(
+    genesisSecureAccounts.map((account) => [account.Name, account])
   )
 
-  if (!matchingAccount) {
+  if (!secureAccountDataMap.has(tx.accountName)) {
     throw new Error(`Secure account ${tx.accountName} not found`)
   }
 
-  const secureAccountConfig = matchingAccount.secureAccountConfig
-
   // Return the SourceFundsAddress formatted as a Shardus address
-  return toShardusAddress(secureAccountConfig.SourceFundsAddress, AccountType.Account)
+  return toShardusAddress(secureAccountDataMap.get(tx.accountName).SourceFundsAddress, AccountType.Account)
 }
 
 export function toShardusAddress(addressStr: string, accountType: AccountType): string {
@@ -213,14 +202,14 @@ export async function extractKeyFromTx(receiptTx: any): Promise<string> {
 
   if (isInternalTx(tx)) {
     let key = await extractKeyFromInternalTx(tx)
-    if(config.VERBOSE) console.log('The generated executionShardkey is', key)
+    if (config.VERBOSE) console.log('The generated executionShardkey is', key)
     return key
   }
 
   if (isDebugTx(tx)) {
     const debugTx = tx
     const transformedSourceKey = toShardusAddress(debugTx.from, AccountType.Debug)
-    if(config.VERBOSE) console.log('The generated executionShardkey is', transformedSourceKey)
+    if (config.VERBOSE) console.log('The generated executionShardkey is', transformedSourceKey)
     return transformedSourceKey
   }
 
@@ -229,7 +218,7 @@ export async function extractKeyFromTx(receiptTx: any): Promise<string> {
   const senderAddress = getTxSenderAddress(transaction, txId).address
   const txSenderEvmAddr = senderAddress.toString()
   const transformedSourceKey = toShardusAddress(txSenderEvmAddr, AccountType.Account)
-  if(config.VERBOSE) console.log('The generated executionShardkey is', transformedSourceKey)
+  if (config.VERBOSE) console.log('The generated executionShardkey is', transformedSourceKey)
   return transformedSourceKey // executionShardKey
 }
 
