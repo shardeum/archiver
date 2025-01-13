@@ -742,9 +742,22 @@ const verifyAppliedReceiptSignatures = (
   requiredSignatures: number,
   failedReasons = [],
   nestedCounterMessages = []
-): { success: boolean } => {
+): Promise<{ success: boolean }> => {
   const result = { success: false, failedReasons, nestedCounterMessages }
-  const { globalModification, cycle, executionShardKey } = receipt
+  const { globalModification, cycle } = receipt
+  let executionShardKey = receipt.executionShardKey
+
+  if (config.enableKeyExtraction) {
+    if (config.VERBOSE) console.log('The Incoming executionShardKey key is', executionShardKey)
+    const extractedKey: string = await extractKeyFromTx(receipt.tx)
+    if (extractedKey != executionShardKey) {
+      if (config.VERBOSE) {
+        console.log('Execution Shard Key in receipt does not match the calculated key from transaction data.')
+      }
+      if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'executionShardKey mismatch')
+      executionShardKey = extractedKey
+    }
+  }
   const { txId: txid, timestamp } = receipt.tx
   let globalReceiptValidationErrors // This is used to store the validation errors of the globalTxReceipt
 
@@ -956,7 +969,7 @@ export const verifyArchiverReceipt = async (
   if (config.verifyReceiptSignaturesSeparately) {
     // if (profilerInstance) profilerInstance.profileSectionStart('Verify_receipt_signatures_data')
     // if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Verify_receipt_signatures_data')
-    const { success } = verifyAppliedReceiptSignatures(
+    const { success } = await verifyAppliedReceiptSignatures(
       receipt,
       requiredSignatures,
       failedReasons,
