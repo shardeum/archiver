@@ -1,381 +1,208 @@
-import { jest } from '@jest/globals';
-import axios from 'axios';
-import { ethers } from 'ethers';
-import { Utils as StringUtils } from '@shardus/types';
-import { verifyMultiSigs } from '../../../../src/Utils';
+import * as path from 'path'
+import * as fs from 'fs'
+import { ethers } from 'ethers'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { allowedArchiversManager } from '../../../../src/shardeum/allowedArchiversManager'
+import * as Logger from '../../../../src/Logger'
 
-// Mock Logger
+// Mock the fs module
+jest.mock('fs', () => ({
+    readFileSync: jest.fn(),
+    writeFileSync: jest.fn(),
+    unlinkSync: jest.fn(),
+    watchFile: jest.fn(),
+    unwatchFile: jest.fn(),
+}))
+
+// Mock the Logger to prevent actual logging during tests
 jest.mock('../../../../src/Logger', () => ({
     mainLogger: {
-        debug: jest.fn(),
         error: jest.fn(),
-        info: jest.fn()
-    }
-}));
+        debug: jest.fn(),
+    },
+}))
 
-// Mock State
-jest.mock('../../../../src/State', () => ({
-    get activeArchivers() {
-        return [
-            { publicKey: 'mockSender', ip: '127.0.0.1', port: 8080, curvePk: 'mockCurvePk' }
-        ];
-    }
-}));
-
-// Mock Utils
-jest.mock('../../../../src/Utils', () => ({
-    verifyMultiSigs: jest.fn().mockImplementation((rawPayload, sigs, allowedPubkeys, minSigRequired) => {
-        // Simulate the behavior of the actual verifyMultiSigs function
-        if (!rawPayload || !sigs || !allowedPubkeys || !Array.isArray(sigs)) {
-            return false;
-        }
-        if (sigs.length < minSigRequired) return false;
-        if (sigs.length > allowedPubkeys.length) return false;
-        let validSigs = 0;
-        const seen = new Set();
-        for (const sig of sigs) {
-            if (!seen.has(sig.owner) && allowedPubkeys.includes(sig.owner)) {
-                validSigs++;
-                seen.add(sig.owner);
-            }
-            if (validSigs >= minSigRequired) break;
-        }
-        return validSigs >= minSigRequired;
-    }),
-    validateTypes: jest.fn().mockImplementation((inp, def) => {
-        if (inp === undefined) return 'input is undefined';
-        if (inp === null) return 'input is null';
-        if (typeof inp !== 'object') return 'input must be object, not ' + typeof inp;
-        const map = {
-            string: 's',
-            number: 'n',
-            boolean: 'b',
-            bigint: 'B',
-            array: 'a',
-            object: 'o',
-        };
-        const imap = {
-            s: 'string',
-            n: 'number',
-            b: 'boolean',
-            B: 'bigint',
-            a: 'array',
-            o: 'object',
-        };
-        const fields = Object.keys(def);
-        for (const name of fields) {
-            const types = def[name] as string;
-            const opt = types.substr(-1, 1) === '?' ? 1 : 0;
-            if (inp[name] === undefined && !opt) return name + ' is required';
-            if (inp[name] !== undefined) {
-                if (inp[name] === null && !opt) return name + ' cannot be null';
-                let found = 0;
-                let be = '';
-                for (let t = 0; t < types.length - opt; t++) {
-                    let it = map[typeof inp[name]];
-                    it = Array.isArray(inp[name]) ? 'a' : it;
-                    const is = types.substr(t, 1);
-                    if (it === is) {
-                        found = 1;
-                        break;
-                    } else be += ', ' + imap[is];
-                }
-                if (!found) return name + ' must be' + be;
-            }
-        }
-        return '';
-    })
-}));
-
-// Mock @shardus/types
-jest.mock('@shardus/types', () => ({
-    Utils: {
-        safeJsonParse: jest.fn(obj => JSON.parse(obj as string)),
-        safeStringify: jest.fn(obj => JSON.stringify(obj))
-    }
-}));
-
-// Mock axios
-jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
-
-// Create test wallets
-const signer1 = new ethers.Wallet('0x' + '1'.repeat(64));
-const signer2 = new ethers.Wallet('0x' + '2'.repeat(64));
-const signer3 = new ethers.Wallet('0x' + '3'.repeat(64));
-
-// Helper function to create signatures
-async function createSignature(wallet: ethers.Wallet, payload: object): Promise<string> {
-    const message = StringUtils.safeStringify(payload);
-    const hash = ethers.keccak256(ethers.toUtf8Bytes(message));
-    return wallet.signMessage(hash);
+// Helper function to create mock Stats object
+function createMockStats(mtime: Date): fs.Stats {
+    return {
+        mtime,
+        isFile: () => true,
+        isDirectory: () => false,
+        isBlockDevice: () => false,
+        isCharacterDevice: () => false,
+        isSymbolicLink: () => false,
+        isFIFO: () => false,
+        isSocket: () => false,
+        dev: 0,
+        ino: 0,
+        mode: 0,
+        nlink: 0,
+        uid: 0,
+        gid: 0,
+        rdev: 0,
+        size: 0,
+        blksize: 0,
+        blocks: 0,
+        atimeMs: 0,
+        mtimeMs: 0,
+        ctimeMs: 0,
+        birthtimeMs: 0,
+        atime: new Date(),
+        ctime: new Date(),
+        birthtime: new Date()
+    } as fs.Stats
 }
 
-describe('Allowed Archivers Tests', () => {
+describe('AllowedArchiversManager', () => {
+    // Generate random wallet for testing
+    const wallet = ethers.Wallet.createRandom()
+
+    const rawPayload = {
+        allowedArchivers: [
+            { ip: '127.0.0.1', port: 4000, publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3' },
+            { ip: '127.0.0.1', port: 4001, publicKey: 'e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94' },
+        ],
+        counter: 1
+    }
+
+    // Generate hash and signature
+    const payloadHash = ethers.keccak256(ethers.toUtf8Bytes(StringUtils.safeStringify(rawPayload)))
+    const actualConfig = {
+        allowedArchivers: [
+            { ip: '127.0.0.1', port: 4000, publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3' },
+            { ip: '127.0.0.1', port: 4001, publicKey: 'e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94' },
+        ],
+        allowedAccounts: {
+            [wallet.address]: 3
+        },
+        counter: rawPayload.counter,
+        minSigRequired: 1,
+        signatures: [{
+            owner: wallet.address,
+            sig: wallet.signMessageSync(payloadHash)
+        }]
+    }
+
+    const configPath = path.resolve(__dirname, '../../../../allowed-archivers.json')
     beforeEach(() => {
-        jest.clearAllMocks();
-    });
+        jest.clearAllMocks()
+        // Mock readFileSync to return our test config
+        jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(actualConfig))
+    })
 
-    describe('Signature Verification', () => {
-        it('should verify valid signatures with minimum required signers', async () => {
-            const rawPayload = {
-                allowedArchivers: [{
-                    ip: '127.0.0.1',
-                    port: 4000,
-                    publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3'
-                }],
-                allowedAccounts: [signer1.address, signer2.address],
-                counter: 1,
-                minSigRequired: 2
-            };
+    afterEach(() => {
+        // Stop watching the config file
+        allowedArchiversManager.stopWatching()
+    })
 
-            const sig1 = await createSignature(signer1, rawPayload);
-            const sig2 = await createSignature(signer2, rawPayload);
+    test('should initialize and load config', () => {
+        allowedArchiversManager.initialize(configPath)
+        expect(allowedArchiversManager.getCurrentConfig()).toEqual(actualConfig)
+        expect(fs.readFileSync).toHaveBeenCalledWith(expect.any(String), 'utf8')
+    })
 
-            const signatures = [
-                { owner: signer1.address, sig: sig1 },
-                { owner: signer2.address, sig: sig2 }
-            ];
+    test('should verify if an archiver is allowed', () => {
+        allowedArchiversManager.initialize(configPath)
+        expect(allowedArchiversManager.isArchiverAllowed('758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3')).toBe(true)
+        expect(allowedArchiversManager.isArchiverAllowed('publicKey3')).toBe(false)
+    })
 
-            const isValid = verifyMultiSigs(
-                rawPayload,
-                signatures,
-                [signer1.address, signer2.address],
-                2
-            );
-            expect(isValid).toBe(true);
-        });
+    test('should log error if config has invalid signatures', () => {
+        const invalidConfig = { ...actualConfig, signatures: [] }
+        jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(invalidConfig))
+        allowedArchiversManager.initialize(configPath)
+        expect(Logger.mainLogger.error).toHaveBeenCalledWith('Invalid signatures in new config')
+    })
 
-        it('should reject when signatures are less than required', async () => {
-            const rawPayload = {
-                allowedArchivers: [{
-                    ip: '127.0.0.1',
-                    port: 4000,
-                    publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3'
-                }],
-                allowedAccounts: [signer1.address, signer2.address],
-                counter: 1,
-                minSigRequired: 2
-            };
+    test('should reject config with invalid signatures when counter is modified', () => {
+        allowedArchiversManager.initialize(configPath)
+        const newConfig = {
+            ...actualConfig,
+            counter: actualConfig.counter + 1,
+        }
+        jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(newConfig))
+        // Simulate file change
+        const watchCallback = jest.mocked(fs.watchFile).mock.calls[0][1]
+        watchCallback(
+            createMockStats(new Date()),
+            createMockStats(new Date(Date.now() - 1000))
+        )
+        expect(Logger.mainLogger.error).toHaveBeenCalledWith('Invalid signatures in new config')
+    })
 
-            const sig1 = await createSignature(signer1, rawPayload);
-            const signatures = [
-                { owner: signer1.address, sig: sig1 }
-            ];
+    test('should reject config update with non-incrementing counter', () => {
+        allowedArchiversManager.initialize(configPath)
+        const newPayload = {
+            ...rawPayload,
+            counter: rawPayload.counter - 1
+        }
+        const newPayloadHash = ethers.keccak256(ethers.toUtf8Bytes(StringUtils.safeStringify(newPayload)))
+        const newConfig = {
+            ...newPayload,
+            signatures: [{
+                owner: wallet.address,
+                sig: wallet.signMessageSync(newPayloadHash)
+            }]
+        }
+        jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(newConfig))
+        // Simulate file change
+        const watchCallback = jest.mocked(fs.watchFile).mock.calls[0][1]
+        watchCallback(
+            createMockStats(new Date()),
+            createMockStats(new Date(Date.now() - 1000))
+        )
+        expect(Logger.mainLogger.error).toHaveBeenCalledWith('Invalid signatures in new config')
+    })
 
-            const isValid = verifyMultiSigs(
-                rawPayload,
-                signatures,
-                [signer1.address, signer2.address],
-                2
-            );
-            expect(isValid).toBe(false);
-        });
+    test('should accept valid config update with incremented counter', () => {
+        allowedArchiversManager.initialize(configPath)
+        const newPayload = {
+            ...rawPayload,
+            counter: rawPayload.counter + 1
+        }
+        const newPayloadHash = ethers.keccak256(ethers.toUtf8Bytes(StringUtils.safeStringify(newPayload)))
+        const newConfig = {
+            ...actualConfig,
+            counter: newPayload.counter,
+            signatures: [{
+                owner: wallet.address,
+                sig: wallet.signMessageSync(newPayloadHash)
+            }]
+        }
+        jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(newConfig))
+        // Simulate file change
+        const watchCallback = jest.mocked(fs.watchFile).mock.calls[0][1]
+        watchCallback(
+            createMockStats(new Date()),
+            createMockStats(new Date(Date.now() - 1000))
+        )
+        expect(allowedArchiversManager.getCurrentConfig()).toEqual(newConfig)
+    })
 
-        it('should reject signatures from unauthorized signers', async () => {
-            const rawPayload = {
-                allowedArchivers: [{
-                    ip: '127.0.0.1',
-                    port: 4000,
-                    publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3'
-                }],
-                allowedAccounts: [signer1.address],
-                counter: 1,
-                minSigRequired: 1
-            };
+    test('should handle file read errors gracefully', () => {
+        jest.mocked(fs.readFileSync).mockImplementation(() => {
+            throw new Error('File read error')
+        })
+        allowedArchiversManager.initialize(configPath)
+        expect(Logger.mainLogger.error).toHaveBeenCalledWith('Error loading/verifying config:', expect.any(Error))
+    })
 
-            const sig = await createSignature(signer3, rawPayload);
+    test('should handle invalid JSON in config file', () => {
+        jest.mocked(fs.readFileSync).mockReturnValue('invalid json')
+        allowedArchiversManager.initialize(configPath)
+        expect(Logger.mainLogger.error).toHaveBeenCalledWith('Error loading/verifying config:', expect.any(Error))
+    })
 
-            const signatures = [
-                { owner: signer3.address, sig: sig }
-            ];
+    test('should not reinitialize if already initialized', () => {
+        allowedArchiversManager.initialize(configPath)
+        const firstCallCount = jest.mocked(fs.watchFile).mock.calls.length
+        allowedArchiversManager.initialize(configPath)
+        expect(jest.mocked(fs.watchFile).mock.calls.length).toBe(firstCallCount)
+    })
 
-            const isValid = verifyMultiSigs(
-                rawPayload,
-                signatures,
-                [signer1.address],
-                1
-            );
-
-            expect(isValid).toBe(false);
-        });
-
-        it('should handle duplicate signatures from same signer', async () => {
-            const rawPayload = {
-                allowedArchivers: [{
-                    ip: '127.0.0.1',
-                    port: 4000,
-                    publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3'
-                }],
-                allowedAccounts: [signer1.address],
-                counter: 1,
-                minSigRequired: 1
-            };
-
-            const sig = await createSignature(signer1, rawPayload);
-
-            const signatures = [
-                { owner: signer1.address, sig: sig },
-                { owner: signer1.address, sig: sig }
-            ];
-
-            const isValid = verifyMultiSigs(
-                rawPayload,
-                signatures,
-                [signer1.address],
-                1
-            );
-
-            expect(isValid).toBe(false);
-        });
-    });
-
-    describe('Archiver Management', () => {
-        const basePayload = {
-            allowedArchivers: [{
-                ip: '127.0.0.1',
-                port: 4000,
-                publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3'
-            }],
-            allowedAccounts: [signer1.address, signer2.address],
-            counter: 1,
-            minSigRequired: 2
-        };
-
-        it('should add new archiver with valid signatures', async () => {
-            const newPayload = {
-                ...basePayload,
-                allowedArchivers: [
-                    ...basePayload.allowedArchivers,
-                    {
-                        ip: '127.0.0.2',
-                        port: 4001,
-                        publicKey: 'newArchiverKey'
-                    }
-                ],
-                counter: 2
-            };
-
-            const sig1 = await createSignature(signer1, newPayload);
-            const sig2 = await createSignature(signer2, newPayload);
-            const signatures = [
-                { owner: signer1.address, sig: sig1 },
-                { owner: signer2.address, sig: sig2 }
-            ];
-
-            const isValid = verifyMultiSigs(
-                newPayload,
-                signatures,
-                [signer1.address, signer2.address],
-                2
-            );
-            expect(isValid).toBe(true);
-        });
-
-        it('should reject adding archiver without sufficient signatures', async () => {
-            const newPayload = {
-                ...basePayload,
-                allowedArchivers: [
-                    ...basePayload.allowedArchivers,
-                    {
-                        ip: '127.0.0.2',
-                        port: 4001,
-                        publicKey: 'newArchiverKey'
-                    }
-                ],
-                counter: 2
-            };
-
-            const sig1 = await createSignature(signer1, newPayload);
-            const signatures = [
-                { owner: signer1.address, sig: sig1 }
-            ];
-
-            const isValid = verifyMultiSigs(
-                newPayload,
-                signatures,
-                [signer1.address, signer2.address],
-                2
-            );
-            expect(isValid).toBe(false);
-        });
-
-        it('should remove archiver with valid signatures', async () => {
-            const newPayload = {
-                ...basePayload,
-                allowedArchivers: [],
-                counter: 2
-            };
-
-            const sig1 = await createSignature(signer1, newPayload);
-            const sig2 = await createSignature(signer2, newPayload);
-            const signatures = [
-                { owner: signer1.address, sig: sig1 },
-                { owner: signer2.address, sig: sig2 }
-            ];
-
-            const isValid = verifyMultiSigs(
-                newPayload,
-                signatures,
-                [signer1.address, signer2.address],
-                2
-            );
-            expect(isValid).toBe(true);
-        });
-
-        it('should reject removing archiver without sufficient signatures', async () => {
-            const newPayload = {
-                ...basePayload,
-                allowedArchivers: [],
-                counter: 2
-            };
-
-            const sig1 = await createSignature(signer1, newPayload);
-            const signatures = [
-                { owner: signer1.address, sig: sig1 }
-            ];
-
-            const isValid = verifyMultiSigs(
-                newPayload,
-                signatures,
-                [signer1.address, signer2.address],
-                2
-            );
-            expect(isValid).toBe(false);
-        });
-
-        it('should handle multiple simultaneous archiver updates', async () => {
-            const newPayload = {
-                ...basePayload,
-                allowedArchivers: [
-                    {
-                        ip: '127.0.0.2',
-                        port: 4001,
-                        publicKey: 'archiver2'
-                    },
-                    {
-                        ip: '127.0.0.3',
-                        port: 4002,
-                        publicKey: 'archiver3'
-                    }
-                ],
-                counter: 2
-            };
-
-            const sig1 = await createSignature(signer1, newPayload);
-            const sig2 = await createSignature(signer2, newPayload);
-            const signatures = [
-                { owner: signer1.address, sig: sig1 },
-                { owner: signer2.address, sig: sig2 }
-            ];
-
-            const isValid = verifyMultiSigs(
-                newPayload,
-                signatures,
-                [signer1.address, signer2.address],
-                2
-            );
-            expect(isValid).toBe(true);
-        });
-    });
-});
+    test('should properly clean up watchers when stopping', () => {
+        allowedArchiversManager.initialize(configPath)
+        allowedArchiversManager.stopWatching()
+        expect(fs.unwatchFile).toHaveBeenCalled()
+    })
+})

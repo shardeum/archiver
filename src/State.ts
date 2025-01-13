@@ -11,6 +11,7 @@ import { publicKey, secretKey, curvePublicKey, curveSecretKey } from '@shardeum-
 import fetch from 'node-fetch'
 import { getAdjacentLeftAndRightArchivers } from './Data/GossipData'
 import { closeDatabase } from './dbstore'
+import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
 
 export interface ArchiverNodeState {
   ip: string
@@ -136,6 +137,7 @@ export async function exitArchiver(): Promise<void> {
     }
     Logger.mainLogger.debug('Archiver will exit in 3 seconds.')
     setTimeout(() => {
+      allowedArchiversManager.stopWatching()
       process.exit()
     }, 3000)
   } catch (e) {
@@ -148,6 +150,7 @@ export function addSigListeners(sigint = true, sigterm = true): void {
     process.on('SIGINT', async () => {
       Logger.mainLogger.debug('Exiting on SIGINT', process.pid)
       await closeDatabase()
+      allowedArchiversManager.stopWatching()
       if (isActive) exitArchiver()
       else process.exit(0)
     })
@@ -156,11 +159,12 @@ export function addSigListeners(sigint = true, sigterm = true): void {
     process.on('SIGTERM', async () => {
       Logger.mainLogger.debug('Exiting on SIGTERM', process.pid)
       await closeDatabase()
+      allowedArchiversManager.stopWatching()
       if (isActive) exitArchiver()
       else process.exit(0)
     })
   }
-  Logger.mainLogger.debug('Registerd exit signal listeners.')
+  Logger.mainLogger.debug('Registered exit signal listeners.')
 }
 
 export function addArchiver(archiver: ArchiverNodeInfo): void {

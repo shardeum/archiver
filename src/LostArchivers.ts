@@ -8,6 +8,7 @@ import { calcIncomingTimes } from './Data/Data'
 import { postJson } from './P2P'
 import { sign } from './Crypto'
 import { SignedObject } from '@shardeum-foundation/lib-types/build/src/p2p/P2PTypes'
+import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
 
 let shouldSendRefutes = false
 
@@ -101,5 +102,6 @@ function die(): void {
   Logger.mainLogger.debug(
     'Archiver was found in `removedArchivers` and will exit now without sending a leave request'
   )
+  allowedArchiversManager.stopWatching()
   process.exit(2)
 }

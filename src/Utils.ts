@@ -3,7 +3,6 @@ import * as path from 'path'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import * as util from 'util'
 import * as Logger from './Logger'
-import { ethers } from 'ethers'
 
 export interface CountSchema {
   count: string
@@ -568,40 +567,4 @@ export function createDirectories(pathname: string): void {
   const __dirname = path.resolve()
   pathname = pathname.replace(/^\.*\/|\/?[^/]+\.[a-z]+|\/$/g, '') // Remove leading directory markers, and remove ending /file-name.extension
   fs.mkdirSync(path.resolve(__dirname, pathname), { recursive: true }) // eslint-disable-line security/detect-non-literal-fs-filename
-}
-
-/**
-@param rawPayload: any - The original payload stripped of the signatures
-@param sigs: Sign[] - The signatures to verify
-@param allowedPubkeys: string[] - The public keys that are allowed to sign the payload
-@param minSigRequired: number - The minimum number of signatures required
-@returns boolean - True if the payload is signed by the required number of authorized public keys
-**/
-export function verifyMultiSigs(
-  rawPayload: object,
-  sigs: any[],
-  allowedPubkeys: string[],
-  minSigRequired: number
-): boolean {
-  if (!rawPayload || !sigs || !allowedPubkeys || !Array.isArray(sigs)) {
-    return false
-  }
-  if (sigs.length < minSigRequired) return false
-  if (sigs.length > allowedPubkeys.length) return false
-  let validSigs = 0
-  const payload_hash = ethers.keccak256(ethers.toUtf8Bytes(StringUtils.safeStringify(rawPayload)))
-  const seen = new Set()
-  for (const sig of sigs) {
-    if (
-      !seen.has(sig.owner) &&
-      allowedPubkeys.includes(sig.owner) &&
-      ethers.verifyMessage(payload_hash, sig.sig).toLowerCase() === sig.owner.toLowerCase()
-    ) {
-      validSigs++
-      seen.add(sig.owner)
-    }
-    if (validSigs >= minSigRequired) break
-  }
-
-  return validSigs >= minSigRequired
 }

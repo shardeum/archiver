@@ -45,8 +45,10 @@ import { healthCheckRouter } from './routes/healthCheck'
 import { initializeTickets } from './routes/tickets';
 import { initAjvSchemas } from './types/ajv/Helpers'
 import { initializeSerialization } from './utils/serialization/SchemaHelpers'
+import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
 
 const configFile = join(process.cwd(), 'archiver-config.json')
+const allowedArchiversConfigPath = join(__dirname, '../allowed-archivers.json')
 let logDir: string
 const cluster = clusterModule as unknown as clusterModule.Cluster
 
@@ -54,6 +56,8 @@ async function start(): Promise<void> {
   overrideDefaultConfig(configFile)
   initAjvSchemas();
   initializeSerialization()
+  // Initialize allowed archivers manager
+  allowedArchiversManager.initialize(allowedArchiversConfigPath)
   // Set crypto hash keys from config
   const hashKey = config.ARCHIVER_HASH_KEY
   Crypto.setCryptoHashKey(hashKey)
@@ -77,7 +81,7 @@ async function start(): Promise<void> {
   });
 
   process.on('unhandledRejection', (reason, promise) => {
-      Logger.mainLogger.error('Unhandled Rejection - Global:', promise, 'reason:', reason);
+    Logger.mainLogger.error('Unhandled Rejection - Global:', promise, 'reason:', reason);
   });
 
   // Initialize storage
@@ -502,10 +506,10 @@ async function startServer(): Promise<void> {
 
 // Add this before starting the server
 try {
-    initializeTickets();
+  initializeTickets();
 } catch (err) {
-    console.error('Failed to initialize tickets. Server startup aborted:', err);
-    process.exit(1);
+  console.error('Failed to initialize tickets. Server startup aborted:', err);
+  process.exit(1);
 }
 
 start()

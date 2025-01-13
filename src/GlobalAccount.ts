@@ -8,6 +8,7 @@ import { postJson, getJson } from './P2P'
 import { robustQuery, deepCopy } from './Utils'
 import { isDeepStrictEqual } from 'util'
 import { accountSpecificHash } from './shardeum/calculateAccountHash'
+import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
 
 let cachedGlobalNetworkAccount: AccountDB.AccountsCopy
 let cachedGlobalNetworkAccountHash: string
@@ -35,6 +36,7 @@ export function getGlobalNetworkAccount(hash: boolean): object | string {
 export function setGlobalNetworkAccount(account: AccountDB.AccountsCopy): void {
   cachedGlobalNetworkAccount = rfdc()(account)
   cachedGlobalNetworkAccountHash = account.hash
+  allowedArchiversManager.setGlobalAccountConfig(account.data?.listOfChanges?.dev?.change?.debug?.multisigKeys, account.data?.listOfChanges?.dev?.change?.debug?.minMultiSigRequiredForGlobalTxs)
 }
 
 interface NetworkConfigChanges {

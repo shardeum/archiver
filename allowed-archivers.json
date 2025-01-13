@@ -11,15 +11,15 @@
             "publicKey": "e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94"
         }
     ],
-    "allowedAccounts": [
-        "0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5"
-    ],
+    "allowedAccounts": {
+        "0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5": 3
+    },
     "counter": 1,
     "minSigRequired": 1,
     "signatures": [
         {
             "owner": "0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5",
-            "sig": "0x95b32d241e1885b9db2f2a5850c99a10a6a1df7f8142b0914715a1a5bdfd9bed09753f32948cb9fee69b20cfefee89d3f90be183de721d1b5d88157a6affda821b"
+            "sig": "0xc4f25a2156c9151c0515d1e5636b94de5ab2e21cc924207a2d2b5d679d8b3dec0f3b7aab78a0dfa444ee4794cf3a61aa6b9a70f8a51ebac46b9560d50cb019b51b"
         }
     ]
 }

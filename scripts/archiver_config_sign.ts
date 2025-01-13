@@ -1,18 +1,14 @@
 import { ethers } from 'ethers';
 import * as fs from 'fs';
-import { Utils as StringUtils } from '@shardus/types';
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types';
 
 interface ConfigData {
     allowedArchivers: string[];
-    allowedAccounts: string[];
-    minSigRequired: number;
     counter: number;
 }
 
 interface SignaturePayload {
     allowedArchivers: string[];
-    allowedAccounts: string[];
-    minSigRequired: number;
     counter: number;
 }
 
@@ -33,8 +29,6 @@ async function generateSignature(): Promise<void> {
         // Create payload
         const rawPayload: SignaturePayload = {
             allowedArchivers: configData.allowedArchivers,
-            allowedAccounts: configData.allowedAccounts,
-            minSigRequired: configData.minSigRequired,
             counter: configData.counter
         };
 
