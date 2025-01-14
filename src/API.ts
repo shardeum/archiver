@@ -936,10 +936,10 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       reply.send({ success: false, error: result.error })
       return
     }
-    if (payload.maxRecords > config.maxRecordsPerRequest) {
+    if (payload.maxRecords > config.maxRecordsPerRequest || payload.maxRecords <= 0) {
       reply.send({
         success: false,
-        error: `AccountBucket size has exceeded the max records allowed per request. Allowed: ${config.maxRecordsPerRequest}`,
+        error: `Invalid AccountBucket size. Must be greater than 0 and less than ${config.maxRecordsPerRequest}.`,
       })
       return
     }
