@@ -737,7 +737,7 @@ export const verifyReceiptData = async (
   return { success: true }
 }
 
-const verifyAppliedReceiptSignatures = (
+const verifyAppliedReceiptSignatures = async (
   receipt: Receipt.ArchiverReceipt | Receipt.Receipt,
   requiredSignatures: number,
   failedReasons = [],
