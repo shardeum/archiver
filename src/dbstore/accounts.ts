@@ -3,7 +3,7 @@ import { accountDatabase } from '.'
 import * as Logger from '../Logger'
 import { config } from '../Config'
 import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
-import { getPreparedStmt } from './prepared-statements/preparedStmtAccounts';
+import { getPreparedStmt } from './prepared-statements/preparedStmtManager'
 
 /** Same as type AccountsCopy in the shardus core */
 export type AccountsCopy = {

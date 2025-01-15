@@ -1,35 +1,49 @@
 import * as sqlite3 from 'sqlite3';
 import * as Logger from '../../Logger';
 
-type PreparedStatementInitializer = (db: sqlite3.Database) => void;
-type PreparedStatementFinalizer = () => Promise<void>;
-
-const initializers: PreparedStatementInitializer[] = [];
-const finalizers: PreparedStatementFinalizer[] = [];
+// Centralized Map for all prepared statements
+export const preparedStatementRegistry: Map<string, sqlite3.Statement> = new Map();
 
 /**
- * Register an initializer and finalizer for a set of prepared statements.
+ * Add a prepared statement to the registry.
  */
-export const registerPreparedStatements = (
-  initializer: PreparedStatementInitializer,
-  finalizer: PreparedStatementFinalizer
-): void => {
-  initializers.push(initializer);
-  finalizers.push(finalizer);
+export const addPreparedStatement = (name: string, statement: sqlite3.Statement): void => {
+  if (preparedStatementRegistry.has(name)) {
+    Logger.mainLogger.error(`Prepared statement with name "${name}" is already registered.`);
+    throw new Error(`Prepared statement with name "${name}" is already registered.`);
+  }
+  preparedStatementRegistry.set(name, statement);
 };
 
 /**
- * Initialize all registered prepared statements.
+ * Get a prepared statement from the registry.
  */
-export const initializePreparedStatements = (db: sqlite3.Database): void => {
-  initializers.forEach((initialize) => initialize(db));
-  Logger.mainLogger.info('All prepared statements initialized.');
+export const getPreparedStmt = (name: string): sqlite3.Statement => {
+  const stmt = preparedStatementRegistry.get(name);
+  if (!stmt) {
+    Logger.mainLogger.error(`Prepared statement not found: ${name}`);
+    throw new Error(`Prepared statement not found: ${name}`);
+  }
+  return stmt;
 };
 
 /**
- * Finalize all registered prepared statements.
+ * Finalize all prepared statements in the registry.
  */
 export const finalizePreparedStatements = async (): Promise<void> => {
-  await Promise.all(finalizers.map((finalize) => finalize()));
-  Logger.mainLogger.info('All prepared statements finalized.');
+  const finalizePromises = Array.from(preparedStatementRegistry.values()).map(
+    (stmt) =>
+      new Promise<void>((resolve, reject) => {
+        stmt.finalize((err) => {
+          if (err) {
+            Logger.mainLogger.error(`Error finalizing statement:`, err);
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      })
+  );
+  await Promise.all(finalizePromises);
+  preparedStatementRegistry.clear();
 };

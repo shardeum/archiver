@@ -1,12 +1,11 @@
 import * as sqlite3 from 'sqlite3';
-import * as Logger from '../../Logger';
-import { registerPreparedStatements} from './preparedStmtManager';
+import { addPreparedStatement } from './preparedStmtManager';
 
-
-let preparedStatements: Map<string, sqlite3.Statement> = new Map();
-
+/**
+ * Initialize prepared statements for the `accounts` table.
+ */
 export const initialize = (db: sqlite3.Database): void => {
-  preparedStatements.set(
+  addPreparedStatement(
     'insertAccount',
     db.prepare(
       `INSERT OR REPLACE INTO accounts 
@@ -15,7 +14,7 @@ export const initialize = (db: sqlite3.Database): void => {
     )
   );
 
-  preparedStatements.set(
+  addPreparedStatement(
     'updateAccount',
     db.prepare(
       `UPDATE accounts 
@@ -24,12 +23,12 @@ export const initialize = (db: sqlite3.Database): void => {
     )
   );
 
-  preparedStatements.set(
+  addPreparedStatement(
     'queryAccountByAccountId',
     db.prepare(`SELECT * FROM accounts WHERE accountId = ?`)
   );
 
-  preparedStatements.set(
+  addPreparedStatement(
     'queryLatestAccounts',
     db.prepare(
       `SELECT * FROM accounts 
@@ -38,7 +37,7 @@ export const initialize = (db: sqlite3.Database): void => {
     )
   );
 
-  preparedStatements.set(
+  addPreparedStatement(
     'queryAccounts',
     db.prepare(
       `SELECT * FROM accounts 
@@ -47,17 +46,17 @@ export const initialize = (db: sqlite3.Database): void => {
     )
   );
 
-  preparedStatements.set(
+  addPreparedStatement(
     'queryAccountCount',
     db.prepare(`SELECT COUNT(*) as count FROM accounts`)
   );
 
-  preparedStatements.set(
+  addPreparedStatement(
     'queryAccountCountBetweenCycles',
     db.prepare(`SELECT COUNT(*) FROM accounts WHERE cycleNumber BETWEEN ? AND ?`)
   );
-  
-  preparedStatements.set(
+
+  addPreparedStatement(
     'fetchAccountsByRangeWithOffset',
     db.prepare(
       `SELECT * FROM accounts 
@@ -68,8 +67,8 @@ export const initialize = (db: sqlite3.Database): void => {
     )
   );
 
-  preparedStatements.set(
-    'fetchAccountsByRangeWithOffset',
+  addPreparedStatement(
+    'fetchAccountsByRangeWithOffsetAlt',
     db.prepare(
       `SELECT * FROM accounts 
        WHERE accountId BETWEEN ? AND ? 
@@ -79,47 +78,12 @@ export const initialize = (db: sqlite3.Database): void => {
        LIMIT ?`
     )
   );
-  
-  preparedStatements.set(
+
+  addPreparedStatement(
     'fetchAccountsByList',
     db.prepare(
       `SELECT * FROM accounts 
        WHERE accountId IN (?)`
     )
   );
-  
 };
-
-export const getPreparedStmt = (name: string): sqlite3.Statement => {
-  const stmt = preparedStatements.get(name);
-  if (!stmt) {
-    throw new Error(`Prepared statement not found: ${name}`);
-  }
-  return stmt;
-};
-
-export const finalize = async (): Promise<void> => {
-  const finalizePromises = [];
-
-  preparedStatements.forEach((stmt, key) => {
-    if (stmt) {
-      finalizePromises.push(
-        new Promise<void>((resolve, reject) => {
-          stmt.finalize((err) => {
-            if (err) {
-              Logger.mainLogger.error(`Error finalizing statement ${key}:`, err);
-              reject(err);
-            } else {
-              Logger.mainLogger.debug(`Successfully finalized statement ${key}`);
-              resolve();
-            }
-          });
-        })
-      );
-    }
-  });
-
-  await Promise.all(finalizePromises);
-};
-
-registerPreparedStatements(initialize, finalize);
