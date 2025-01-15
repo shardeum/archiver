@@ -9,8 +9,8 @@ export const initialize = (db: sqlite3.Database): void => {
     'insertReceipt',
     db.prepare(
       `INSERT OR REPLACE INTO receipts 
-       (receiptId, tx, cycle, applyTimestamp, timestamp, signedReceipt, afterStates, beforeStates, appReceiptData, executionShardKey, globalModification) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        (receiptId, tx, cycle, applyTimestamp, timestamp, signedReceipt, afterStates, beforeStates, appReceiptData, executionShardKey, globalModification) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
   );
 
@@ -19,12 +19,12 @@ export const initialize = (db: sqlite3.Database): void => {
     'queryReceiptById',
     db.prepare(`SELECT * FROM receipts WHERE receiptId=?`)
   );
-  
+
   addPreparedStatement(
     'queryReceiptByIdAndTimestamp',
     db.prepare(`SELECT * FROM receipts WHERE receiptId=? AND timestamp=?`)
   );
-  
+
 
   addPreparedStatement(
     'queryLatestReceipts',
@@ -51,9 +51,9 @@ export const initialize = (db: sqlite3.Database): void => {
     'queryReceiptCountByCycles',
     db.prepare(
       `SELECT cycle, COUNT(*) FROM receipts 
-       GROUP BY cycle 
-       HAVING cycle BETWEEN ? AND ? 
-       ORDER BY cycle ASC`
+        GROUP BY cycle 
+        HAVING cycle BETWEEN ? AND ? 
+        ORDER BY cycle ASC`
     )
   );
 
@@ -61,7 +61,7 @@ export const initialize = (db: sqlite3.Database): void => {
     'queryReceiptCountBetweenCycles',
     db.prepare(
       `SELECT COUNT(*) FROM receipts 
-       WHERE cycle BETWEEN ? AND ?`
+        WHERE cycle BETWEEN ? AND ?`
     )
   );
 
@@ -69,9 +69,9 @@ export const initialize = (db: sqlite3.Database): void => {
     'queryReceiptsBetweenCycles',
     db.prepare(
       `SELECT * FROM receipts 
-       WHERE cycle BETWEEN ? AND ? 
-       ORDER BY cycle ASC, timestamp ASC 
-       LIMIT ? OFFSET ?`
+        WHERE cycle BETWEEN ? AND ? 
+        ORDER BY cycle ASC, timestamp ASC 
+        LIMIT ? OFFSET ?`
     )
   );
 };

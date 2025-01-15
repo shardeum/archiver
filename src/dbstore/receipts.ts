@@ -328,10 +328,10 @@ export async function queryReceiptCountBetweenCycles(
 ): Promise<number> {
   try {
     const stmt = getPreparedStmt('queryReceiptCountBetweenCycles');
-    const result = await new Promise<{ count: number }>((resolve, reject) => {
+    const result = await new Promise<{ 'COUNT(*)': number }>((resolve, reject) => {
       stmt.get([startCycleNumber, endCycleNumber], (err, row) => {
         if (err) reject(err);
-        else resolve(row as { count: number });
+        else resolve(row as { 'COUNT(*)': number });
       });
     });
 
@@ -339,12 +339,13 @@ export async function queryReceiptCountBetweenCycles(
       Logger.mainLogger.debug('Receipt count between cycles', result);
     }
 
-    return result ? result.count : 0; // Return the count value
+    return result ? result['COUNT(*)'] : 0; // Access 'COUNT(*)' explicitly
   } catch (e) {
     Logger.mainLogger.error(e);
     return 0; // Return 0 in case of an error
   }
 }
+
 
 export async function queryReceiptsBetweenCycles(
   skip = 0,
