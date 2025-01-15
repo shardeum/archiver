@@ -4,6 +4,7 @@ import { createDB, runCreate, close } from './sqlite3storage'
 import { createDirectories } from '../Utils'
 import { finalizePreparedStatements } from './prepared-statements/preparedStmtManager'
 import { initialize as initializeAccountPreparedStatements } from './prepared-statements/preparedStmtAccounts';
+import { initialize as initializeCyclesPreparedStatements } from './prepared-statements/preparedStmtCycles';
 
 export let cycleDatabase: Database
 export let accountDatabase: Database
@@ -112,9 +113,9 @@ export const initializeDB = async (config: Config): Promise<void> => {
     'CREATE INDEX if not exists `processedTxs_cycle_idx` ON `processedTxs` (`cycle`)'
   )
 
-  // Initialize prepared statements for accounts
+  // Initialize prepared statements
   initializeAccountPreparedStatements(accountDatabase);
-
+  initializeCyclesPreparedStatements(cycleDatabase);
 
 
 }

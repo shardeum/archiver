@@ -7,6 +7,13 @@ import * as Utils from '../Utils'
 import { globalAccountsMap } from '../GlobalAccount'
 import * as NodeList from '../NodeList'
 import { currentNetworkMode } from './Cycles'
+import {
+  fetchAccountsByRangeWithAccountOffset,
+  fetchAccountsByRangeWithoutAccountOffset,
+  AccountsCopy
+} from '../dbstore/accounts';
+import { DeSerializeFromJsonString } from '../utils/serialization'
+
 
 interface WrappedData {
   /** Account ID */
@@ -175,90 +182,178 @@ export const validateGlobalAccountReportRequest = (
   }
   return { success: true }
 }
+
+
 /**
- *
- * This function is contructed to provide data in similar way as the `getAccountDataByRangeSmart` function in the validator
+ * Provides account data in the range specified by the payload.
  * @param payload
  * @returns GetAccountDataByRangeSmart
  */
 export const provideAccountDataRequest = async (
   payload: AccountDataRequestSchema
 ): Promise<GetAccountDataByRangeSmart> => {
-  const wrappedAccounts: WrappedStateArray = []
-  const wrappedAccounts2: WrappedStateArray = [] // We might not need to provide data to this
-  let lastUpdateNeeded = false
-  let highestTs = 0
-  let delta = 0
-  const { accountStart, accountEnd, tsStart, maxRecords, offset, accountOffset } = payload
-  const tsEnd = Date.now()
-  // Query from Shardeum->queryAccountsEntryByRanges3 fn
-  // const query = `SELECT * FROM accountsEntry
-  // WHERE (timestamp, accountId) >= (${tsStart}, "${accountOffset}")
-  // AND timestamp < ${tsEnd}
-  // AND accountId <= "${accountEnd}" AND accountId >= "${accountStart}"
-  // ORDER BY timestamp, accountId  LIMIT ${maxRecords}`
+  const wrappedAccounts: WrappedStateArray = [];
+  const wrappedAccounts2: WrappedStateArray = [];
+  let lastUpdateNeeded = false;
+  let highestTs = 0;
+  let delta = 0;
+  const { accountStart, accountEnd, tsStart, maxRecords, offset, accountOffset } = payload;
+  const tsEnd = Date.now();
 
-  const safeSkip = Number.isInteger(offset) ? offset : 0
-  const safeLimit = Number.isInteger(maxRecords) ? maxRecords : 100
-  const sqlPrefix = `SELECT * FROM accounts WHERE `
-  const queryString = `accountId BETWEEN ? AND ? AND timestamp BETWEEN ? AND ? ORDER BY timestamp ASC, accountId ASC LIMIT ${safeLimit}`
-  const offsetCondition = ` OFFSET ${safeSkip}`
-  let sql = sqlPrefix
-  let values = []
-  if (accountOffset) {
-    sql += `accountId >= ? AND `
-    values.push(accountOffset)
-  }
-  sql += queryString
-  values.push(accountStart, accountEnd, tsStart, tsEnd)
-  if (!accountOffset) sql += offsetCondition
+  const safeSkip = Number.isInteger(offset) ? offset : 0;
+  const safeLimit = Number.isInteger(maxRecords) ? maxRecords : 100;
 
-  let accounts = await Account.fetchAccountsBySqlQuery(sql, values)
-  for (const account of accounts) {
-    wrappedAccounts.push({
-      accountId: account.accountId,
-      stateId: account.hash,
-      data: account.data,
-      timestamp: account.timestamp,
-    })
-  }
-  if (wrappedAccounts.length === 0) {
-    lastUpdateNeeded = true
-  } else {
-    // see if our newest record is new enough
-    highestTs = 0
-    for (const account of wrappedAccounts) {
-      if (account.timestamp > highestTs) {
-        highestTs = account.timestamp
+  try {
+    let accounts: AccountsCopy[] = [];
+    if (accountOffset) {
+      // Fetch accounts with `accountOffset`
+      accounts = await fetchAccountsByRangeWithAccountOffset(
+        accountStart,
+        accountEnd,
+        tsStart,
+        tsEnd,
+        accountOffset,
+        safeLimit
+      );
+    } else {
+      // Fetch accounts without `accountOffset`
+      accounts = await fetchAccountsByRangeWithoutAccountOffset(
+        accountStart,
+        accountEnd,
+        tsStart,
+        tsEnd,
+        safeLimit,
+        safeSkip
+      );
+    }
+
+    for (const account of accounts) {
+      wrappedAccounts.push({
+        accountId: account.accountId,
+        stateId: account.hash,
+        data: account.data,
+        timestamp: account.timestamp,
+      });
+    }
+
+    if (wrappedAccounts.length === 0) {
+      lastUpdateNeeded = true;
+    } else {
+      highestTs = Math.max(...wrappedAccounts.map((a) => a.timestamp));
+      delta = tsEnd - highestTs;
+
+      if (delta < QUEUE_SIT_TIME * 2) {
+        const tsStart2 = highestTs;
+        const tsEnd2 = Date.now();
+
+        const accounts2 = await fetchAccountsByRangeWithoutAccountOffset(
+          accountStart,
+          accountEnd,
+          tsStart2,
+          tsEnd2,
+          safeLimit,
+          safeSkip
+        );
+
+        for (const account of accounts2) {
+          wrappedAccounts2.push({
+            accountId: account.accountId,
+            stateId: account.hash,
+            data: account.data,
+            timestamp: account.timestamp,
+          });
+        }
+        lastUpdateNeeded = true;
       }
     }
-    delta = tsEnd - highestTs
-    // Logger.mainLogger.debug('Account Data received', StringUtils.safeStringify(payload))
-    // Logger.mainLogger.debug(
-    //   'delta ' + delta,
-    //   'tsEnd ' + tsEnd,
-    //   'highestTs ' + highestTs,
-    //   delta < QUEUE_SIT_TIME * 2
-    // )
-    if (delta < QUEUE_SIT_TIME * 2) {
-      const tsStart2 = highestTs
-      const tsEnd2 = Date.now()
-      sql = sqlPrefix + queryString + offsetCondition
-      values = [accountStart, accountEnd, tsStart2, tsEnd2]
-      accounts = await Account.fetchAccountsBySqlQuery(sql, values)
-      for (const account of accounts) {
-        wrappedAccounts2.push({
-          accountId: account.accountId,
-          stateId: account.hash,
-          data: account.data,
-          timestamp: account.timestamp,
-        })
-      }
-      lastUpdateNeeded = true
-    }
+  } catch (e) {
+    Logger.mainLogger.error(e);
   }
-  return { wrappedAccounts, lastUpdateNeeded, wrappedAccounts2, highestTs, delta }
-}
+
+  return { wrappedAccounts, lastUpdateNeeded, wrappedAccounts2, highestTs, delta };
+};
+
+
+
+// /**
+//  *
+//  * This function is contructed to provide data in similar way as the `getAccountDataByRangeSmart` function in the validator
+//  * @param payload
+//  * @returns GetAccountDataByRangeSmart
+//  */
+// export const provideAccountDataRequest = async (
+//   payload: AccountDataRequestSchema
+// ): Promise<GetAccountDataByRangeSmart> => {
+//   const wrappedAccounts: WrappedStateArray = []
+//   const wrappedAccounts2: WrappedStateArray = [] // We might not need to provide data to this
+//   let lastUpdateNeeded = false
+//   let highestTs = 0
+//   let delta = 0
+//   const { accountStart, accountEnd, tsStart, maxRecords, offset, accountOffset } = payload
+//   const tsEnd = Date.now()
+
+//   const safeSkip = Number.isInteger(offset) ? offset : 0
+//   const safeLimit = Number.isInteger(maxRecords) ? maxRecords : 100
+//   const sqlPrefix = `SELECT * FROM accounts WHERE `
+//   const queryString = `accountId BETWEEN ? AND ? AND timestamp BETWEEN ? AND ? ORDER BY timestamp ASC, accountId ASC LIMIT ${safeLimit}`
+//   const offsetCondition = ` OFFSET ${safeSkip}`
+//   let sql = sqlPrefix
+//   let values = []
+//   if (accountOffset) {
+//     sql += `accountId >= ? AND `
+//     values.push(accountOffset)
+//   }
+//   sql += queryString
+//   values.push(accountStart, accountEnd, tsStart, tsEnd)
+//   if (!accountOffset) sql += offsetCondition
+
+//   let accounts = await Account.fetchAccountsBySqlQuery(sql, values)
+//   for (const account of accounts) {
+//     wrappedAccounts.push({
+//       accountId: account.accountId,
+//       stateId: account.hash,
+//       data: account.data,
+//       timestamp: account.timestamp,
+//     })
+//   }
+//   if (wrappedAccounts.length === 0) {
+//     lastUpdateNeeded = true
+//   } else {
+//     // see if our newest record is new enough
+//     highestTs = 0
+//     for (const account of wrappedAccounts) {
+//       if (account.timestamp > highestTs) {
+//         highestTs = account.timestamp
+//       }
+//     }
+//     delta = tsEnd - highestTs
+//     // Logger.mainLogger.debug('Account Data received', StringUtils.safeStringify(payload))
+//     // Logger.mainLogger.debug(
+//     //   'delta ' + delta,
+//     //   'tsEnd ' + tsEnd,
+//     //   'highestTs ' + highestTs,
+//     //   delta < QUEUE_SIT_TIME * 2
+//     // )
+//     if (delta < QUEUE_SIT_TIME * 2) {
+//       const tsStart2 = highestTs
+//       const tsEnd2 = Date.now()
+//       sql = sqlPrefix + queryString + offsetCondition
+//       values = [accountStart, accountEnd, tsStart2, tsEnd2]
+//       accounts = await Account.fetchAccountsBySqlQuery(sql, values)
+//       for (const account of accounts) {
+//         wrappedAccounts2.push({
+//           accountId: account.accountId,
+//           stateId: account.hash,
+//           data: account.data,
+//           timestamp: account.timestamp,
+//         })
+//       }
+//       lastUpdateNeeded = true
+//     }
+//   }
+//   return { wrappedAccounts, lastUpdateNeeded, wrappedAccounts2, highestTs, delta }
+// }
+
 
 export const provideAccountDataByListRequest = async (
   payload: AccountDataByListRequestSchema

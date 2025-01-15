@@ -57,18 +57,7 @@ export const initialize = (db: sqlite3.Database): void => {
   );
 
   addPreparedStatement(
-    'fetchAccountsByRangeWithOffset',
-    db.prepare(
-      `SELECT * FROM accounts 
-       WHERE accountId BETWEEN ? AND ? 
-       AND timestamp BETWEEN ? AND ? 
-       ORDER BY timestamp ASC, accountId ASC 
-       LIMIT ? OFFSET ?`
-    )
-  );
-
-  addPreparedStatement(
-    'fetchAccountsByRangeWithOffsetAlt',
+    'fetchAccountsByRangeWithAccountOffset',
     db.prepare(
       `SELECT * FROM accounts 
        WHERE accountId BETWEEN ? AND ? 
@@ -80,10 +69,14 @@ export const initialize = (db: sqlite3.Database): void => {
   );
 
   addPreparedStatement(
-    'fetchAccountsByList',
+    'fetchAccountsByRangeWithoutAccountOffset',
     db.prepare(
       `SELECT * FROM accounts 
-       WHERE accountId IN (?)`
+       WHERE accountId BETWEEN ? AND ? 
+       AND timestamp BETWEEN ? AND ? 
+       ORDER BY timestamp ASC, accountId ASC 
+       LIMIT ? OFFSET ?`
     )
   );
+
 };

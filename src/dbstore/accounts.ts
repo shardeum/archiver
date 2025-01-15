@@ -323,6 +323,68 @@ export async function queryAccountsBetweenCycles(
   return accounts
 }
 
+
+/**
+ * Fetch accounts using the `fetchAccountsByRangeWithAccountOffset` prepared statement.
+ */
+export async function fetchAccountsByRangeWithAccountOffset(
+  accountStart: string,
+  accountEnd: string,
+  tsStart: number,
+  tsEnd: number,
+  accountOffset: string,
+  limit: number
+): Promise<AccountsCopy[]> {
+  try {
+    const stmt = getPreparedStmt('fetchAccountsByRangeWithAccountOffset');
+    const dbAccounts = await new Promise<DbAccountCopy[]>((resolve, reject) => {
+      stmt.all([accountStart, accountEnd, tsStart, tsEnd, accountOffset, limit], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as DbAccountCopy[]);
+      });
+    });
+
+    return dbAccounts.map((dbAccount) => ({
+      ...dbAccount,
+      data: DeSerializeFromJsonString(dbAccount.data),
+    }));
+  } catch (e) {
+    Logger.mainLogger.error(e);
+    return [];
+  }
+}
+
+/**
+ * Fetch accounts using the `fetchAccountsByRangeWithoutAccountOffset` prepared statement.
+ */
+export async function fetchAccountsByRangeWithoutAccountOffset(
+  accountStart: string,
+  accountEnd: string,
+  tsStart: number,
+  tsEnd: number,
+  limit: number,
+  offset: number
+): Promise<AccountsCopy[]> {
+  try {
+    const stmt = getPreparedStmt('fetchAccountsByRangeWithoutAccountOffset');
+    const dbAccounts = await new Promise<DbAccountCopy[]>((resolve, reject) => {
+      stmt.all([accountStart, accountEnd, tsStart, tsEnd, limit, offset], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as DbAccountCopy[]);
+      });
+    });
+
+    return dbAccounts.map((dbAccount) => ({
+      ...dbAccount,
+      data: DeSerializeFromJsonString(dbAccount.data),
+    }));
+  } catch (e) {
+    Logger.mainLogger.error(e);
+    return [];
+  }
+}
+
+
 export async function fetchAccountsBySqlQuery(sql: string, value: string[]): Promise<AccountsCopy[]> {
   const accounts: AccountsCopy[] = []
   try {
