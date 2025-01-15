@@ -5,6 +5,11 @@ import { createDirectories } from '../Utils'
 import { finalizePreparedStatements } from './prepared-statements/preparedStmtManager'
 import { initialize as initializeAccountPreparedStatements } from './prepared-statements/preparedStmtAccounts';
 import { initialize as initializeCyclesPreparedStatements } from './prepared-statements/preparedStmtCycles';
+import { initialize as initializeOriginalTxDataPreparedStatements } from './prepared-statements/preparedStmtOriginalTxData';
+import { initialize as initializeProcessedTxsPreparedStatements } from './prepared-statements/preparedStmtProcessedTxs';
+import { initialize as initializeReceiptsPreparedStatements } from './prepared-statements/preparedStmtReceipts';
+import { initialize as initializeTransactionsPreparedStatements } from './prepared-statements/preparedStmtTransactions';
+
 
 export let cycleDatabase: Database
 export let accountDatabase: Database
@@ -116,6 +121,10 @@ export const initializeDB = async (config: Config): Promise<void> => {
   // Initialize prepared statements
   initializeAccountPreparedStatements(accountDatabase);
   initializeCyclesPreparedStatements(cycleDatabase);
+  initializeOriginalTxDataPreparedStatements(originalTxDataDatabase);
+  initializeProcessedTxsPreparedStatements(processedTxDatabase);
+  initializeReceiptsPreparedStatements(receiptDatabase);
+  initializeTransactionsPreparedStatements(transactionDatabase);
 
 
 }

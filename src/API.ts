@@ -866,10 +866,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     } else if (txId) {
       transactions = await TransactionDB.queryTransactionByTxId(txId)
       res = { transactions }
-    } else if (appReceiptId) {
-      transactions = await TransactionDB.queryTransactionByAccountId(appReceiptId)
-      res = { transactions }
-    } else {
+    }  else {
       res = {
         success: false,
         error: 'not specified which transaction to show',

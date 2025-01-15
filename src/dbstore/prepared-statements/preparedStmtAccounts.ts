@@ -1,9 +1,7 @@
 import * as sqlite3 from 'sqlite3';
 import { addPreparedStatement } from './preparedStmtManager';
 
-/**
- * Initialize prepared statements for the `accounts` table.
- */
+
 export const initialize = (db: sqlite3.Database): void => {
   addPreparedStatement(
     'insertAccount',

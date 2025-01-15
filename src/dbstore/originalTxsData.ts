@@ -95,7 +95,7 @@ export async function queryOriginalTxDataCount(startCycle?: number, endCycle?: n
     const values: number[] = [];
 
     if (startCycle !== undefined && endCycle !== undefined) {
-      stmt = getPreparedStmt('queryOriginalTxDataCountByCycles');
+      stmt = getPreparedStmt('queryOriginalTxDataCountBetweenCycles');
       values.push(startCycle, endCycle);
     } else {
       stmt = getPreparedStmt('queryOriginalTxDataCount');

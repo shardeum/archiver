@@ -1,9 +1,7 @@
 import * as sqlite3 from 'sqlite3';
 import { addPreparedStatement } from './preparedStmtManager';
 
-/**
- * Initialize prepared statements for the `receipts` table.
- */
+
 export const initialize = (db: sqlite3.Database): void => {
 
     addPreparedStatement(
@@ -21,7 +19,7 @@ export const initialize = (db: sqlite3.Database): void => {
     );
     
     addPreparedStatement(
-    'queryOriginalTxDataCountByCycles',
+    'queryOriginalTxDataCountBetweenCycles',
         db.prepare(`SELECT COUNT(*) FROM originalTxsData WHERE cycle BETWEEN ? AND ?`)
     );
 
