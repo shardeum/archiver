@@ -6,6 +6,7 @@ import * as Logger from '../Logger'
 import { config } from '../Config'
 import { DeSerializeFromJsonString , SerializeToJsonString} from '../utils/serialization'
 import { AccountsCopy } from '../dbstore/accounts'
+import { getPreparedStmt } from './prepared-statements/preparedStmtManager';
 
 // const superjson =  require('superjson')
 export type Proposal = {
@@ -109,34 +110,26 @@ type DbReceiptCount = ReceiptCount & {
 
 export async function insertReceipt(receipt: Receipt): Promise<void> {
   try {
-    // Define the columns to match the database schema
-    const columns = [
-      'receiptId',
-      'tx',
-      'cycle',
-      'applyTimestamp',
-      'timestamp',
-      'signedReceipt',
-      'afterStates',
-      'beforeStates',
-      'appReceiptData',
-      'executionShardKey',
-      'globalModification',
+    const stmt = getPreparedStmt('insertReceipt');
+    const values = [
+      receipt.receiptId,
+      SerializeToJsonString(receipt.tx),
+      receipt.cycle,
+      receipt.applyTimestamp,
+      receipt.timestamp,
+      SerializeToJsonString(receipt.signedReceipt),
+      SerializeToJsonString(receipt.afterStates),
+      SerializeToJsonString(receipt.beforeStates),
+      SerializeToJsonString(receipt.appReceiptData),
+      receipt.executionShardKey,
+      receipt.globalModification,
     ];
-
-    // Create placeholders for the values
-    const placeholders = `(${columns.map(() => '?').join(', ')})`;
-    const sql = `INSERT OR REPLACE INTO receipts (${columns.join(', ')}) VALUES ${placeholders}`;
-
-    // Map the receipt object to match the columns
-    const values = columns.map((column) =>
-      typeof receipt[column] === 'object'
-        ? SerializeToJsonString(receipt[column]) // Serialize objects to JSON strings
-        : receipt[column]
-    );
-
-    // Execute the query directly
-    await db.run(receiptDatabase, sql, values);
+    await new Promise<void>((resolve, reject) => {
+      stmt.run(values, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
 
     if (config.VERBOSE) {
       Logger.mainLogger.debug('Successfully inserted Receipt', receipt.receiptId);
@@ -144,11 +137,12 @@ export async function insertReceipt(receipt: Receipt): Promise<void> {
   } catch (err) {
     Logger.mainLogger.error(err);
     Logger.mainLogger.error(
-      'Unable to insert Receipt or it is already stored in the database',
+      'Unable to insert Receipt in the Database',
       receipt.receiptId
     );
   }
 }
+
 
 export async function bulkInsertReceipts(receipts: Receipt[]): Promise<void> {
 
@@ -194,127 +188,162 @@ export async function bulkInsertReceipts(receipts: Receipt[]): Promise<void> {
   }
 }
 
-
-
-
 export async function queryReceiptByReceiptId(receiptId: string, timestamp = 0): Promise<Receipt> {
   try {
-    const sql = `SELECT * FROM receipts WHERE receiptId=?` + (timestamp ? ` AND timestamp=?` : '')
-    const value = timestamp ? [receiptId, timestamp] : [receiptId]
-    const receipt = (await db.get(receiptDatabase, sql, value)) as DbReceipt
-    if (receipt) deserializeDbReceipt(receipt)
+    const stmt = timestamp
+      ? getPreparedStmt('queryReceiptByIdAndTimestamp')
+      : getPreparedStmt('queryReceiptById');
+    const values = timestamp ? [receiptId, timestamp] : [receiptId];
+    const receipt = await new Promise<DbReceipt>((resolve, reject) => {
+      stmt.get(values, (err, row) => {
+        if (err) reject(err);
+        else resolve(row as DbReceipt);
+      });
+    });
+
+    if (receipt) deserializeDbReceipt(receipt);
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Receipt receiptId', receipt)
+      Logger.mainLogger.debug('Receipt receiptId', receipt);
     }
-    return receipt
+
+    return receipt;
   } catch (e) {
-    Logger.mainLogger.error(e)
-    return null
+    Logger.mainLogger.error(e);
+    return null;
   }
 }
+
 
 export async function queryLatestReceipts(count: number): Promise<Receipt[]> {
-  if (!Number.isInteger(count)) {
-    Logger.mainLogger.error('queryLatestReceipts - Invalid count value')
-    return null
+  if (!Number.isInteger(count) || count <= 0) {
+    Logger.mainLogger.error('queryLatestReceipts - Invalid count value');
+    return [];
   }
   try {
-    const sql = `SELECT * FROM receipts ORDER BY cycle DESC, timestamp DESC LIMIT ${count ? count : 100}`
-    const receipts = (await db.all(receiptDatabase, sql)) as DbReceipt[]
+    const stmt = getPreparedStmt('queryLatestReceipts');
+    const receipts = await new Promise<DbReceipt[]>((resolve, reject) => {
+      stmt.all([count], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as DbReceipt[]);
+      });
+    });
+
     if (receipts.length > 0) {
-      receipts.forEach((receipt: DbReceipt) => {
-        deserializeDbReceipt(receipt)
-      })
+      receipts.forEach((receipt: DbReceipt) => deserializeDbReceipt(receipt));
     }
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Receipt latest', receipts)
+      Logger.mainLogger.debug('Receipt latest', receipts);
     }
-    return receipts
+
+    return receipts;
   } catch (e) {
-    Logger.mainLogger.error(e)
-    return null
+    Logger.mainLogger.error(e);
+    return [];
   }
 }
+
 
 export async function queryReceipts(skip = 0, limit = 10000): Promise<Receipt[]> {
-  let receipts: Receipt[] = []
-  if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
-    Logger.mainLogger.error('queryReceipts - Invalid skip or limit')
-    return receipts
+  if (!Number.isInteger(skip) || !Number.isInteger(limit) || skip < 0 || limit <= 0) {
+    Logger.mainLogger.error('queryReceipts - Invalid skip or limit');
+    return [];
   }
+
   try {
-    const sql = `SELECT * FROM receipts ORDER BY cycle ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
-    receipts = (await db.all(receiptDatabase, sql)) as DbReceipt[]
+    const stmt = getPreparedStmt('queryReceipts');
+    const receipts = await new Promise<DbReceipt[]>((resolve, reject) => {
+      stmt.all([limit, skip], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as DbReceipt[]);
+      });
+    });
+
     if (receipts.length > 0) {
-      receipts.forEach((receipt: DbReceipt) => {
-        deserializeDbReceipt(receipt)
-      })
+      receipts.forEach((receipt: DbReceipt) => deserializeDbReceipt(receipt));
     }
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('Receipt receipts', receipts.length, 'skip', skip);
+    }
+
+    return receipts;
   } catch (e) {
-    Logger.mainLogger.error(e)
+    Logger.mainLogger.error(e);
+    return [];
   }
-  if (config.VERBOSE) {
-    Logger.mainLogger.debug('Receipt receipts', receipts ? receipts.length : receipts, 'skip', skip)
-  }
-  return receipts
 }
 
+
 export async function queryReceiptCount(): Promise<number> {
-  let receipts
   try {
-    const sql = `SELECT COUNT(*) FROM receipts`
-    receipts = await db.get(receiptDatabase, sql, [])
+    const stmt = getPreparedStmt('queryReceiptCount');
+    const result = await new Promise<{ count: number }>((resolve, reject) => {
+      stmt.get([], (err, row) => {
+        if (err) reject(err);
+        else resolve(row as { count: number });
+      });
+    });
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('Receipt count', result);
+    }
+
+    return result?.count || 0;
   } catch (e) {
-    Logger.mainLogger.error(e)
+    Logger.mainLogger.error(e);
+    return 0;
   }
-  if (config.VERBOSE) {
-    Logger.mainLogger.debug('Receipt count', receipts)
-  }
-  if (receipts) receipts = receipts['COUNT(*)']
-  else receipts = 0
-  return receipts
 }
 
 export async function queryReceiptCountByCycles(start: number, end: number): Promise<ReceiptCount[]> {
-  let receiptsCount: ReceiptCount[]
-  let dbReceiptsCount: DbReceiptCount[]
   try {
-    const sql = `SELECT cycle, COUNT(*) FROM receipts GROUP BY cycle HAVING cycle BETWEEN ? AND ? ORDER BY cycle ASC`
-    dbReceiptsCount = (await db.all(receiptDatabase, sql, [start, end])) as DbReceiptCount[]
+    const stmt = getPreparedStmt('queryReceiptCountByCycles');
+    const dbReceiptsCount = await new Promise<DbReceiptCount[]>((resolve, reject) => {
+      stmt.all([start, end], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as DbReceiptCount[]);
+      });
+    });
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('Receipt count by cycle', dbReceiptsCount);
+    }
+
+    // Map the database rows into the `ReceiptCount` structure
+    return dbReceiptsCount.map((dbReceipt) => ({
+      cycle: dbReceipt.cycle,
+      receiptCount: dbReceipt['COUNT(*)'], // Access the count field
+    }));
   } catch (e) {
-    Logger.mainLogger.error(e)
+    Logger.mainLogger.error(e);
+    return [];
   }
-  if (config.VERBOSE) {
-    Logger.mainLogger.debug('Receipt count by cycle', dbReceiptsCount)
-  }
-  if (dbReceiptsCount.length > 0) {
-    receiptsCount = dbReceiptsCount.map((dbReceipt) => {
-      return {
-        cycle: dbReceipt.cycle,
-        receiptCount: dbReceipt['COUNT(*)'],
-      }
-    })
-  }
-  return receiptsCount
 }
 
 export async function queryReceiptCountBetweenCycles(
   startCycleNumber: number,
   endCycleNumber: number
 ): Promise<number> {
-  let receipts
   try {
-    const sql = `SELECT COUNT(*) FROM receipts WHERE cycle BETWEEN ? AND ?`
-    receipts = await db.get(receiptDatabase, sql, [startCycleNumber, endCycleNumber])
+    const stmt = getPreparedStmt('queryReceiptCountBetweenCycles');
+    const result = await new Promise<{ count: number }>((resolve, reject) => {
+      stmt.get([startCycleNumber, endCycleNumber], (err, row) => {
+        if (err) reject(err);
+        else resolve(row as { count: number });
+      });
+    });
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('Receipt count between cycles', result);
+    }
+
+    return result ? result.count : 0; // Return the count value
   } catch (e) {
-    console.log(e)
+    Logger.mainLogger.error(e);
+    return 0; // Return 0 in case of an error
   }
-  if (config.VERBOSE) {
-    Logger.mainLogger.debug('Receipt count between cycles', receipts)
-  }
-  if (receipts) receipts = receipts['COUNT(*)']
-  else receipts = 0
-  return receipts
 }
 
 export async function queryReceiptsBetweenCycles(
@@ -323,32 +352,45 @@ export async function queryReceiptsBetweenCycles(
   startCycleNumber: number,
   endCycleNumber: number
 ): Promise<Receipt[]> {
-  let receipts: Receipt[] = []
+  const receipts: Receipt[] = [];
+  
+  // Validate input
   if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
-    Logger.mainLogger.error('queryReceiptsBetweenCycles - Invalid skip or limit')
-    return receipts
+    Logger.mainLogger.error('queryReceiptsBetweenCycles - Invalid skip or limit');
+    return receipts;
   }
+
   try {
-    const sql = `SELECT * FROM receipts WHERE cycle BETWEEN ? AND ? ORDER BY cycle ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
-    receipts = (await db.all(receiptDatabase, sql, [startCycleNumber, endCycleNumber])) as DbReceipt[]
-    if (receipts.length > 0) {
-      receipts.forEach((receipt: DbReceipt) => {
-        deserializeDbReceipt(receipt)
-      })
+    const stmt = getPreparedStmt('queryReceiptsBetweenCycles');
+    const dbReceipts = await new Promise<DbReceipt[]>((resolve, reject) => {
+      stmt.all([startCycleNumber, endCycleNumber, limit, skip], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as DbReceipt[]);
+      });
+    });
+
+    if (dbReceipts.length > 0) {
+      dbReceipts.forEach((receipt: DbReceipt) => {
+        deserializeDbReceipt(receipt);
+        receipts.push(receipt as Receipt);
+      });
+    }
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug(
+        'Receipt receipts between cycles',
+        receipts.length,
+        'skip',
+        skip
+      );
     }
   } catch (e) {
-    console.log(e)
+    Logger.mainLogger.error(e);
   }
-  if (config.VERBOSE) {
-    Logger.mainLogger.debug(
-      'Receipt receipts between cycles',
-      receipts ? receipts.length : receipts,
-      'skip',
-      skip
-    )
-  }
-  return receipts
+
+  return receipts;
 }
+
 
 function deserializeDbReceipt(receipt: DbReceipt): void {
   if (receipt.tx) receipt.tx = DeSerializeFromJsonString(receipt.tx)
