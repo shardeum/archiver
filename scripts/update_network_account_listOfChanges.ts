@@ -84,12 +84,22 @@ const askConfigQuestions = async (): Promise<ConfigSchema> => {
         const expectedType = typeof defaultConfig[section][key]
         const parsedValue = parseInput(value, expectedType, defaultConfig[section][key])
 
-        if (parsedValue !== defaultConfig[section][key] || value === '') {
+        // If empty input, use default value
+        if (value === '') {
+          userConfig[section][key] = defaultConfig[section][key]
+          isValid = true
+        }
+        // If valid parsed value
+        else if (parsedValue !== undefined) {
           userConfig[section][key] = parsedValue
           isValid = true
-        } else {
+        }
+        // Invalid input
+        else {
           attempts++
-          console.log(`Invalid input. Please enter a valid ${expectedType} for ${section}.${key}. (${attempts}/${maxAttempts} attempts)`)
+          console.log(
+            `Invalid input. Please enter a valid ${expectedType} for ${section}.${key}. (${attempts}/${maxAttempts} attempts)`
+          )
         }
       }
 
@@ -112,7 +122,11 @@ const getCycleNumber = async (): Promise<number> => {
   let cycleNumberInput: number
   do {
     cycleNumberInput = parseInt(
-      await askQuestion('Enter cycle number (must be less than the latest cycle number, latest cycle number is: ' + latestCycleNumber + '): '),
+      await askQuestion(
+        'Enter cycle number (must be less than the latest cycle number, latest cycle number is: ' +
+          latestCycleNumber +
+          '): '
+      ),
       10
     )
     if (isNaN(cycleNumberInput) || cycleNumberInput >= latestCycleNumber) {
@@ -124,67 +138,82 @@ const getCycleNumber = async (): Promise<number> => {
 }
 
 const runProgram = async (): Promise<void> => {
-  initAjvSchemas()
-  initializeSerialization()
-
-  // Load configuration from file
-  const file = join(process.cwd(), 'archiver-config.json')
-  overrideDefaultConfig(file)
-
-  const hashKey = config.ARCHIVER_HASH_KEY
-  Crypto.setCryptoHashKey(hashKey)
-
-  let logsConfig
   try {
-    logsConfig = StringUtils.safeJsonParse(readFileSync(resolve(__dirname, '../archiver-log.json'), 'utf8'))
-  } catch (err) {
-    console.log('Failed to parse archiver log file:', err)
+    initAjvSchemas()
+    initializeSerialization()
+
+    // Load configuration from file
+    const file = join(process.cwd(), 'archiver-config.json')
+    overrideDefaultConfig(file)
+
+    const hashKey = config.ARCHIVER_HASH_KEY
+    Crypto.setCryptoHashKey(hashKey)
+
+    let logsConfig
+    try {
+      logsConfig = StringUtils.safeJsonParse(readFileSync(resolve(__dirname, '../archiver-log.json'), 'utf8'))
+    } catch (err) {
+      console.log('Failed to parse archiver log file:', err)
+    }
+    const logDir = `${config.ARCHIVER_LOGS}/${config.ARCHIVER_IP}_${config.ARCHIVER_PORT}`
+    const baseDir = '.'
+    logsConfig.dir = logDir
+    Logger.initLogger(baseDir, logsConfig)
+    if (logsConfig.saveConsoleOutput) {
+      startSaving(join(baseDir, logsConfig.dir))
+    }
+
+    await dbstore.initializeDB(config)
+
+    const userConfig = await askConfigQuestions() // Get config values
+    const cycleNumber = await getCycleNumber() // Get the latest cycle number
+
+    addSigListeners()
+
+    const networkAccountId = config.globalNetworkAccount
+    const networkAccount = (await AccountDB.queryAccountByAccountId(
+      networkAccountId
+    )) as AccountDB.AccountsCopy
+
+    // Add changes to listOfChanges
+    const changes = {
+      change: userConfig,
+      cycle: cycleNumber,
+    }
+
+    console.log('Proposed Changes:', JSON.stringify(changes, null, 2))
+
+    const confirmation = (
+      await askQuestion('Are you sure you want to proceed with these changes? (yes/no): ')
+    ).trim()
+    console.log(`User input: ${confirmation}`)
+    if (confirmation.toLowerCase() === 'yes' || confirmation.toLowerCase() === 'y') {
+      networkAccount.data.listOfChanges.push(changes)
+
+      const calculatedAccountHash = accountSpecificHash(networkAccount.data)
+      networkAccount.hash = calculatedAccountHash
+      networkAccount.data.hash = calculatedAccountHash
+
+      await AccountDB.insertAccount(networkAccount)
+      console.log('✅ Changes were applied.')
+    } else {
+      console.log('❌ Changes were not applied.')
+    }
+  } catch (error) {
+    console.error('An error occurred:', error)
+    throw error
+  } finally {
+    const cleanup = async () => {
+      try {
+        await dbstore.closeDatabase()
+        rl.close()
+      } catch (cleanupError) {
+        console.error('Error during cleanup:', cleanupError)
+      }
+    }
+
+    await cleanup()
   }
-  const logDir = `${config.ARCHIVER_LOGS}/${config.ARCHIVER_IP}_${config.ARCHIVER_PORT}`
-  const baseDir = '.'
-  logsConfig.dir = logDir
-  Logger.initLogger(baseDir, logsConfig)
-  if (logsConfig.saveConsoleOutput) {
-    startSaving(join(baseDir, logsConfig.dir))
-  }
-
-  await dbstore.initializeDB(config)
-
-  const userConfig = await askConfigQuestions() // Get config values
-  const cycleNumber = await getCycleNumber() // Get the latest cycle number
-
-  addSigListeners()
-
-  const networkAccountId = config.globalNetworkAccount
-  const networkAccount = (await AccountDB.queryAccountByAccountId(networkAccountId)) as AccountDB.AccountsCopy
-
-  // Add changes to listOfChanges
-  const changes = {
-    change: userConfig,
-    cycle: cycleNumber,
-  }
-
-  console.log('Proposed Changes:', JSON.stringify(changes, null, 2))
-
-  const confirmation = (
-    await askQuestion('Are you sure you want to proceed with these changes? (yes/no): ')
-  ).trim()
-  console.log(`User input: ${confirmation}`)
-  if (confirmation.toLowerCase() === 'yes' || confirmation.toLowerCase() === 'y') {
-    networkAccount.data.listOfChanges.push(changes)
-
-    const calculatedAccountHash = accountSpecificHash(networkAccount.data)
-    networkAccount.hash = calculatedAccountHash
-    networkAccount.data.hash = calculatedAccountHash
-
-    await AccountDB.insertAccount(networkAccount)
-    console.log('✅ Changes were applied.')
-  } else {
-    console.log('❌ Changes were not applied.')
-  }
-
-  await dbstore.closeDatabase()
-  rl.close()
 }
 
 runProgram()
