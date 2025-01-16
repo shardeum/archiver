@@ -24,27 +24,35 @@ class AllowedArchiversManager {
     private currentConfig: AllowedArchiversConfig | null = null
     private previousConfigHash: string = ''
     private lastSeenCounter: number = 0
-    private configPath: string
+    private configPath: string = ''
     private isInitialized: boolean = false
     private useGlobalAccount: boolean = false
     private globalAccountAllowedSigners: { [key: string]: number } = {}
     private globalAccountMinSigRequired: number = 0
 
-    constructor() {
-        this.configPath = ''
-    }
-
     public initialize(configPath: string): void {
-        if (this.isInitialized) return
+        if (this.isInitialized) {
+            return
+        }
 
         try {
+            if (!configPath) {
+                Logger.mainLogger.error('Config path is required')
+                return
+            }
+
             this.configPath = path.resolve(configPath)
+
+            if (!fs.existsSync(this.configPath)) {
+                Logger.mainLogger.error('Config file does not exist')
+                return
+            }
 
             // Load initial configuration
             this.loadAndVerifyConfig()
 
             // Watch for file changes
-            fs.watchFile(this.configPath, (curr, prev) => {
+            fs.watchFile(this.configPath, { persistent: true }, (curr, prev) => {
                 if (curr.mtime !== prev.mtime) {
                     this.loadAndVerifyConfig()
                 }
@@ -57,31 +65,37 @@ class AllowedArchiversManager {
     }
 
     public stopWatching(): void {
-        if (this.isInitialized) {
+        if (this.isInitialized && this.configPath) {
             fs.unwatchFile(this.configPath)
             this.isInitialized = false
         }
     }
 
     public setGlobalAccountConfig(allowedSigners: { [key: string]: DevSecurityLevel }, minSigRequired: number): void {
-        // Set initial values
-        this.globalAccountAllowedSigners = allowedSigners;
-        this.globalAccountMinSigRequired = minSigRequired;
-        this.useGlobalAccount = true;
-
-        // Get and apply any updates from the global account
-        const globalAccount = getGlobalNetworkAccount(false);
-        if (globalAccount) {
-            this.applyLatestGlobalAccountChanges(globalAccount);
+        if (!allowedSigners || minSigRequired < 1) {
+            Logger.mainLogger.error('Invalid global account configuration')
+            return
         }
+        this.globalAccountAllowedSigners = allowedSigners
+        this.globalAccountMinSigRequired = minSigRequired
+        this.useGlobalAccount = true
     }
 
-    private getArchiverWhitelistConfig(): {
-        allowedAccounts: { [key: string]: DevSecurityLevel }, minSigRequired: number, signatures: Sign[], counter: number, allowedArchivers: { ip: string, port: number, publicKey: string }[]
-    } {
+    private getArchiverWhitelistConfig(): AllowedArchiversConfig | null {
         try {
+            if (!this.configPath) {
+                Logger.mainLogger.error('Config path not set')
+                return null
+            }
+
             const data = fs.readFileSync(this.configPath, 'utf8')
             const newConfig = StringUtils.safeJsonParse(data)
+
+            if (!this.validateConfig(newConfig)) {
+                Logger.mainLogger.error('Invalid config structure')
+                return null
+            }
+
             const allowedAccounts = this.useGlobalAccount ? this.globalAccountAllowedSigners : newConfig.allowedAccounts
             const minSigRequired = this.useGlobalAccount ? this.globalAccountMinSigRequired : newConfig.minSigRequired
             return {
@@ -92,13 +106,30 @@ class AllowedArchiversManager {
                 allowedArchivers: newConfig.allowedArchivers
             }
         } catch (error) {
-            throw new Error('Failed to read configuration from file')
+            Logger.mainLogger.error('Failed to read configuration:', error)
+            return null
         }
+    }
+
+    private validateConfig(config: any): boolean {
+        return !!(
+            config &&
+            Array.isArray(config.allowedArchivers) &&
+            config.allowedAccounts &&
+            typeof config.minSigRequired === 'number' &&
+            typeof config.counter === 'number' &&
+            Array.isArray(config.signatures)
+        )
     }
 
     private loadAndVerifyConfig(): void {
         try {
             const getArchiverConfig = this.getArchiverWhitelistConfig()
+            if (!getArchiverConfig) {
+                Logger.mainLogger.error('Failed to get archiver config')
+                return
+            }
+
             const payload = {
                 allowedArchivers: getArchiverConfig.allowedArchivers,
                 counter: getArchiverConfig.counter
@@ -116,21 +147,25 @@ class AllowedArchiversManager {
             }
 
             const payloadHash = ethers.keccak256(ethers.toUtf8Bytes(StringUtils.safeStringify(payload)))
+
+            // Handle first config load
             if (this.previousConfigHash === '') {
                 this.previousConfigHash = payloadHash
                 this.currentConfig = getArchiverConfig
-                this.lastSeenCounter = payload.counter // Needed in case of archiver restart
+                this.lastSeenCounter = payload.counter
                 return
             }
 
+            // Handle config updates
             if (this.previousConfigHash !== payloadHash) {
-                if (payload.counter > this.lastSeenCounter) {
-                    this.lastSeenCounter = payload.counter
-                    this.previousConfigHash = payloadHash
-                    this.currentConfig = getArchiverConfig
-                } else {
+                if (payload.counter <= this.lastSeenCounter) {
                     Logger.mainLogger.error('Rejected config update: counter not incrementing')
+                    return
                 }
+
+                this.lastSeenCounter = payload.counter
+                this.previousConfigHash = payloadHash
+                this.currentConfig = getArchiverConfig
             }
         } catch (error) {
             Logger.mainLogger.error('Error loading/verifying config:', error)
@@ -138,43 +173,16 @@ class AllowedArchiversManager {
     }
 
     public getCurrentConfig(): AllowedArchiversConfig | null {
-        if (!this.currentConfig) {
-            Logger.mainLogger.error('No current config found')
-            return null
-        }
         return this.currentConfig
     }
 
     public isArchiverAllowed(publicKey: string): boolean {
-        if (!this.currentConfig) return false
+        if (!publicKey || !this.currentConfig) {
+            return false
+        }
         return this.currentConfig.allowedArchivers.some(
             archiver => archiver.publicKey === publicKey
         )
-    }
-
-    private applyLatestGlobalAccountChanges(globalAccountData: any): void {
-        try {
-            const changes = globalAccountData.data.listOfChanges;
-            if (!changes || changes.length === 0) return;
-
-            // Find the latest change
-            const latestChange = changes.reduce((prev, current) => {
-                return (current.cycle > prev.cycle) ? current : prev;
-            });
-
-            // Check if the latest change affects multisigKeys or archiverWhitelistMinSigRequired
-            if (latestChange.change?.debug) {
-                if (latestChange.change?.debug?.multisigKeys && latestChange.change?.debug?.multisigKeys.length > 0) {
-                    this.globalAccountAllowedSigners = latestChange.change.debug.multisigKeys;
-                }
-                if (latestChange.change?.debug?.minSigRequiredForArchiverWhitelist !== undefined) {
-                    this.globalAccountMinSigRequired = latestChange.change.debug.minSigRequiredForArchiverWhitelist;
-                }
-            }
-        } catch (error) {
-            Logger.mainLogger.error('Error applying latest global account changes:', error)
-        }
-
     }
 }
 
