@@ -64,12 +64,19 @@ class AllowedArchiversManager {
     }
 
     public setGlobalAccountConfig(allowedSigners: { [key: string]: DevSecurityLevel }, minSigRequired: number): void {
-        this.globalAccountAllowedSigners = allowedSigners
-        this.globalAccountMinSigRequired = minSigRequired
-        this.useGlobalAccount = true
+        // Set initial values
+        this.globalAccountAllowedSigners = allowedSigners;
+        this.globalAccountMinSigRequired = minSigRequired;
+        this.useGlobalAccount = true;
+
+        // Get and apply any updates from the global account
+        const globalAccount = getGlobalNetworkAccount(false);
+        if (globalAccount) {
+            this.applyLatestGlobalAccountChanges(globalAccount);
+        }
     }
 
-    private getSignerConfig(): {
+    private getArchiverWhitelistConfig(): {
         allowedAccounts: { [key: string]: DevSecurityLevel }, minSigRequired: number, signatures: Sign[], counter: number, allowedArchivers: { ip: string, port: number, publicKey: string }[]
     } {
         try {
@@ -91,13 +98,11 @@ class AllowedArchiversManager {
 
     private loadAndVerifyConfig(): void {
         try {
-
-            const getArchiverConfig = this.getSignerConfig()
+            const getArchiverConfig = this.getArchiverWhitelistConfig()
             const payload = {
                 allowedArchivers: getArchiverConfig.allowedArchivers,
                 counter: getArchiverConfig.counter
             }
-
             const isValidList = verifyMultiSigs(
                 payload,
                 getArchiverConfig.signatures,
@@ -145,6 +150,31 @@ class AllowedArchiversManager {
         return this.currentConfig.allowedArchivers.some(
             archiver => archiver.publicKey === publicKey
         )
+    }
+
+    private applyLatestGlobalAccountChanges(globalAccountData: any): void {
+        try {
+            const changes = globalAccountData.data.listOfChanges;
+            if (!changes || changes.length === 0) return;
+
+            // Find the latest change
+            const latestChange = changes.reduce((prev, current) => {
+                return (current.cycle > prev.cycle) ? current : prev;
+            });
+
+            // Check if the latest change affects multisigKeys or archiverWhitelistMinSigRequired
+            if (latestChange.change?.debug) {
+                if (latestChange.change?.debug?.multisigKeys && latestChange.change?.debug?.multisigKeys.length > 0) {
+                    this.globalAccountAllowedSigners = latestChange.change.debug.multisigKeys;
+                }
+                if (latestChange.change?.debug?.minSigRequiredForArchiverWhitelist !== undefined) {
+                    this.globalAccountMinSigRequired = latestChange.change.debug.minSigRequiredForArchiverWhitelist;
+                }
+            }
+        } catch (error) {
+            Logger.mainLogger.error('Error applying latest global account changes:', error)
+        }
+
     }
 }
 
