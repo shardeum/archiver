@@ -5,7 +5,6 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import * as Logger from '../Logger'
 import { verifyMultiSigs } from '../services/ticketVerification'
 import { DevSecurityLevel } from '../types/security'
-import { getGlobalNetworkAccount } from '../GlobalAccount'
 import { Sign } from '../schemas/ticketSchema'
 
 interface AllowedArchiversConfig {
@@ -71,14 +70,18 @@ class AllowedArchiversManager {
         }
     }
 
-    public setGlobalAccountConfig(allowedSigners: { [key: string]: DevSecurityLevel }, minSigRequired: number): void {
-        if (!allowedSigners || minSigRequired < 1) {
-            Logger.mainLogger.error('Invalid global account configuration')
+    public setGlobalAccountConfig(allowedSigners?: { [key: string]: DevSecurityLevel }, minSigRequired?: number): void {
+        if (allowedSigners) {
+            this.globalAccountAllowedSigners = allowedSigners
+        }
+        if (minSigRequired >= 1) {
+            this.globalAccountMinSigRequired = minSigRequired
+        }
+        if (!allowedSigners && !minSigRequired) {
             return
         }
-        this.globalAccountAllowedSigners = allowedSigners
-        this.globalAccountMinSigRequired = minSigRequired
         this.useGlobalAccount = true
+        this.loadAndVerifyConfig() // Reload config to apply changes
     }
 
     private getArchiverWhitelistConfig(): AllowedArchiversConfig | null {
