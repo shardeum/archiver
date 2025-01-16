@@ -36,7 +36,7 @@ export function getGlobalNetworkAccount(hash: boolean): object | string {
 export function setGlobalNetworkAccount(account: AccountDB.AccountsCopy): void {
   cachedGlobalNetworkAccount = rfdc()(account)
   cachedGlobalNetworkAccountHash = account.hash
-  allowedArchiversManager.setGlobalAccountConfig(account.data?.listOfChanges?.dev?.change?.debug?.multisigKeys, account.data?.listOfChanges?.dev?.change?.debug?.minMultiSigRequiredForGlobalTxs)
+  allowedArchiversManager.setGlobalAccountConfig(account.data?.listOfChanges?.dev?.change?.debug?.multisigKeys, account.data?.listOfChanges?.dev?.change?.debug?.archiverWhitelistMinSigRequired)
 }
 
 interface NetworkConfigChanges {
