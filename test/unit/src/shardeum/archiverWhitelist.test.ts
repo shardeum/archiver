@@ -12,6 +12,7 @@ jest.mock('fs', () => ({
     unlinkSync: jest.fn(),
     watchFile: jest.fn(),
     unwatchFile: jest.fn(),
+    existsSync: jest.fn(),
 }))
 
 // Mock the Logger to prevent actual logging during tests
@@ -22,37 +23,6 @@ jest.mock('../../../../src/Logger', () => ({
     },
 }))
 
-// Helper function to create mock Stats object
-function createMockStats(mtime: Date): fs.Stats {
-    return {
-        mtime,
-        isFile: () => true,
-        isDirectory: () => false,
-        isBlockDevice: () => false,
-        isCharacterDevice: () => false,
-        isSymbolicLink: () => false,
-        isFIFO: () => false,
-        isSocket: () => false,
-        dev: 0,
-        ino: 0,
-        mode: 0,
-        nlink: 0,
-        uid: 0,
-        gid: 0,
-        rdev: 0,
-        size: 0,
-        blksize: 0,
-        blocks: 0,
-        atimeMs: 0,
-        mtimeMs: 0,
-        ctimeMs: 0,
-        birthtimeMs: 0,
-        atime: new Date(),
-        ctime: new Date(),
-        birthtime: new Date()
-    } as fs.Stats
-}
-
 describe('AllowedArchiversManager', () => {
     // Generate random wallet for testing
     const wallet = ethers.Wallet.createRandom()
@@ -61,8 +31,7 @@ describe('AllowedArchiversManager', () => {
         allowedArchivers: [
             { ip: '127.0.0.1', port: 4000, publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3' },
             { ip: '127.0.0.1', port: 4001, publicKey: 'e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94' },
-        ],
-        counter: 1
+        ]
     }
 
     // Generate hash and signature
@@ -75,7 +44,6 @@ describe('AllowedArchiversManager', () => {
         allowedAccounts: {
             [wallet.address]: 3
         },
-        counter: rawPayload.counter,
         minSigRequired: 1,
         signatures: [{
             owner: wallet.address,
@@ -88,6 +56,7 @@ describe('AllowedArchiversManager', () => {
         jest.clearAllMocks()
         // Mock readFileSync to return our test config
         jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(actualConfig))
+        jest.mocked(fs.existsSync).mockReturnValue(true)
     })
 
     afterEach(() => {
@@ -114,83 +83,18 @@ describe('AllowedArchiversManager', () => {
         expect(Logger.mainLogger.error).toHaveBeenCalledWith('Invalid signatures in new config')
     })
 
-    test('should reject config with invalid signatures when counter is modified', () => {
-        allowedArchiversManager.initialize(configPath)
-        const newConfig = {
-            ...actualConfig,
-            counter: actualConfig.counter + 1,
-        }
-        jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(newConfig))
-        // Simulate file change
-        const watchCallback = jest.mocked(fs.watchFile).mock.calls[0][1]
-        watchCallback(
-            createMockStats(new Date()),
-            createMockStats(new Date(Date.now() - 1000))
-        )
-        expect(Logger.mainLogger.error).toHaveBeenCalledWith('Invalid signatures in new config')
-    })
-
-    test('should reject config update with non-incrementing counter', () => {
-        allowedArchiversManager.initialize(configPath)
-        const newPayload = {
-            ...rawPayload,
-            counter: rawPayload.counter - 1
-        }
-        const newPayloadHash = ethers.keccak256(ethers.toUtf8Bytes(StringUtils.safeStringify(newPayload)))
-        const newConfig = {
-            ...newPayload,
-            signatures: [{
-                owner: wallet.address,
-                sig: wallet.signMessageSync(newPayloadHash)
-            }]
-        }
-        jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(newConfig))
-        // Simulate file change
-        const watchCallback = jest.mocked(fs.watchFile).mock.calls[0][1]
-        watchCallback(
-            createMockStats(new Date()),
-            createMockStats(new Date(Date.now() - 1000))
-        )
-        expect(Logger.mainLogger.error).toHaveBeenCalledWith('Invalid signatures in new config')
-    })
-
-    test('should accept valid config update with incremented counter', () => {
-        allowedArchiversManager.initialize(configPath)
-        const newPayload = {
-            ...rawPayload,
-            counter: rawPayload.counter + 1
-        }
-        const newPayloadHash = ethers.keccak256(ethers.toUtf8Bytes(StringUtils.safeStringify(newPayload)))
-        const newConfig = {
-            ...actualConfig,
-            counter: newPayload.counter,
-            signatures: [{
-                owner: wallet.address,
-                sig: wallet.signMessageSync(newPayloadHash)
-            }]
-        }
-        jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(newConfig))
-        // Simulate file change
-        const watchCallback = jest.mocked(fs.watchFile).mock.calls[0][1]
-        watchCallback(
-            createMockStats(new Date()),
-            createMockStats(new Date(Date.now() - 1000))
-        )
-        expect(allowedArchiversManager.getCurrentConfig()).toEqual(newConfig)
-    })
-
     test('should handle file read errors gracefully', () => {
         jest.mocked(fs.readFileSync).mockImplementation(() => {
             throw new Error('File read error')
         })
         allowedArchiversManager.initialize(configPath)
-        expect(Logger.mainLogger.error).toHaveBeenCalledWith('Error loading/verifying config:', expect.any(Error))
+        expect(Logger.mainLogger.error).toHaveBeenCalledWith('Failed to read configuration:', expect.any(Error))
     })
 
     test('should handle invalid JSON in config file', () => {
         jest.mocked(fs.readFileSync).mockReturnValue('invalid json')
         allowedArchiversManager.initialize(configPath)
-        expect(Logger.mainLogger.error).toHaveBeenCalledWith('Error loading/verifying config:', expect.any(Error))
+        expect(Logger.mainLogger.error).toHaveBeenCalledWith('Failed to read configuration:', expect.any(SyntaxError))
     })
 
     test('should not reinitialize if already initialized', () => {

@@ -1,6 +1,5 @@
 import path = require('path')
 import fs = require('fs')
-import { ethers } from 'ethers'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import * as Logger from '../Logger'
 import { verifyMultiSigs } from '../services/ticketVerification'
@@ -15,14 +14,11 @@ interface AllowedArchiversConfig {
     }>
     allowedAccounts: { [pubkey: string]: DevSecurityLevel }
     minSigRequired: number
-    counter: number
     signatures: Sign[]
 }
 
 class AllowedArchiversManager {
     private currentConfig: AllowedArchiversConfig | null = null
-    private previousConfigHash: string = ''
-    private lastSeenCounter: number = 0
     private configPath: string = ''
     private isInitialized: boolean = false
     private useGlobalAccount: boolean = false
@@ -105,7 +101,6 @@ class AllowedArchiversManager {
                 allowedAccounts: allowedAccounts,
                 minSigRequired: minSigRequired,
                 signatures: newConfig.signatures,
-                counter: newConfig.counter,
                 allowedArchivers: newConfig.allowedArchivers
             }
         } catch (error) {
@@ -120,7 +115,6 @@ class AllowedArchiversManager {
             Array.isArray(config.allowedArchivers) &&
             config.allowedAccounts &&
             typeof config.minSigRequired === 'number' &&
-            typeof config.counter === 'number' &&
             Array.isArray(config.signatures)
         )
     }
@@ -134,8 +128,7 @@ class AllowedArchiversManager {
             }
 
             const payload = {
-                allowedArchivers: getArchiverConfig.allowedArchivers,
-                counter: getArchiverConfig.counter
+                allowedArchivers: getArchiverConfig.allowedArchivers
             }
             const isValidList = verifyMultiSigs(
                 payload,
@@ -148,28 +141,7 @@ class AllowedArchiversManager {
                 Logger.mainLogger.error('Invalid signatures in new config')
                 return
             }
-
-            const payloadHash = ethers.keccak256(ethers.toUtf8Bytes(StringUtils.safeStringify(payload)))
-
-            // Handle first config load
-            if (this.previousConfigHash === '') {
-                this.previousConfigHash = payloadHash
-                this.currentConfig = getArchiverConfig
-                this.lastSeenCounter = payload.counter
-                return
-            }
-
-            // Handle config updates
-            if (this.previousConfigHash !== payloadHash) {
-                if (payload.counter <= this.lastSeenCounter) {
-                    Logger.mainLogger.error('Rejected config update: counter not incrementing')
-                    return
-                }
-
-                this.lastSeenCounter = payload.counter
-                this.previousConfigHash = payloadHash
-                this.currentConfig = getArchiverConfig
-            }
+            this.currentConfig = getArchiverConfig
         } catch (error) {
             Logger.mainLogger.error('Error loading/verifying config:', error)
         }

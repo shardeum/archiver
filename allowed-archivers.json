@@ -14,12 +14,11 @@
     "allowedAccounts": {
         "0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5": 3
     },
-    "counter": 1,
     "minSigRequired": 1,
     "signatures": [
         {
             "owner": "0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5",
-            "sig": "0xc4f25a2156c9151c0515d1e5636b94de5ab2e21cc924207a2d2b5d679d8b3dec0f3b7aab78a0dfa444ee4794cf3a61aa6b9a70f8a51ebac46b9560d50cb019b51b"
+            "sig": "0x53535921e57d0796b0dbf1451ff6a9ff535bbf2f51cdcc1a5ddd618aa62ca0f36a98c5e2fcecaa7217626735fc3bb5f47acc5e7e60284bb20fb157b50390d45f1b"
         }
     ]
 }

@@ -4,12 +4,10 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types';
 
 interface ConfigData {
     allowedArchivers: string[];
-    counter: number;
 }
 
 interface SignaturePayload {
     allowedArchivers: string[];
-    counter: number;
 }
 
 async function generateSignature(): Promise<void> {
@@ -28,8 +26,7 @@ async function generateSignature(): Promise<void> {
 
         // Create payload
         const rawPayload: SignaturePayload = {
-            allowedArchivers: configData.allowedArchivers,
-            counter: configData.counter
+            allowedArchivers: configData.allowedArchivers
         };
 
         // Generate hash of payload
