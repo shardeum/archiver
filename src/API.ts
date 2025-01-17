@@ -939,7 +939,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     if (payload.maxRecords > config.maxRecordsPerRequest || payload.maxRecords <= 0) {
       reply.send({
         success: false,
-        error: `Invalid AccountBucket size. Must be greater than 0 and less than ${config.maxRecordsPerRequest}.`,
+        error: `Invalid AccountBucket size. Size was ${payload.maxRecords}. Must be greater than 0 and less than ${config.maxRecordsPerRequest}.`,
       })
       return
     }
