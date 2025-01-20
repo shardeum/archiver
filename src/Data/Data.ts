@@ -387,8 +387,11 @@ export function collectCycleData(
     }
     if (config.VERBOSE)
       Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
-    const minCycleConfirmations =
-      Math.min(Math.ceil(NodeList.getActiveNodeCount() / currentConsensusRadius), 5) || 1
+    
+    const minCycleConfirmations = 
+    Math.min(Math.ceil(NodeList.getActiveNodeCount() / currentConsensusRadius), 5) || 
+    (cycle.counter <= 15 ? 1 : 3);
+    
 
     for (const value of Object.values(receivedCycleTracker[cycle.counter])) {
       if (value['saved']) {
