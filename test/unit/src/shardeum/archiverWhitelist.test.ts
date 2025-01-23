@@ -4,6 +4,7 @@ import { ethers } from 'ethers'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { allowedArchiversManager } from '../../../../src/shardeum/allowedArchiversManager'
 import * as Logger from '../../../../src/Logger'
+import { DevSecurityLevel } from '../../../../src/types/security'
 
 // Mock the fs module
 jest.mock('fs', () => ({
@@ -41,10 +42,6 @@ describe('AllowedArchiversManager', () => {
             { ip: '127.0.0.1', port: 4000, publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3' },
             { ip: '127.0.0.1', port: 4001, publicKey: 'e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94' },
         ],
-        allowedAccounts: {
-            [wallet.address]: 3
-        },
-        minSigRequired: 1,
         signatures: [{
             owner: wallet.address,
             sig: wallet.signMessageSync(payloadHash)
@@ -57,11 +54,37 @@ describe('AllowedArchiversManager', () => {
         // Mock readFileSync to return our test config
         jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(actualConfig))
         jest.mocked(fs.existsSync).mockReturnValue(true)
+
+        // Define mock values for global account config
+        const mockAllowedSigners = { [wallet.address]: DevSecurityLevel.HIGH }
+        const mockMinSigRequired = 1
+
+        // Call the method with mock values
+        allowedArchiversManager.setGlobalAccountConfig(mockAllowedSigners, mockMinSigRequired)
     })
 
     afterEach(() => {
         // Stop watching the config file
         allowedArchiversManager.stopWatching()
+    })
+
+    it('should set global account config with mock values', () => {
+        // Mock the setGlobalAccountConfig method
+        const mockSetGlobalAccountConfig = jest.spyOn(allowedArchiversManager, 'setGlobalAccountConfig')
+
+        // Define mock values for global account config
+        const mockAllowedSigners = { 'signer1': DevSecurityLevel.HIGH }
+        const mockMinSigRequired = 1
+
+        // Call the method with mock values
+        allowedArchiversManager.setGlobalAccountConfig(mockAllowedSigners, mockMinSigRequired)
+
+        // Assert that the method was called with the correct arguments
+        expect(mockSetGlobalAccountConfig).toHaveBeenCalledWith(mockAllowedSigners, mockMinSigRequired)
+
+        // verify internal state changes or other side effects
+        expect(allowedArchiversManager['globalAccountAllowedSigners']).toEqual(mockAllowedSigners)
+        expect(allowedArchiversManager['globalAccountMinSigRequired']).toBe(mockMinSigRequired)
     })
 
     test('should initialize and load config', () => {
