@@ -31,6 +31,8 @@ function validateVerificationConfig(config: VerificationConfig): void {
         throw new Error('Invalid requiredSecurityLevel');
     }
 }
+
+// TODO: consider moving it to Utils.ts
 export function verifyMultiSigs(
     rawPayload: object,
     sigs: Sign[],

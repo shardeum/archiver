@@ -12,8 +12,6 @@ interface AllowedArchiversConfig {
         port: number
         publicKey: string
     }>
-    allowedAccounts: { [pubkey: string]: DevSecurityLevel }
-    minSigRequired: number
     signatures: Sign[]
 }
 
@@ -21,7 +19,6 @@ class AllowedArchiversManager {
     private currentConfig: AllowedArchiversConfig | null = null
     private configPath: string = ''
     private isInitialized: boolean = false
-    private useGlobalAccount: boolean = false
     private globalAccountAllowedSigners: { [key: string]: number } = {}
     private globalAccountMinSigRequired: number = 0
 
@@ -76,7 +73,6 @@ class AllowedArchiversManager {
         if (!allowedSigners && !minSigRequired) {
             return
         }
-        this.useGlobalAccount = true
         this.loadAndVerifyConfig() // Reload config to apply changes
     }
 
@@ -95,11 +91,7 @@ class AllowedArchiversManager {
                 return null
             }
 
-            const allowedAccounts = this.useGlobalAccount ? this.globalAccountAllowedSigners : newConfig.allowedAccounts
-            const minSigRequired = this.useGlobalAccount ? this.globalAccountMinSigRequired : newConfig.minSigRequired
             return {
-                allowedAccounts: allowedAccounts,
-                minSigRequired: minSigRequired,
                 signatures: newConfig.signatures,
                 allowedArchivers: newConfig.allowedArchivers
             }
@@ -113,8 +105,6 @@ class AllowedArchiversManager {
         return !!(
             config &&
             Array.isArray(config.allowedArchivers) &&
-            config.allowedAccounts &&
-            typeof config.minSigRequired === 'number' &&
             Array.isArray(config.signatures)
         )
     }
@@ -133,8 +123,8 @@ class AllowedArchiversManager {
             const isValidList = verifyMultiSigs(
                 payload,
                 getArchiverConfig.signatures,
-                getArchiverConfig.allowedAccounts,
-                getArchiverConfig.minSigRequired,
+                this.globalAccountAllowedSigners,
+                this.globalAccountMinSigRequired,
                 DevSecurityLevel.HIGH
             )
             if (!isValidList.isValid) {

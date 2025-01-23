@@ -11,10 +11,6 @@
             "publicKey": "e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94"
         }
     ],
-    "allowedAccounts": {
-        "0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5": 3
-    },
-    "minSigRequired": 1,
     "signatures": [
         {
             "owner": "0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5",

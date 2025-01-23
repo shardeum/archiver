@@ -56,8 +56,6 @@ async function start(): Promise<void> {
   overrideDefaultConfig(configFile)
   initAjvSchemas();
   initializeSerialization()
-  // Initialize allowed archivers manager
-  allowedArchiversManager.initialize(allowedArchiversConfigPath)
   // Set crypto hash keys from config
   const hashKey = config.ARCHIVER_HASH_KEY
   Crypto.setCryptoHashKey(hashKey)
@@ -74,7 +72,8 @@ async function start(): Promise<void> {
   if (logsConfig.saveConsoleOutput) {
     startSaving(join(baseDir, logsConfig.dir))
   }
-
+  // Initialize allowed archivers manager
+  allowedArchiversManager.initialize(allowedArchiversConfigPath)
   // Global error handling
   process.on('uncaughtException', (error) => {
     Logger.mainLogger.error('Uncaught Exception - Global:', error);
