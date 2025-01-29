@@ -4,6 +4,7 @@ import { originalTxDataDatabase } from '.'
 import * as Logger from '../Logger'
 import { config } from '../Config'
 import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
+import { OriginalTxCheckpointData, calculateBucketID, originalTxCheckpointManager } from '../checkpoint/OriginalTxsData'
 
 export interface OriginalTxData {
   txId: string
@@ -30,26 +31,30 @@ type DbOriginalTxDataCount = OriginalTxDataCount & {
 export async function insertOriginalTxData(originalTxData: OriginalTxData): Promise<void> {
 
   try {
+    // Create checkpoint for originalTxData
+    const checkpointData = new OriginalTxCheckpointData(originalTxData)
+    const bucketID = calculateBucketID(originalTxData)
+    originalTxCheckpointManager.addData(checkpointData, bucketID)
 
     // Define the table columns based on schema
-    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData'];
+    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData']
 
     // Construct the SQL query with placeholders
-    const placeholders = `(${columns.map(() => '?').join(', ')})`;
-    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES ${placeholders}`;
+    const placeholders = `(${columns.map(() => '?').join(', ')})`
+    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Map the `originalTxData` object to match the columns
     const values = columns.map((column) =>
       typeof originalTxData[column] === 'object'
         ? SerializeToJsonString(originalTxData[column]) // Serialize objects to JSON
         : originalTxData[column]
-    );
+    )
 
     // Execute the query directly (single-row insert)
-    await db.run(originalTxDataDatabase, sql, values);
+    await db.run(originalTxDataDatabase, sql, values)
 
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted OriginalTxData', originalTxData.txId);
+      Logger.mainLogger.debug('Successfully inserted OriginalTxData', originalTxData.txId)
     }
   } catch (err) {
     Logger.mainLogger.error(err);
@@ -64,13 +69,17 @@ export async function insertOriginalTxData(originalTxData: OriginalTxData): Prom
 export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[]): Promise<void> {
 
   try {
-    
-    // Define the table columns
-    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData'];
+    // Create checkpoints for all originalTxs
+    for (const originalTx of originalTxsData) {
+      const checkpointData = new OriginalTxCheckpointData(originalTx)
+      const bucketID = calculateBucketID(originalTx)
+      originalTxCheckpointManager.addData(checkpointData, bucketID)
+    }
 
-    // Construct the SQL query for bulk insertion with all placeholders
-    const placeholders = originalTxsData.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
-    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES ${placeholders}`;
+    // Then do the database operation
+    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData']
+    const placeholders = originalTxsData.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ')
+    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Flatten the `originalTxsData` array into a single list of values
     const values = originalTxsData.flatMap((txData) =>

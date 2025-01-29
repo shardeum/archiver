@@ -44,6 +44,7 @@ export interface Config {
     maxOriginalTxEntries: number
   }
   experimentalSnapshot: boolean
+  FAILEDBUCKETS_DIR: string
   VERBOSE: boolean
   useSerialization: boolean
   useSyncV2: boolean
@@ -111,6 +112,12 @@ export interface Config {
     requiredSecurityLevel: number
   }
   maxRecordsPerRequest: number // this is the equiavlent of the accountBucketSize config variable used by the validators to fetch records from the archiver
+  checkpointBucketConfig: {
+    BucketMatureAge: number //  start sharing hashes after this age is reached.
+    RadixDepth: number // 16 way trie depth in nibbles (one hex char)
+    GiveUpAge: number // eventual give up age.  write bucket to disk in this case and raise warnings/alerts
+  }
+  checkpointUpdateInterval: number // 1 minute in milliseconds
   multisigKeysSyncFromNetworkInternal: number // in seconds
   minCycleConfirmationsToSave: number // this is the minimum numbers of nodes that we need to a see a cycle from to save it
 }
@@ -153,6 +160,7 @@ let config: Config = {
     maxOriginalTxEntries: 10000, // Should be >= max TPS experienced by the network.
   },
   experimentalSnapshot: true,
+  FAILEDBUCKETS_DIR: 'failed-buckets',
   VERBOSE: false,
   useSerialization: true,
   useSyncV2: true,
@@ -206,7 +214,7 @@ let config: Config = {
   disableOffloadReceipt: false,
   disableOffloadReceiptForGlobalModification: true,
   restoreNGTsFromSnapshot: false,
-  tickets: {  
+  tickets: {
     allowedTicketSigners: {
       '0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5': 5,
       '0x0a0844DA5e01E391d12999ca859Da8a897D5979A': 5,
@@ -243,8 +251,14 @@ let config: Config = {
       '0xa58169308e7153B5Ce4ca5cA515cC4d0cBE7770B': 5,
     },
     minSigRequired: 1,
-    requiredSecurityLevel: 5
+    requiredSecurityLevel: 5,
   },
+  checkpointBucketConfig: {
+    BucketMatureAge: 11 * 60, // 11 minutes
+    RadixDepth: 2, // 2 nibbles (1 hex char)
+    GiveUpAge: 20 * 60, // 20 minutes
+  },
+  checkpointUpdateInterval: 60 * 1000, // 1 minute in milliseconds
   maxRecordsPerRequest: 200,
   multisigKeysSyncFromNetworkInternal: 600,
   minCycleConfirmationsToSave: -1,

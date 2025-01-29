@@ -5,7 +5,7 @@ import * as Logger from '../Logger'
 import { config } from '../Config'
 import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
 import { Cycle, DbCycle } from './types'
-
+import { calculateBucketID, CycleCheckpointData, cycleCheckpointManager } from '../checkpoint/CycleData'
 
 export async function insertCycle(cycle: Cycle): Promise<void> {
 
@@ -27,6 +27,11 @@ export async function insertCycle(cycle: Cycle): Promise<void> {
     // Execute the query directly (single-row insert)
     await db.run(cycleDatabase, sql, values);
 
+    //Create checkpoint for cycle
+    const bucketID = calculateBucketID(cycle)
+    const checkpointData = new CycleCheckpointData(cycle)
+    cycleCheckpointManager.addData(checkpointData, bucketID)
+    
     if (config.VERBOSE) {
       Logger.mainLogger.debug(
         'Successfully inserted Cycle',
@@ -45,14 +50,19 @@ export async function insertCycle(cycle: Cycle): Promise<void> {
 }
 
 export async function bulkInsertCycles(cycles: Cycle[]): Promise<void> {
-
   try {
-    // Define the table columns based on schema
-    const columns = ['cycleMarker', 'counter', 'cycleRecord'];
+    // Create checkpoints for all cycles
+    for (const cycle of cycles) {
+      const checkpointData = new CycleCheckpointData(cycle)
+      const bucketID = calculateBucketID(cycle)
+      cycleCheckpointManager.addData(checkpointData, bucketID)
+    }
+    // Then do the database operation
+    const columns = ['cycleMarker', 'counter', 'cycleRecord']
 
     // Construct the SQL query for bulk insertion with all placeholders
-    const placeholders = cycles.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
-    const sql = `INSERT OR REPLACE INTO cycles (${columns.join(', ')}) VALUES ${placeholders}`;
+    const placeholders = cycles.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ')
+    const sql = `INSERT OR REPLACE INTO cycles (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Flatten the `cycles` array into a single list of values
     const values = cycles.flatMap((cycle) =>
@@ -61,13 +71,13 @@ export async function bulkInsertCycles(cycles: Cycle[]): Promise<void> {
           ? SerializeToJsonString(cycle[column]) // Serialize objects to JSON
           : cycle[column]
       )
-    );
+    )
 
     // Execute the single query for all cycles
-    await db.run(cycleDatabase, sql, values);
+    await db.run(cycleDatabase, sql, values)
 
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted Cycles', cycles.length);
+      Logger.mainLogger.debug('Successfully inserted Cycles', cycles.length)
     }
   } catch (err) {
     Logger.mainLogger.error(err);
@@ -77,6 +87,10 @@ export async function bulkInsertCycles(cycles: Cycle[]): Promise<void> {
 
 export async function updateCycle(marker: string, cycle: Cycle): Promise<void> {
   try {
+    // Create a checkpoint before updating
+    const checkpointData = new CycleCheckpointData(cycle)
+    const bucketID = calculateBucketID(cycle)
+    cycleCheckpointManager.addData(checkpointData, bucketID)
     const sql = `UPDATE cycles SET counter = $counter, cycleRecord = $cycleRecord WHERE cycleMarker = $marker `
     await db.run(cycleDatabase, sql, {
       $counter: cycle.counter,

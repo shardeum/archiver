@@ -36,7 +36,12 @@ import {
 } from './primary-process'
 import * as ServiceQueue from './ServiceQueue'
 import ticketRoutes from './routes/tickets'
+import { Cycle } from './dbstore/types'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
+import { cycleCheckpointManager } from './checkpoint/CycleData'
+import { receiptCheckpointManager } from './checkpoint/ReceiptData'
+import { originalTxCheckpointManager } from './checkpoint/OriginalTxsData'
+import { CheckpointType, CheckpointBucketManager, CheckpointRadixEntry } from './checkpoint/CheckpointData'
 
 const { version } = require('../package.json') // eslint-disable-line @typescript-eslint/no-var-requires
 const TXID_LENGTH = 64
@@ -911,8 +916,26 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     const totalTransactions = await TransactionDB.queryTransactionCount()
     const totalReceipts = await ReceiptDB.queryReceiptCount()
     const totalOriginalTxs = await OriginalTxDB.queryOriginalTxDataCount()
+
+    // Get the last five minutes bucket status for each checkpoint manager
+    const cycleLastFiveMinutesGiveUpBucketStatus =
+      cycleCheckpointManager.getIsLastSucceededBucketTimeOlderThan5Mins()
+    const originalTxLastFiveMinutesGiveUpBucketStatus =
+      originalTxCheckpointManager.getIsLastSucceededBucketTimeOlderThan5Mins()
+    const receiptLastFiveMinutesGiveUpBucketStatus =
+      receiptCheckpointManager.getIsLastSucceededBucketTimeOlderThan5Mins()
+
     reply.send(
-      Crypto.sign({ totalCycles, totalAccounts, totalTransactions, totalReceipts, totalOriginalTxs })
+      Crypto.sign({
+        totalCycles,
+        totalAccounts,
+        totalTransactions,
+        totalReceipts,
+        totalOriginalTxs,
+        cycleLastFiveMinutesGiveUpBucketStatus,
+        originalTxLastFiveMinutesGiveUpBucketStatus,
+        receiptLastFiveMinutesGiveUpBucketStatus,
+      })
     )
   })
 
@@ -1290,6 +1313,127 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   // Register ticket routes
   server.register(ticketRoutes, { prefix: '/tickets' })
+
+  server.post('/shareCheckpointRadixDigests', async (req: any, reply) => {
+    try {
+      const result = validateRequestData(req.body, {
+        sender: 's',
+        sign: 'o',
+      })
+      if (!result.success) {
+        reply.send({ success: false, error: result.error })
+        return
+      }
+      const { bucketID, radixDigests, senderAddress, checkpointType } = req.body
+      if (!bucketID || !radixDigests) {
+        Logger.mainLogger.error(
+          `Invalid payload: Missing bucketID or radixDigests in request from ${senderAddress}. CheckpointType: ${checkpointType}`
+        )
+        reply.status(400).send(`Invalid payload: Missing bucketID or radixDigests.`)
+        return
+      }
+
+      // Identify the correct manager based on the checkpoint type
+      let manager: CheckpointBucketManager<any>
+      if (checkpointType === CheckpointType.Cycle) {
+        manager = cycleCheckpointManager
+      } else if (checkpointType === CheckpointType.OriginalTx) {
+        manager = originalTxCheckpointManager
+      } else if (checkpointType === CheckpointType.Receipt) {
+        manager = receiptCheckpointManager
+      }
+      const bucket = manager.checkpointBuckets.get(bucketID)
+      if (!bucket) {
+        Logger.mainLogger.error(
+          `Bucket not found: No bucket with ID=${bucketID} for checkpoint type ${checkpointType}.`
+        )
+        reply.status(404).send(`Bucket not found for ID=${bucketID}.`)
+        return
+      }
+
+      // Process received digests
+      Logger.mainLogger.info(`Processing received digests for bucket ID=${bucketID} from ${senderAddress}.`)
+      manager.onHashDigestsReceived(senderAddress, bucketID, StringUtils.safeJsonParse(radixDigests))
+
+      reply.status(200).send({
+        success: true,
+      })
+    } catch (err) {
+      Logger.mainLogger.error(
+        `Error processing shareCheckpointRadixDigests for checkpoint type ${req.body.checkpointType}: ${err.message}`
+      )
+      reply.status(500).send('Server error')
+    }
+  })
+
+  server.post('/exchangeCheckpointRadixEntries', async (req: any, reply) => {
+    try {
+      const result = validateRequestData(req.body, {
+        sender: 's',
+        sign: 'o',
+      })
+      if (!result.success) {
+        reply.send({ success: false, error: result.error })
+        return
+      }
+      const { bucketID, entries, checkpointType } = req.body
+      if (!bucketID || !entries) {
+        Logger.mainLogger.error(
+          `Invalid payload: Missing bucketID or entries in request. CheckpointType: ${checkpointType}`
+        )
+        reply.status(400).send(`Invalid payload: Missing bucketID or entries.`)
+        return
+      }
+
+      let manager: CheckpointBucketManager<any>
+      if (checkpointType === CheckpointType.Cycle) {
+        manager = cycleCheckpointManager
+      } else if (checkpointType === CheckpointType.OriginalTx) {
+        manager = originalTxCheckpointManager
+      } else if (checkpointType === CheckpointType.Receipt) {
+        manager = receiptCheckpointManager
+      }
+      const bucket = manager.checkpointBuckets.get(bucketID)
+      if (!bucket) {
+        Logger.mainLogger.error(
+          `Bucket not found: No bucket with ID=${bucketID} for checkpoint type ${checkpointType}.`
+        )
+        reply.status(404).send(`Bucket not found for ID=${bucketID}.`)
+        return
+      }
+
+      // Get our entries to share back
+      const ourEntries: CheckpointRadixEntry<Cycle>[] = []
+
+      // For each incoming entry, get our corresponding entry
+      for (const incomingEntry of entries) {
+        const radix = incomingEntry.digest.radix
+        const ourEntry = bucket.radixEntries.get(radix)
+        if (ourEntry) {
+          ourEntry.updateDigest()
+          ourEntries.push(ourEntry)
+        }
+      }
+
+      // Process their entries
+      bucket.onExchangeRadixEntries(bucketID, entries)
+
+      // Send our entries back
+      const res = Crypto.sign({
+        bucketID,
+        entries: ourEntries,
+        success: true,
+      })
+      reply.send(res)
+    } catch (err) {
+      Logger.mainLogger.error(
+        `Error processing exchangeCheckpointRadixEntries for checkpoint type ${req.body.checkpointType}: ${err.message}`
+      )
+      reply
+        .status(500)
+        .send(`Server error in exchangeCheckpointRadixEntries for type ${req.body.checkpointType}`)
+    }
+  })
 }
 
 export const validateRequestData = (
@@ -1352,6 +1496,7 @@ export enum RequestDataType {
   ACCOUNT = 'account',
   TRANSACTION = 'transaction',
   TOTALDATA = 'totalData',
+  CHECKPOINT = 'checkpoint',
 }
 
 export const queryFromArchivers = async (
