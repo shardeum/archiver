@@ -59,14 +59,15 @@ export function verifyMultiSigs(
       // The sig owner is listed on the server
       // The sig owner has enough security clearance
       // The signature is valid
+      // The signature is not a duplicate
       if (
-        !seen.has(sigs[i].owner) &&
+        !seen.has(sigs[i].owner.toLowerCase()) &&
         allowedPubkeys[sigs[i].owner] &&
         allowedPubkeys[sigs[i].owner] >= requiredSecurityLevel &&
         ethers.verifyMessage(payload_hash, sigs[i].sig).toLowerCase() === sigs[i].owner.toLowerCase()
       ) {
         validSigs++
-        seen.add(sigs[i].owner)
+        seen.add(sigs[i].owner.toLowerCase())
       }
       /* eslint-enable security/detect-object-injection */
   

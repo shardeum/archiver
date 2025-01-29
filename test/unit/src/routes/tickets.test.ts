@@ -67,7 +67,7 @@ describe('Ticket Routes', () => {
     beforeEach(() => {
         jest.resetModules();
         jest.clearAllMocks();
-        
+        (readFileSync as jest.Mock).mockReturnValueOnce(JSON.stringify(mockValidTickets));
         // Reset the cache
         (ticketCache as any) = null;
         
@@ -165,7 +165,7 @@ describe('Ticket Routes', () => {
 
     describe('Cache invalidation', () => {
         it('should reload tickets after TTL expires', async () => {
-            const { reply, send } = createMockReply();
+            const { reply } = createMockReply();
             
             // First call to populate cache
             await routes['/'](

@@ -88,7 +88,17 @@ describe('Ticket Verification Service', () => {
                 { owner: signer1.address, sig }
             ];
             const result = verifyMultiSigs(mockPayload, duplicateSigs, mockConfig.allowedTicketSigners, mockConfig.minSigRequired, mockConfig.requiredSecurityLevel);
-            expect(result.isValid).toBe(true);
+            expect(result.isValid).toBe(true); // still valid because threshold is 1
+            expect(result.validCount).toBe(1);
+        });
+        it('should handle duplicate signers due to case insensitivity', async () => {
+            const sig = await createSignature(signer1, mockPayload);
+            const duplicateSigs = [
+                { owner: signer1.address, sig },
+                { owner: signer1.address.toLowerCase(), sig }
+            ];
+            const result = verifyMultiSigs(mockPayload, duplicateSigs, mockConfig.allowedTicketSigners, 2, mockConfig.requiredSecurityLevel);
+            expect(result.isValid).toBe(false); // still valid because threshold is 1
             expect(result.validCount).toBe(1);
         });
     });
