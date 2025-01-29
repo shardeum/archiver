@@ -6,7 +6,8 @@ import * as Logger from '../Logger'
 import { config } from '../Config'
 import { DeSerializeFromJsonString , SerializeToJsonString} from '../utils/serialization'
 import { AccountsCopy } from '../dbstore/accounts'
-
+import { ReceiptCheckpointData, calculateBucketID, receiptCheckpointManager } from '../checkpoint/ReceiptData'
+import { bulkUpdateCheckpointStatusField, CheckpointStatusType } from './checkpointStatus'
 // const superjson =  require('superjson')
 export type Proposal = {
   applied: boolean
@@ -107,8 +108,15 @@ type DbReceiptCount = ReceiptCount & {
   'COUNT(*)': number
 }
 
-export async function insertReceipt(receipt: Receipt): Promise<void> {
+export async function insertReceipt(receipt: Receipt, storeCheckpoints: boolean = true): Promise<void> {
   try {
+    if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+      // Create checkpoint for receipt
+      const checkpointData = new ReceiptCheckpointData(receipt)
+      const bucketID = calculateBucketID(receipt)
+      receiptCheckpointManager.addData(checkpointData, bucketID)
+    }
+
     // Define the columns to match the database schema
     const columns = [
       'receiptId',
@@ -122,24 +130,28 @@ export async function insertReceipt(receipt: Receipt): Promise<void> {
       'appReceiptData',
       'executionShardKey',
       'globalModification',
-    ];
+    ]
 
     // Create placeholders for the values
-    const placeholders = `(${columns.map(() => '?').join(', ')})`;
-    const sql = `INSERT OR REPLACE INTO receipts (${columns.join(', ')}) VALUES ${placeholders}`;
+    const placeholders = `(${columns.map(() => '?').join(', ')})`
+    const sql = `INSERT OR REPLACE INTO receipts (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Map the receipt object to match the columns
     const values = columns.map((column) =>
       typeof receipt[column] === 'object'
         ? SerializeToJsonString(receipt[column]) // Serialize objects to JSON strings
         : receipt[column]
-    );
+    )
 
     // Execute the query directly
-    await db.run(receiptDatabase, sql, values);
+    await db.run(receiptDatabase, sql, values)
+
+    if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+      await bulkUpdateCheckpointStatusField(CheckpointStatusType.RECEIPT, true, undefined, undefined, [receipt.cycle])
+    }
 
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted Receipt', receipt.receiptId);
+      Logger.mainLogger.debug('Successfully inserted Receipt', receipt.receiptId)
     }
   } catch (err) {
     Logger.mainLogger.error(err);
@@ -150,9 +162,17 @@ export async function insertReceipt(receipt: Receipt): Promise<void> {
   }
 }
 
-export async function bulkInsertReceipts(receipts: Receipt[]): Promise<void> {
+export async function bulkInsertReceipts(receipts: Receipt[], storeCheckpoints: boolean = true): Promise<void> {
 
   try {
+    if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+      // Create checkpoints for all receipts
+      for (const receipt of receipts) {
+        const checkpointData = new ReceiptCheckpointData(receipt)
+        const bucketID = calculateBucketID(receipt)
+        receiptCheckpointManager.addData(checkpointData, bucketID)
+      }
+    }
 
     // Define the table columns based on schema
     const columns = [
@@ -167,11 +187,11 @@ export async function bulkInsertReceipts(receipts: Receipt[]): Promise<void> {
       'appReceiptData',
       'executionShardKey',
       'globalModification',
-    ];
+    ]
 
     // Construct the SQL query with placeholders
-    const placeholders = receipts.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
-    const sql = `INSERT OR REPLACE INTO receipts (${columns.join(', ')}) VALUES ${placeholders}`;
+    const placeholders = receipts.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ')
+    const sql = `INSERT OR REPLACE INTO receipts (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Flatten the `receipts` array into a single list of values
     const values = receipts.flatMap((receipt) =>
@@ -180,13 +200,17 @@ export async function bulkInsertReceipts(receipts: Receipt[]): Promise<void> {
           ? SerializeToJsonString(receipt[column]) // Serialize objects to JSON
           : receipt[column]
       )
-    );
+    )
 
     // Execute the query in a single call
-    await db.run(receiptDatabase, sql, values);
+    await db.run(receiptDatabase, sql, values)
+
+    if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+      await bulkUpdateCheckpointStatusField(CheckpointStatusType.RECEIPT, true, undefined, undefined, receipts.map((receipt) => receipt.cycle))
+    }
 
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted Receipts', receipts.length);
+      Logger.mainLogger.debug('Successfully inserted Receipts', receipts.length)
     }
   } catch (err) {
     Logger.mainLogger.error(err);
