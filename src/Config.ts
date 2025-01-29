@@ -22,6 +22,7 @@ export interface Config {
     originalTxDataDB: string
     processedTxDB: string
     txDigestDB: string
+    checkpointStatusDB: string
   }
   DATASENDER_TIMEOUT: number
   RATE_LIMIT: number // number of allowed request per second,
@@ -35,6 +36,22 @@ export interface Config {
   }
   ARCHIVER_MODE: string
   DevPublicKey: string
+  checkpoint: {
+    bucketConfig: {
+      BucketMatureAge: number
+      cycleAge: number
+      GiveUpAge: number
+      lastFailedBucketDuration: number
+      RadixDepth: number
+      allowCheckpointUpdates: boolean
+      allowCheckpointStorage: boolean
+    }
+    batchSize: number
+    updateInterval: number
+    syncInterval: number
+    maxCyclesToSync: number
+    syncOnStartup: boolean
+  }
   dataLogWrite: boolean
   dataLogWriter: {
     dirName: string
@@ -44,6 +61,7 @@ export interface Config {
     maxOriginalTxEntries: number
   }
   experimentalSnapshot: boolean
+  failedBucketsDir: string
   VERBOSE: boolean
   useSerialization: boolean
   useSyncV2: boolean
@@ -133,6 +151,7 @@ let config: Config = {
     originalTxDataDB: 'originalTxsData.sqlite3',
     processedTxDB: 'processedTransactions.sqlite3',
     txDigestDB: 'txDigest.sqlite3',
+    checkpointStatusDB: 'checkpointStatus.sqlite3',
   },
   DATASENDER_TIMEOUT: 1000 * 60 * 5,
   RATE_LIMIT: 100, // 100 req per second,
@@ -155,6 +174,7 @@ let config: Config = {
     maxOriginalTxEntries: 10000, // Should be >= max TPS experienced by the network.
   },
   experimentalSnapshot: true,
+  failedBucketsDir: 'failed-buckets',
   VERBOSE: false,
   useSerialization: true,
   useSyncV2: true,
@@ -173,6 +193,22 @@ let config: Config = {
     MAX_ORIGINAL_TXS_PER_REQUEST: 100,
     MAX_CYCLES_PER_REQUEST: 100,
     MAX_BETWEEN_CYCLES_PER_REQUEST: 100,
+  },
+  checkpoint: {
+    bucketConfig: {
+      BucketMatureAge: 11 * 60, // 11 minutes
+      cycleAge: 60, // 60 seconds
+      GiveUpAge: 20 * 60, // 20 minutes
+      lastFailedBucketDuration: 5 * 60 * 1000, // 5 minutes
+      RadixDepth: 2, // 2 nibbles (1 hex char)
+      allowCheckpointUpdates: false,
+      allowCheckpointStorage: false
+    },
+    batchSize: 100,
+    updateInterval: 60 * 1000, // 1 minute in milliseconds  in milliseconds
+    syncInterval: 10000, // 10 seconds in milliseconds
+    maxCyclesToSync: 100, // Maximum number of cycles to sync in one go
+    syncOnStartup: false, // Sync missing checkpoints on startup
   },
   cycleRecordsCache: {
     enabled: false,
@@ -208,7 +244,7 @@ let config: Config = {
   disableOffloadReceipt: false,
   disableOffloadReceiptForGlobalModification: true,
   restoreNGTsFromSnapshot: false,
-  tickets: {  
+  tickets: {
     allowedTicketSigners: {
       '0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5': 5,
       '0x0a0844DA5e01E391d12999ca859Da8a897D5979A': 5,
@@ -245,7 +281,7 @@ let config: Config = {
       '0xa58169308e7153B5Ce4ca5cA515cC4d0cBE7770B': 5,
     },
     minSigRequired: 1,
-    requiredSecurityLevel: 5
+    requiredSecurityLevel: 5,
   },
   maxRecordsPerRequest: 200,
   multisigKeysSyncFromNetworkInternal: 600,
