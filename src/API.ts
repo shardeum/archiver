@@ -36,8 +36,11 @@ import {
 } from './primary-process'
 import * as ServiceQueue from './ServiceQueue'
 import ticketRoutes from './routes/tickets'
+import { Cycle } from './dbstore/types'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
-
+import { CheckpointRadixEntry, CheckpointType } from './checkpoint/CheckpointData'
+import { getCheckpointManager } from './checkpoint/Utils'
+import { CheckpointStatusType, isBucketVerified } from './dbstore/checkpointStatus'
 const { version } = require('../package.json') // eslint-disable-line @typescript-eslint/no-var-requires
 const TXID_LENGTH = 64
 const {
@@ -911,8 +914,26 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     const totalTransactions = await TransactionDB.queryTransactionCount()
     const totalReceipts = await ReceiptDB.queryReceiptCount()
     const totalOriginalTxs = await OriginalTxDB.queryOriginalTxDataCount()
+
+    // Get the last five minutes bucket status for each checkpoint manager
+    const cycleLastFiveMinutesGiveUpBucketStatus =
+      getCheckpointManager(CheckpointType.Cycle)?.hasLastFailedBucketExceededDuration()
+    const originalTxLastFiveMinutesGiveUpBucketStatus =
+      getCheckpointManager(CheckpointType.OriginalTx)?.hasLastFailedBucketExceededDuration()
+    const receiptLastFiveMinutesGiveUpBucketStatus =
+      getCheckpointManager(CheckpointType.Receipt)?.hasLastFailedBucketExceededDuration()
+
     reply.send(
-      Crypto.sign({ totalCycles, totalAccounts, totalTransactions, totalReceipts, totalOriginalTxs })
+      Crypto.sign({
+        totalCycles,
+        totalAccounts,
+        totalTransactions,
+        totalReceipts,
+        totalOriginalTxs,
+        cycleLastFiveMinutesGiveUpBucketStatus,
+        originalTxLastFiveMinutesGiveUpBucketStatus,
+        receiptLastFiveMinutesGiveUpBucketStatus,
+      })
     )
   })
 
@@ -1290,6 +1311,154 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   // Register ticket routes
   server.register(ticketRoutes, { prefix: '/tickets' })
+
+  server.post('/shareCheckpointRadixDigests', async (req: any, reply) => {
+    try {
+      const result = validateRequestData(req.body, {
+        sender: 's',
+        sign: 'o',
+        senderAddress: 's',
+        bucketID: 's',
+        radixDigests: 's',
+        checkpointType: 'n',
+      })
+      if (!result.success) {
+        reply.send({ success: false, error: result.error })
+        return
+      }
+      const { bucketID, radixDigests, senderAddress, checkpointType } = req.body
+
+      // Identify the correct manager based on the checkpoint type
+      const manager = getCheckpointManager(checkpointType)
+      const bucket = manager.checkpointBuckets.get(bucketID)
+      if (!bucket) {
+        if (config.VERBOSE) {
+          Logger.mainLogger.debug(
+            `Bucket not found: No bucket with ID=${bucketID} for checkpoint type ${checkpointType}.`
+          )
+        }
+        reply.status(404).send(`Bucket not found for ID=${bucketID}.`)
+        return
+      }
+
+      // Process received digests
+      Logger.mainLogger.info(`Processing received digests for bucket ID=${bucketID} from ${senderAddress}.`)
+      manager.onHashDigestsReceived(senderAddress, bucketID, StringUtils.safeJsonParse(radixDigests))
+
+      reply.status(200).send({
+        success: true,
+      })
+    } catch (err) {
+      Logger.mainLogger.error(
+        `Error processing shareCheckpointRadixDigests for checkpoint type ${req.body.checkpointType}: ${err.message}`
+      )
+      reply.status(500).send('Server error')
+    }
+  })
+
+  server.post('/exchangeCheckpointRadixEntries', async (req: any, reply) => {
+    try {
+      const result = validateRequestData(req.body, {
+        sender: 's',
+        sign: 'o',
+        bucketID: 's',
+        entries: 's',
+        checkpointType: 'n',
+      })
+      if (!result.success) {
+        reply.send({ success: false, error: result.error })
+        return
+      }
+      const { bucketID, entries, checkpointType } = req.body
+      const parsedEntries = StringUtils.safeJsonParse(entries)
+
+      const manager = getCheckpointManager(checkpointType)
+      const bucket = manager.checkpointBuckets.get(bucketID)
+      if (!bucket) {
+        if (config.VERBOSE) {
+          Logger.mainLogger.debug(
+            `Bucket not found: No bucket with ID=${bucketID} for checkpoint type ${checkpointType}.`
+          )
+        }
+        reply.status(404).send(`Bucket not found for ID=${bucketID}.`)
+        return
+      }
+
+      // Get our entries to share back
+      const ourEntries: CheckpointRadixEntry<Cycle>[] = []
+
+      // For each incoming entry, get our corresponding entry
+      for (const incomingEntry of parsedEntries) {
+        const radix = incomingEntry.digest.radix
+        const ourEntry = bucket.radixEntries.get(radix)
+        if (ourEntry) {
+          ourEntry.updateDigest()
+          ourEntries.push(ourEntry)
+        }
+      }
+
+      // Process their entries
+      bucket.onExchangeRadixEntries(bucketID, parsedEntries)
+
+      // Send our entries back
+      const res = Crypto.sign({
+        bucketID,
+        entries: ourEntries,
+        success: true,
+      })
+      reply.send(res)
+    } catch (err) {
+      Logger.mainLogger.error(
+        `Error processing exchangeCheckpointRadixEntries for checkpoint type ${req.body.checkpointType}: ${err.message}`
+      )
+      reply
+        .status(500)
+        .send(`Server error in exchangeCheckpointRadixEntries for type ${req.body.checkpointType}`)
+    }
+  })
+
+  type BucketVerificationRequest = FastifyRequest<{
+    Body: { bucketID: string }
+  }>
+
+  server.post('/bucket-verification', async (request: BucketVerificationRequest & Request, reply) => {
+    try {
+      const requestData = request.body
+      const result = validateRequestData(requestData, { bucketID: 's', sender: 's', sign: 'o' })
+      if (!result.success) {
+        reply.code(400).send({
+          success: false,
+          error: result.error
+        })
+        return
+      }
+
+      const bucketID = parseInt(requestData.bucketID, 10)
+
+      if (isNaN(bucketID) || bucketID < 0) {
+        reply.code(400).send({
+          success: false,
+          error: 'Invalid bucketID. Must be a non-negative integer.'
+        })
+        return
+      }
+
+      const isVerified = await isBucketVerified(bucketID)
+
+      const response = Crypto.sign({
+        success: true,
+        isVerified
+      })
+
+      reply.send(response)
+    } catch (error) {
+      Logger.mainLogger.error(`Error checking bucket verification status:`, error)
+      reply.code(500).send({
+        success: false,
+        error: 'Internal server error while checking bucket verification status'
+      })
+    }
+  })
 }
 
 export const validateRequestData = (
@@ -1352,6 +1521,7 @@ export enum RequestDataType {
   ACCOUNT = 'account',
   TRANSACTION = 'transaction',
   TOTALDATA = 'totalData',
+  CHECKPOINT = 'checkpoint',
 }
 
 export const queryFromArchivers = async (
@@ -1359,6 +1529,38 @@ export const queryFromArchivers = async (
   queryParameters: object,
   timeoutInSecond?: number
 ): Promise<unknown | null> => {
+  let bucketID: number | undefined;
+  const params = queryParameters as any;
+  let checkpointStatusType: CheckpointStatusType | undefined;
+
+  // Extract bucket ID based on the request type and parameters
+  switch (type) {
+    case RequestDataType.CYCLE:
+      // For cycle info, use start or end as bucket ID
+      if (params.start !== undefined) {
+        bucketID = params.start;
+      } else if (params.end !== undefined) {
+        bucketID = params.end;
+      }
+      checkpointStatusType = CheckpointStatusType.CYCLE;
+      break;
+    case RequestDataType.RECEIPT:
+      checkpointStatusType = CheckpointStatusType.RECEIPT;
+      break;
+    case RequestDataType.ORIGINALTX:
+      checkpointStatusType = CheckpointStatusType.ORIGINAL_TX;
+      break;
+    case RequestDataType.ACCOUNT:
+    case RequestDataType.TRANSACTION:
+      // For other data types, check if startCycle or endCycle is specified
+      if (params.startCycle !== undefined) {
+        bucketID = params.startCycle;
+      } else if (params.endCycle !== undefined) {
+        bucketID = params.endCycle;
+      }
+      break;
+  }
+
   const data = {
     ...queryParameters,
     sender: config.ARCHIVER_PUBLIC_KEY,
@@ -1385,9 +1587,45 @@ export const queryFromArchivers = async (
       url = `/totalData`
       break
   }
+
   const maxNumberofArchiversToRetry = 3
   const randomArchivers = Utils.getRandomItemFromArr(State.otherArchivers, 0, maxNumberofArchiversToRetry)
   let retry = 0
+
+  // If checkpoint is enabled and we have a bucket ID, try to find an archiver with verified data first
+  if (config.checkpoint.bucketConfig.allowCheckpointUpdates && bucketID !== undefined && randomArchivers.length > 0) {
+    for (const archiver of randomArchivers) {
+      if (!archiver) continue;
+      try {
+        // Check if this archiver has verified the bucket
+
+        const data = {
+          bucketID: bucketID.toString(),
+          sender: config.ARCHIVER_PUBLIC_KEY,
+        }
+        const signedBucketVerificationDataToSend = Crypto.sign(data)
+        const verificationResponse: { success?: boolean, isVerified?: boolean } = await P2P.postJson(
+          `http://${archiver.ip}:${archiver.port}/bucket-verification`,
+          signedBucketVerificationDataToSend,
+          timeoutInSecond
+        )
+        const isVerifiedBucket = verificationResponse?.success && verificationResponse?.isVerified
+        if (isVerifiedBucket) {
+          // Try to get data from this archiver since it has verified data
+          const response = await P2P.postJson(
+            `http://${archiver.ip}:${archiver.port}${url}`,
+            signedDataToSend,
+            timeoutInSecond
+          )
+          if (response) return response;
+        }
+      } catch (error) {
+        Logger.mainLogger.error(`Error checking bucket verification for archiver ${archiver.ip}:${archiver.port}:`, error);
+      }
+    }
+  }
+
+  // If no archiver had verified data or checkpoint is disabled, try any archiver
   while (retry < maxNumberofArchiversToRetry) {
     // eslint-disable-next-line security/detect-object-injection
     let randomArchiver = randomArchivers[retry]

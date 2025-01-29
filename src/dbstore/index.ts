@@ -9,6 +9,7 @@ export let transactionDatabase: Database
 export let receiptDatabase: Database
 export let originalTxDataDatabase: Database
 export let processedTxDatabase: Database
+export let checkpointStatusDatabase: Database
 
 export const initializeDB = async (config: Config): Promise<void> => {
   createDirectories(config.ARCHIVER_DB)
@@ -26,6 +27,10 @@ export const initializeDB = async (config: Config): Promise<void> => {
   processedTxDatabase = await createDB(
     `${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.processedTxDB}`,
     'ProcessedTransaction'
+  )
+  checkpointStatusDatabase = await createDB(
+    `${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.checkpointStatusDB}`,
+    'CheckpointStatus'
   )
   await runCreate(
     transactionDatabase,
@@ -108,6 +113,16 @@ export const initializeDB = async (config: Config): Promise<void> => {
     processedTxDatabase,
     'CREATE INDEX if not exists `processedTxs_cycle_idx` ON `processedTxs` (`cycle`)'
   )
+
+  // Create checkpoint_status table
+  await runCreate(
+    checkpointStatusDatabase,
+    'CREATE TABLE if not exists `checkpoint_status` (`cycle` NUMBER NOT NULL, `unifiedStatus` BOOLEAN NOT NULL, `cycleStatus` BOOLEAN NOT NULL, `receiptStatus` BOOLEAN NOT NULL, `originalTxStatus` BOOLEAN NOT NULL, `created_at` BIGINT NOT NULL, PRIMARY KEY (`cycle`))'
+  )
+  await runCreate(
+    checkpointStatusDatabase,
+    'CREATE INDEX if not exists `checkpoint_status_unified_status` ON `checkpoint_status` (`cycle`)'
+  )
 }
 
 export const closeDatabase = async (): Promise<void> => {
@@ -118,5 +133,6 @@ export const closeDatabase = async (): Promise<void> => {
   promises.push(close(receiptDatabase, 'Receipt'))
   promises.push(close(originalTxDataDatabase, 'OriginalTxData'))
   promises.push(close(processedTxDatabase, 'ProcessedTransaction'))
+  promises.push(close(checkpointStatusDatabase, 'CheckpointStatus'))
   await Promise.all(promises)
 }
