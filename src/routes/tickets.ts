@@ -1,4 +1,4 @@
-import { FastifyPluginCallback } from 'fastify'
+import { FastifyPluginAsync } from 'fastify'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { config } from '../Config'
@@ -79,6 +79,7 @@ function validateTicketsArray(tickets: unknown): tickets is Ticket[] {
     return true;
 }
 
+
 function readAndValidateTickets(): Ticket[] {
     const now = Date.now();
         
@@ -115,13 +116,12 @@ export function initializeTickets(): void {
     }
 }
 
-export const ticketsRouter: FastifyPluginCallback = function (fastify, opts, done) {
-    // Add initialization before route handlers
+export const ticketsRouter: FastifyPluginAsync = async function (fastify, opts) {
+    // Add initialization
     try {
         initializeTickets();
     } catch (err) {
-        done(err as Error);
-        return;
+        throw err; // This will reject the promise if tickets are invalid
     }
 
     // GET / - Get all tickets
@@ -221,8 +221,6 @@ export const ticketsRouter: FastifyPluginCallback = function (fastify, opts, don
             return reply.code(error.statusCode).send(error.response);
         }
     });
-
-    done();
 };
 
 export default ticketsRouter 
