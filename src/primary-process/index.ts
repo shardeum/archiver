@@ -26,18 +26,18 @@ export interface ChildMessageInterface {
   }
 }
 
-export let receivedReceiptCount = 0 // Variable to keep track of the number of receipts received
-export let verifiedReceiptCount = 0 // Variable to keep track of the number of receipts verified
-export let successReceiptCount = 0 // Variable to keep track of the number of receipts successful verification
-export let failureReceiptCount = 0 // Variable to keep track of the number of receipts failed verification
+export const receivedReceiptCount = 0 // Variable to keep track of the number of receipts received
+export const verifiedReceiptCount = 0 // Variable to keep track of the number of receipts verified
+export const successReceiptCount = 0 // Variable to keep track of the number of receipts successful verification
+export const failureReceiptCount = 0 // Variable to keep track of the number of receipts failed verification
 
 let receiptLoadTraker = 0 // Variable to keep track of the receipt load within the last receiptLoadTrakerInterval
-let mainProcessReceiptTracker = 0 // receipt tracker for the receipts getting verified in the main process
+const mainProcessReceiptTracker = 0 // receipt tracker for the receipts getting verified in the main process
 // Creating a worker pool
 const workers: Worker[] = []
 const newWorkers = new Map<number, Worker>()
 const extraWorkers = new Map<number, Worker>()
-let currentWorker = 0
+const currentWorker = 0
 
 const emitter = new EventEmitter()
 

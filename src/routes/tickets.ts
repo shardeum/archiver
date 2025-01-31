@@ -108,11 +108,7 @@ function readAndValidateTickets(): Ticket[] {
 }
 
 export function initializeTickets(): void {
-    try {
-        readAndValidateTickets();
-    } catch (err) {
-        throw err; // This will prevent server from starting if tickets are invalid
-    }
+    readAndValidateTickets(); // This will prevent server from starting if tickets are invalid
 }
 
 export const ticketsRouter: FastifyPluginCallback = function (fastify, opts, done) {

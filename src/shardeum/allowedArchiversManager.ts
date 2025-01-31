@@ -17,10 +17,10 @@ interface AllowedArchiversConfig {
 
 class AllowedArchiversManager {
     private currentConfig: AllowedArchiversConfig | null = null
-    private configPath: string = ''
-    private isInitialized: boolean = false
+    private configPath = ''
+    private isInitialized = false
     private globalAccountAllowedSigners: { [key: string]: number } = {}
-    private globalAccountMinSigRequired: number = 0
+    private globalAccountMinSigRequired = 0
 
     public initialize(configPath: string): void {
         if (this.isInitialized) {
