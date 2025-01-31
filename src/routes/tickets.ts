@@ -122,7 +122,7 @@ async function readAndValidateTickets(): Promise<Ticket[]> {
     }
 }
 
-export async function initializeTickets() {
+export async function initializeTickets(): Promise<void> {
     try {
         await readAndValidateTickets();
     } catch (err) {
