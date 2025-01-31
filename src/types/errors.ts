@@ -2,7 +2,7 @@ export interface ApiError {
     statusCode: number;
     response: {
         error: string;
-        code: string;
+        code: typeof ErrorCodes[keyof typeof ErrorCodes];
         details?: unknown;
     };
 }
@@ -14,7 +14,10 @@ export const ErrorCodes = {
     INVALID_TICKET_SIGNATURES: 'INVALID_TICKET_SIGNATURES',
     TICKET_NOT_FOUND: 'TICKET_NOT_FOUND',
     INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
-    INVALID_TICKET_TYPE: 'INVALID_TICKET_TYPE'
+    INVALID_TICKET_TYPE: 'INVALID_TICKET_TYPE',
+    INVALID_REQUEST_BODY: 'INVALID_REQUEST_BODY',
+    INVALID_TICKET: 'INVALID_TICKET',
+    INVALID_UPDATE_PROOF: 'INVALID_UPDATE_PROOF'
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes]; 

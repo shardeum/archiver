@@ -1,6 +1,6 @@
 import { ethers } from 'ethers'
 import { Utils } from '@shardeum-foundation/lib-types'
-import { Ticket, Sign } from '../schemas/ticketSchema'
+import { Ticket, Sign, TicketMetadata } from '../schemas/ticketSchema'
 import { DevSecurityLevel } from '../types/security'
 import * as Ajv from 'ajv'
 import { ticketSchema } from '../schemas/ticketSchema'
@@ -79,14 +79,93 @@ export function verifyMultiSigs(
     }
 }
 
+export interface TicketValidationResult {
+    isValid: boolean;
+    errors: VerificationError[];
+}
 
-export function verifyTickets(
-    tickets: Ticket[],
+export interface UpdateValidationResult {
+    isValid: boolean;
+    error?: string;
+}
+
+function verifyMetadataSignatures(
+    metadata: TicketMetadata,
+    signatures: Sign[],
     config: VerificationConfig
-): { isValid: boolean; errors: VerificationError[] } {
-    validateVerificationConfig(config);
+): { isValid: boolean; validCount: number } {
+    const metadataHash = ethers.keccak256(ethers.toUtf8Bytes(Utils.safeStringify(metadata)));
+    return verifyMultiSigs(
+        metadata,
+        signatures,
+        config.allowedTicketSigners,
+        config.minSigRequired,
+        config.requiredSecurityLevel
+    );
+}
 
-    if (!validateTicketSchema(tickets)) {
+function verifyUpdateProof(
+    ticket: Ticket,
+    newData: any,
+    config: VerificationConfig
+): UpdateValidationResult {
+    if (!ticket.updateProof) {
+        return { isValid: false, error: 'Update proof missing' };
+    }
+
+    const { operation, updater, previousDataHash, signature } = ticket.updateProof;
+    const { metadata } = ticket;
+
+    // Verify timestamp validity
+    const now = Date.now();
+    if (now < metadata.notBefore || now > metadata.notAfter) {
+        return { isValid: false, error: 'Ticket is not valid at current time' };
+    }
+
+    // Verify updater is allowed
+    if (!metadata.allowedUpdaters.includes(updater.toLowerCase())) {
+        return { isValid: false, error: 'Updater not authorized' };
+    }
+
+    // Verify operation is allowed
+    if (!metadata.allowedOperations.includes(operation as any)) {
+        return { isValid: false, error: 'Operation not authorized' };
+    }
+
+    // Verify previous data hash matches
+    const currentDataHash = ethers.keccak256(ethers.toUtf8Bytes(Utils.safeStringify(ticket.data)));
+    if (previousDataHash !== currentDataHash) {
+        return { isValid: false, error: 'Data hash mismatch - possible concurrent modification' };
+    }
+
+    // Verify update signature
+    const updatePayload = {
+        operation,
+        ticketType: ticket.type,
+        previousDataHash,
+        newDataHash: ethers.keccak256(ethers.toUtf8Bytes(Utils.safeStringify(newData))),
+        nonce: metadata.nonce
+    };
+    const updateHash = ethers.keccak256(ethers.toUtf8Bytes(Utils.safeStringify(updatePayload)));
+    
+    try {
+        const recoveredAddress = ethers.verifyMessage(updateHash, signature).toLowerCase();
+        if (recoveredAddress !== updater.toLowerCase()) {
+            return { isValid: false, error: 'Invalid update signature' };
+        }
+    } catch (err) {
+        return { isValid: false, error: 'Failed to verify update signature' };
+    }
+
+    return { isValid: true };
+}
+
+export function verifyTicket(
+    ticket: Ticket,
+    config: VerificationConfig
+): TicketValidationResult {
+    // Verify schema
+    if (!validateTicketSchema(ticket)) {
         return {
             isValid: false,
             errors: [{
@@ -96,32 +175,56 @@ export function verifyTickets(
             }]
         };
     }
-    
-    const errors: VerificationError[] = [];
 
-    for (const ticket of tickets) {
-        const { data, sign, type } = ticket;
-        const messageObj = { data, type };
-        
-        const verificationResult = verifyMultiSigs(
-            messageObj,
-            sign,
-            config.allowedTicketSigners,
-            config.minSigRequired,
-            config.requiredSecurityLevel
-        );
+    // Verify metadata signatures
+    const metadataSigResult = verifyMetadataSignatures(
+        ticket.metadata,
+        ticket.metadataSignatures,
+        config
+    );
 
-        if (!verificationResult.isValid) {
-            errors.push({
-                type,
-                message: `Invalid signatures for ticket type ${type}. Found ${verificationResult.validCount} valid signatures, required ${config.minSigRequired} with security level ${DevSecurityLevel[config.requiredSecurityLevel]}`,
-                validSignatures: verificationResult.validCount
-            });
-        }
+    if (!metadataSigResult.isValid) {
+        return {
+            isValid: false,
+            errors: [{
+                type: 'metadata_signatures',
+                message: `Invalid metadata signatures. Found ${metadataSigResult.validCount} valid signatures, required ${config.minSigRequired}`,
+                validSignatures: metadataSigResult.validCount
+            }]
+        };
     }
-    
+
+    // Verify data hash matches metadata
+    const currentDataHash = ethers.keccak256(ethers.toUtf8Bytes(Utils.safeStringify(ticket.data)));
+    if (currentDataHash !== ticket.metadata.dataHash) {
+        return {
+            isValid: false,
+            errors: [{
+                type: 'data_hash',
+                message: 'Data hash mismatch with metadata',
+                validSignatures: metadataSigResult.validCount
+            }]
+        };
+    }
+
+    // Verify timestamp validity
+    const now = Date.now();
+    if (now < ticket.metadata.notBefore || now > ticket.metadata.notAfter) {
+        return {
+            isValid: false,
+            errors: [{
+                type: 'timestamp',
+                message: 'Ticket is not valid at current time',
+                validSignatures: metadataSigResult.validCount
+            }]
+        };
+    }
+
     return {
-        isValid: errors.length === 0,
-        errors
+        isValid: true,
+        errors: []
     };
-} 
+}
+
+// Export verification functions
+export { verifyUpdateProof }; 
