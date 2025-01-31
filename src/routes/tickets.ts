@@ -87,9 +87,7 @@ function readAndValidateTickets(): Ticket[] {
         return ticketCache.tickets;
     }
 
-    console.log('Reading tickets from file:', ticketFilePath);
     const jsonData = readFileSync(ticketFilePath, 'utf8');
-    console.log('JSON data:', jsonData);
     const tickets = JSON.parse(jsonData);
 
     if (!validateTicketsArray(tickets)) {
@@ -113,7 +111,6 @@ export function initializeTickets(): void {
     try {
         readAndValidateTickets();
     } catch (err) {
-        console.log('caught the error 3', err);
         throw err; // This will prevent server from starting if tickets are invalid
     }
 }
@@ -130,12 +127,9 @@ export const ticketsRouter: FastifyPluginCallback = function (fastify, opts, don
     // GET / - Get all tickets
     fastify.get('/', (_request, reply) => {
         try {
-            console.log('bout to go');
             const tickets = readAndValidateTickets();
-            console.log('got the tickets');
             return reply.send(tickets);
         } catch (err) {
-            console.log('caught the error', err);
             if (err instanceof Error) {
                 if (err.message.includes('ENOENT')) {
                     const error = handleFileError(err);
@@ -195,7 +189,6 @@ export const ticketsRouter: FastifyPluginCallback = function (fastify, opts, don
 
             return reply.send(ticket);
         } catch (err) {
-            console.log('caught the error', err);
             if (err instanceof Error) {
                 if (err.message.includes('ENOENT')) {
                     const error = handleFileError(err);
