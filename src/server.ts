@@ -1,3 +1,5 @@
+import {scheduleMultiSigKeysSyncFromNetConfig} from "./services/transactionVerification";
+
 const _startingMessage = `@shardeum-foundation/archiver starting at
   locale:  ${new Date().toLocaleString()}
   ISO/UTC: ${new Date().toISOString()}`
@@ -498,6 +500,7 @@ async function startServer(): Promise<void> {
       Logger.mainLogger.info(`Worker ${process.pid}: Archive-server is listening on http://0.0.0.0:${config.ARCHIVER_PORT}`)
       State.setActive()
       Collector.scheduleMissingTxsDataQuery()
+      scheduleMultiSigKeysSyncFromNetConfig()
       // setupWorkerProcesses(cluster)
     }
   )
