@@ -38,7 +38,7 @@ const start = async (): Promise<void> => {
   }
   await dbstore.initializeDB(config)
 
-  const lastStoredCycleCount = await CycleDB.queryCyleCount()
+  const lastStoredCycleCount = await CycleDB.queryCycleCount()
   const lastStoredCycle = (await CycleDB.queryLatestCycleRecords(1))[0]
   console.log('lastStoredCycleCount', lastStoredCycleCount, 'lastStoredCycleCounter', lastStoredCycle.counter)
 
