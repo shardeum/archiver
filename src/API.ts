@@ -906,7 +906,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       reply.send({ success: false, error: result.error })
       return
     }
-    const totalCycles = await CycleDB.queryCyleCount()
+    const totalCycles = await CycleDB.queryCycleCount()
     const totalAccounts = await AccountDB.queryAccountCount()
     const totalTransactions = await TransactionDB.queryTransactionCount()
     const totalReceipts = await ReceiptDB.queryReceiptCount()
