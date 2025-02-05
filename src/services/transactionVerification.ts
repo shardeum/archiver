@@ -57,19 +57,20 @@ type Response = {
 }
 
 
-export const scheduleMultiSigKeysSyncFromNetConfig = () : void => {
+export const scheduleMultiSigKeysSyncFromNetConfig =  (): void => {
 
-  // Set to collect dev public keys and multi sig keys from the network
-    setInterval(() => {
-      syncKeysFromNetworkConfig()
-    }, 60 * 1000)
+  setInterval(async () => {
+    console.log("Executing syncKeysFromNetworkConfig on interval...");
+    await syncKeysFromNetworkConfig();
+  }, 60 * 1000);
+};
 
-}
 
 
 export const syncKeysFromNetworkConfig = async (): Promise<void> => {
 
   try {
+    Logger.mainLogger.info("Inside the syncKeysFromNetworkConfig on interval...");
     const queryFn = async (node): Promise<object> => {
       const REQUEST_NETCONFIG_TIMEOUT_SECOND = 3
       try {

@@ -182,6 +182,11 @@ async function start(): Promise<void> {
     Logger.mainLogger.debug('We are not first archiver. Syncing and starting archive-server')
     syncAndStartServer()
   }
+
+  setTimeout(() => {
+    scheduleMultiSigKeysSyncFromNetConfig();
+  }, 60 * 1000); // Start after 60 seconds
+
 }
 
 function initProfiler(server: FastifyInstance): void {
@@ -447,6 +452,7 @@ async function syncAndStartServer(): Promise<void> {
   // Sync the missing data during the cycle of sending active request
   const latestCycle = await Cycles.getNewestCycleFromArchivers()
   await Data.syncCyclesAndTxsDataBetweenCycles(beforeCycle - 1, latestCycle.counter + 1)
+  scheduleMultiSigKeysSyncFromNetConfig();
 }
 
 // Define all endpoints, all requests, and start REST server
@@ -500,10 +506,10 @@ async function startServer(): Promise<void> {
       Logger.mainLogger.info(`Worker ${process.pid}: Archive-server is listening on http://0.0.0.0:${config.ARCHIVER_PORT}`)
       State.setActive()
       Collector.scheduleMissingTxsDataQuery()
-      scheduleMultiSigKeysSyncFromNetConfig()
       // setupWorkerProcesses(cluster)
     }
   )
+
 }
 
 // Add this before starting the server
