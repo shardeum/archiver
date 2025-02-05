@@ -1397,7 +1397,6 @@ export const storeOriginalTxData = async (
   for (const originalTxData of originalTxsData) {
     const { txId, timestamp } = originalTxData
     if (!txId || !timestamp) continue
-    Logger.mainLogger.info('Started verifying original transaction', StringUtils.safeStringify(originalTxData.originalTxData))
     try {
       const tx = (originalTxData.originalTxData as any)?.tx;
 
@@ -1413,7 +1412,7 @@ export const storeOriginalTxData = async (
         continue
       }
     } catch (error) {
-      Logger.mainLogger.error(`Error verifying transaction: ${error.message}`);
+      Logger.mainLogger.error(`Error verifying transaction: ${error.message} where tx was ${StringUtils.safeStringify(originalTxData)}`);
       continue
     }
     if (

@@ -37,17 +37,12 @@ const getSecureAccounts = (): Map<string, SecureAccountData> => {
   return secureAccountDataMap;
 };
 
-let devPublicKeys: Record<string, DevSecurityLevel> = {}
 let multisigKeys: Record<string, DevSecurityLevel> = {}
 let minMultiSigRequiredForGlobalTxs = 3
 
 
 export const getMultisigPublicKeys = (): Required<{ [x: string]: DevSecurityLevel }> => {
   return multisigKeys
-}
-
-export const getDevPublicKeys = (): Required<{ [x: string]: DevSecurityLevel }> => {
-  return devPublicKeys
 }
 
 
@@ -62,7 +57,7 @@ export const scheduleMultiSigKeysSyncFromNetConfig =  (): void => {
   setInterval(async () => {
     console.log("Executing syncKeysFromNetworkConfig on interval...");
     await syncKeysFromNetworkConfig();
-  }, 60 * 1000);
+  }, 600 * 1000); // will sync for multi sig keys from network each 10 mins
 };
 
 
@@ -70,7 +65,6 @@ export const scheduleMultiSigKeysSyncFromNetConfig =  (): void => {
 export const syncKeysFromNetworkConfig = async (): Promise<void> => {
 
   try {
-    Logger.mainLogger.info("Inside the syncKeysFromNetworkConfig on interval...");
     const queryFn = async (node): Promise<object> => {
       const REQUEST_NETCONFIG_TIMEOUT_SECOND = 3
       try {
@@ -88,8 +82,6 @@ export const syncKeysFromNetworkConfig = async (): Promise<void> => {
 
     const equalityFn = (responseA, responseB): boolean => {
       return (
-          JSON.stringify(responseA?.config?.debug?.devPublicKeys) ===
-          JSON.stringify(responseB?.config?.debug?.devPublicKeys) &&
           JSON.stringify(responseA?.config?.debug?.multisigKeys) ===
           JSON.stringify(responseB?.config?.debug?.multisigKeys) &&
           JSON.stringify(responseA?.config?.debug?.minMultiSigRequiredForGlobalTxs) ===
@@ -108,22 +100,10 @@ export const syncKeysFromNetworkConfig = async (): Promise<void> => {
         3 // Redundancy (minimum 3 nodes should return the same result to reach consensus)
     )
 
-    Logger.mainLogger.info(`tallyItem is ${StringUtils.safeStringify(tallyItem)}`)
-
-
     if (tallyItem?.value?.config?.debug) {
 
-      const newDevPublicKeys = tallyItem.value.config.debug.devPublicKeys
       const newMultisigKeys = tallyItem.value.config.debug.multisigKeys
       const newMinMultiSigRequired = tallyItem.value.config.debug.minMultiSigRequiredForGlobalTxs
-
-      if (
-          newDevPublicKeys &&
-          typeof newDevPublicKeys === 'object' &&
-          JSON.stringify(newDevPublicKeys) !== JSON.stringify(devPublicKeys)
-      ) {
-        devPublicKeys = newDevPublicKeys
-      }
 
       if (
           newMultisigKeys &&
@@ -136,7 +116,6 @@ export const syncKeysFromNetworkConfig = async (): Promise<void> => {
       if (typeof newMinMultiSigRequired === 'number' && newMinMultiSigRequired > 0 && newMinMultiSigRequired !== minMultiSigRequiredForGlobalTxs) {
         minMultiSigRequiredForGlobalTxs = newMinMultiSigRequired
       }
-
     }
 
   } catch (error) {
@@ -175,6 +154,7 @@ export const verifyTransaction = (tx: any) : Response  => {
         )
 
         if (!authorized) {
+          Logger.mainLogger.info(`ChangeConfig or ChangeNetworkParam failed verification ${JSON.stringify(tx)}`)
           return { result: 'fail', reason: 'Invalid Signature' }
         }
         return { result: 'pass', reason: 'valid' }
@@ -198,7 +178,7 @@ export const verifyTransaction = (tx: any) : Response  => {
           Logger.mainLogger.info(`Single signed tx failed ${JSON.stringify(tx)}`)
           return { result: 'fail', reason: 'Invalid Signature' }
         }
-        Logger.mainLogger.info(`Single signed tx passed ${JSON.stringify(tx)}`)
+
         return { result: 'pass', reason: 'valid' }
       }
     }
@@ -208,22 +188,23 @@ export const verifyTransaction = (tx: any) : Response  => {
       return { result: 'pass', reason: 'all_allowed' }
     }
 
-    // verify coin transfer tx fields
+    // verify coin transfer tx
     try {
-      Logger.mainLogger.info(`Started verifying coin related tx ${JSON.stringify(tx)}`)
+
       const transaction = getTransactionObj(tx)
       const isSigned = transaction.isSigned()
       if(!isSigned) {
         return { result: 'fail', reason: 'invalid - signs missing' }
       }
       const {
+        address: senderAddress,
         isValid: isSignatureValid,
       } = getTxSenderAddress(transaction)
 
       if(!isSignatureValid) {
         return { result: 'fail', reason: 'invalid - signature' }
       }
-      Logger.mainLogger.info(`Completed verifying coin related tx ${JSON.stringify(tx)}`)
+
       return {result: 'pass', reason: 'valid' }
 
 
@@ -284,7 +265,9 @@ export function validateTransferFromSecureAccount(tx: any) : { success: boolean;
       return { success: false, reason: 'Invalid nonce' }
     }
 
-    const secureAccountData = secureAccountDataMap.get(tx.accountName)
+    const secureAccounts = getSecureAccounts();
+    const secureAccountData = secureAccounts.get(tx.accountName);
+
     if(!secureAccountData) {
       return { success: false, reason: 'Secure Account not found' }
     }
@@ -339,7 +322,7 @@ export function getTransactionObj(
   try {
     transactionObj = TransactionFactory.fromSerializedData<TransactionType.Legacy>(serializedInput)
   } catch (e) {
-    // if (ShardeumFlags.VerboseLogs) console.log('Unable to get legacy transaction obj', e)
+    // do nothing here
   }
   if (!transactionObj) {
     try {
@@ -368,13 +351,11 @@ export function getTxSenderAddress(
     const { address, isValid, gasValid } = getSenderAddress(rawTx)
 
     return { address: Address.fromString(address), isValid, gasValid }
-  } catch (e) {
-
+    } catch (e) {
       Logger.mainLogger.error('Error getting sender address from tx', e)
     }
-
     return { address: null, isValid: false, gasValid: false }
-  }
+}
 
 
 function toHexString(byteArray: Uint8Array): string {
