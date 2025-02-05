@@ -161,7 +161,7 @@ export async function queryCycleRecordsBetween(
   }
 }
 
-export async function queryCyleCount(): Promise<number> {
+export async function queryCycleCount(): Promise<number> {
   let cycles
   try {
     const sql = `SELECT COUNT(*) FROM cycles`
