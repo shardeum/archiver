@@ -12,6 +12,7 @@ import { toBuffer } from 'ethereumjs-util'
 import { Address } from '@ethereumjs/util'
 import { getSenderAddress } from '@shardeum-foundation/lib-net'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { config } from '../Config'
 
 interface SecureAccountData {
   Name: string
@@ -57,7 +58,7 @@ export const scheduleMultiSigKeysSyncFromNetConfig =  (): void => {
   setInterval(async () => {
     console.log("Executing syncKeysFromNetworkConfig on interval...");
     await syncKeysFromNetworkConfig();
-  }, 600 * 1000); // will sync for multi sig keys from network each 10 mins
+  }, config.multisigKeysSyncFromNetworkInternal * 1000); // will sync for multi sig keys from network each 10 mins
 };
 
 
@@ -183,7 +184,7 @@ export const verifyTransaction = (tx: any) : Response  => {
       }
     }
 
-    if (tx?.isDebugTx) {
+    if (tx?.isDebugTx === true) {
       Logger.mainLogger.info(`Debug tx allowed ${JSON.stringify(tx)}`)
       return { result: 'pass', reason: 'all_allowed' }
     }
@@ -231,14 +232,12 @@ export function isInternalTXGlobal(internalTx: any): boolean {
   )
 }
 
-export function isInternalTx(timestampedTx: any ): boolean {
-
-    if(!timestampedTx) return false;
-
-    return (
-      !timestampedTx.raw &&
-      (timestampedTx.isInternalTx === true ||  timestampedTx.tx?.isInternalTx === true)
-    )
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function isInternalTx(timestampedTx: any): boolean {
+  if (timestampedTx && timestampedTx.raw) return false
+  if (timestampedTx && timestampedTx.isInternalTx) return true
+  if (timestampedTx && timestampedTx.tx && timestampedTx.tx.isInternalTx) return true
+  return false
 }
 
 export function validateTransferFromSecureAccount(tx: any) : { success: boolean; reason: string } {
