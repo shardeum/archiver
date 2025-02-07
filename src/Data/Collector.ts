@@ -33,6 +33,7 @@ import { Cycle as DbCycle } from '../dbstore/types'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
+import {verifyTransaction} from "../services/transactionVerification";
 
 export let storingAccountData = false
 const processedReceiptsMap: Map<string, number> = new Map()
@@ -1396,6 +1397,24 @@ export const storeOriginalTxData = async (
   for (const originalTxData of originalTxsData) {
     const { txId, timestamp } = originalTxData
     if (!txId || !timestamp) continue
+    try {
+      const tx = (originalTxData.originalTxData as any)?.tx;
+
+      const { result, reason } = verifyTransaction(tx);
+
+      if (result !== 'pass') {
+        Logger.mainLogger.info(
+            `OriginalTxData verification failed for`,
+            StringUtils.safeStringify(originalTxData),
+            '\n with reason ',
+            reason
+        );
+        continue
+      }
+    } catch (error) {
+      Logger.mainLogger.error(`Error verifying transaction: ${error.message} where tx was ${StringUtils.safeStringify(originalTxData)}`);
+      continue
+    }
     if (
       (processedOriginalTxsMap.has(txId) && processedOriginalTxsMap.get(txId) === timestamp) ||
       (originalTxsInValidationMap.has(txId) && originalTxsInValidationMap.get(txId) === timestamp)
@@ -1404,7 +1423,7 @@ export const storeOriginalTxData = async (
       continue
     }
     if (config.VERBOSE) console.log('ORIGINAL_TX_DATA', 'Validate', txId, timestamp, senderInfo)
-    if (validateOriginalTxData(originalTxData) === false) {
+    if (validateOriginalTxDataSchema(originalTxData) === false) {
       Logger.mainLogger.error('Invalid originalTxData: Validation failed', txId)
       originalTxsInValidationMap.delete(txId)
       continue
@@ -1438,7 +1457,7 @@ interface validateResponse {
   error?: string
 }
 
-export const validateOriginalTxData = (originalTxData: OriginalTxsData.OriginalTxData): boolean => {
+export const validateOriginalTxDataSchema = (originalTxData: OriginalTxsData.OriginalTxData): boolean => {
 
   const errors = verifyPayload(AJVSchemaEnum.OriginalTxData, originalTxData)
 
@@ -1453,6 +1472,8 @@ export const validateOriginalTxData = (originalTxData: OriginalTxsData.OriginalT
   
   return true
 }
+
+
 
 export const validateGossipData = (data: GossipData): validateResponse => {
   let err = Utils.validateTypes(data, {

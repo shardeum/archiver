@@ -1,8 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import {Utils, Utils as StringUtils} from '@shardeum-foundation/lib-types'
 import * as util from 'util'
 import * as Logger from './Logger'
+import {Sign} from "./types/internalTxType";
+import {DevSecurityLevel} from "./types/security";
+import {ethers} from "ethers";
 
 export interface CountSchema {
   count: string
@@ -567,4 +570,52 @@ export function createDirectories(pathname: string): void {
   const __dirname = path.resolve()
   pathname = pathname.replace(/^\.*\/|\/?[^/]+\.[a-z]+|\/$/g, '') // Remove leading directory markers, and remove ending /file-name.extension
   fs.mkdirSync(path.resolve(__dirname, pathname), { recursive: true }) // eslint-disable-line security/detect-non-literal-fs-filename
+}
+
+
+export function verifyMultiSigs(
+    rawPayload: object,
+    sigs: Sign[],
+    allowedPubkeys: { [pubkey: string]: DevSecurityLevel },
+    minSigRequired: number,
+    requiredSecurityLevel: DevSecurityLevel
+): { isValid: boolean; validCount: number } {
+  if (!rawPayload || !sigs || !allowedPubkeys || !Array.isArray(sigs)) {
+    return { isValid: false, validCount: 0 }
+  }
+  if (sigs.length < minSigRequired) return { isValid: false, validCount: 0 }
+
+  // no reason to allow more signatures than allowedPubkeys exist
+  // this also prevent loop exhaustion
+  if (sigs.length > Object.keys(allowedPubkeys).length) return { isValid: false, validCount: 0 }
+
+  let validSigs = 0
+  const payload_hash = ethers.keccak256(ethers.toUtf8Bytes(Utils.safeStringify(rawPayload)))
+  const seen = new Set()
+
+  for (let i = 0; i < sigs.length; i++) {
+    /* eslint-disable security/detect-object-injection */
+    // The sig owner has not been seen before
+    // The sig owner is listed on the server
+    // The sig owner has enough security clearance
+    // The signature is valid
+    // The signature is not a duplicate
+    if (
+        !seen.has(sigs[i].owner.toLowerCase()) &&
+        allowedPubkeys[sigs[i].owner] &&
+        allowedPubkeys[sigs[i].owner] >= requiredSecurityLevel &&
+        ethers.verifyMessage(payload_hash, sigs[i].sig).toLowerCase() === sigs[i].owner.toLowerCase()
+    ) {
+      validSigs++
+      seen.add(sigs[i].owner.toLowerCase())
+    }
+    /* eslint-enable security/detect-object-injection */
+
+    if (validSigs >= minSigRequired) break
+  }
+
+  return {
+    isValid: validSigs >= minSigRequired,
+    validCount: validSigs
+  }
 }
