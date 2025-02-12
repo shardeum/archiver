@@ -49,7 +49,7 @@ import { initAjvSchemas } from './types/ajv/Helpers'
 import { initializeSerialization } from './utils/serialization/SchemaHelpers'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
 
-const configFile = join(process.cwd(), 'archiver-config.json')
+const configFile = resolve(__dirname, '../archiver-config.json')
 const allowedArchiversConfigPath = join(__dirname, '../allowed-archivers.json')
 let logDir: string
 const cluster = clusterModule as unknown as clusterModule.Cluster
