@@ -43,7 +43,7 @@
       "0x1e5e12568b7103E8B22cd680A6fa6256DD66ED76": 5,
       "0xa58169308e7153B5Ce4ca5cA515cC4d0cBE7770B": 5
     },
-    "minSigRequired": 3,
+    "minSigRequired": 1,
     "requiredSecurityLevel": 5
   }
 }
