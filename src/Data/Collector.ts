@@ -1023,6 +1023,26 @@ export const storeReceiptData = async (
       continue
     }
 
+    try {
+      const originalTxData = receipt.tx.originalTxData
+      const tx = (originalTxData as any)?.tx;
+     
+      const { result, reason } = verifyTransaction(tx);
+
+      if (result !== 'pass') {
+        Logger.mainLogger.info(
+            `OriginalTxData verification failed for`,
+            StringUtils.safeStringify(receipt),
+            '\n with reason ',
+            reason
+        );
+        continue
+      }
+    } catch (error) {
+      Logger.mainLogger.error(`Error verifying transaction: ${error.message} where tx was ${StringUtils.safeStringify(receipt)}`);
+      continue
+    }
+
     if (verifyData) {
       // if (config.usePOQo === false) {
       // const existingReceipt = await Receipt.queryReceiptByReceiptId(txId)

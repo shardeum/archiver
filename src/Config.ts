@@ -246,7 +246,7 @@ let config: Config = {
     requiredSecurityLevel: 5,
   },
   maxRecordsPerRequest: 200,
-  multisigKeysSyncFromNetworkInternal: 600
+  multisigKeysSyncFromNetworkInternal: 600,
   enableKeyExtraction: false,
 }
 // Override default config params from config file, env vars, and cli args
