@@ -191,17 +191,17 @@ export async function unsubscribeDataSender(
 
 export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
   if (config.VERBOSE) Logger.mainLogger.debug('Node Info to socket connect', node)
-  
+
   try {
     const socketClient = ioclient.connect(`http://${node.ip}:${node.port}`, {
       query: {
         data: JSON.stringify(
-        Crypto.sign({
-          publicKey: State.getNodeInfo().publicKey, 
-          timestamp: Date.now(),
-          intendedConsensor: node.publicKey
-       })
-      ),
+          Crypto.sign({
+            publicKey: State.getNodeInfo().publicKey,
+            timestamp: Date.now(),
+            intendedConsensor: node.publicKey
+          })
+        ),
       },
     })
     socketClients.set(node.publicKey, socketClient)
@@ -315,7 +315,7 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
           } else {
             if (storingAccountData) {
               Logger.mainLogger.debug('Storing Account Data')
-              let newCombineAccountsData = {...combineAccountsData}
+              let newCombineAccountsData = { ...combineAccountsData }
               if (newData.responses.ACCOUNT.accounts)
                 newCombineAccountsData.accounts = [
                   ...newCombineAccountsData.accounts,
@@ -326,7 +326,7 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
                   ...newCombineAccountsData.receipts,
                   ...newData.responses.ACCOUNT.receipts,
                 ]
-              combineAccountsData = {...newCombineAccountsData}
+              combineAccountsData = { ...newCombineAccountsData }
               newCombineAccountsData = {
                 accounts: [],
                 receipts: [],
@@ -387,27 +387,39 @@ export function collectCycleData(
     }
     if (config.VERBOSE)
       Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
-    
-    const minCycleConfirmations = 
-    Math.min(Math.ceil(NodeList.getActiveNodeCount() / currentConsensusRadius), 5) || 
-    (cycle.counter <= 15 ? 1 : 3);
-    
 
-    for (const value of Object.values(receivedCycleTracker[cycle.counter])) {
-      if (value['saved']) {
-        // If there is a saved cycle, clear the cycleToSave of this counter; This is to prevent saving the another cycle of the same counter
-        for (let i = 0; i < cycleToSave.length; i++) {
-          // eslint-disable-next-line security/detect-object-injection
-          receivedCycleTracker[cycle.counter][cycleToSave[i].marker]['saved'] = false
-        }
-        cycleToSave = []
-        break
+    const minCycleConfirmations =
+      Math.min(Math.ceil(NodeList.getActiveNodeCount() / currentConsensusRadius), 5) ||
+      (cycle.counter <= 15 ? 1 : 3);
+
+
+    // Check if any of the markers for this cycle are marekd as saved
+    if (Object.values(receivedCycleTracker[cycle.counter]).some((value) => value['saved'])) {
+      // If there is a saved cycle, clear the cycleToSave of this counter; This is to prevent saving the another cycle of the same counter
+      for (let i = 0; i < cycleToSave.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection
+        receivedCycleTracker[cycle.counter][cycleToSave[i].marker]['saved'] = false
       }
-      if (value['receivedTimes'] >= minCycleConfirmations) {
-        cycleToSave.push(cycle)
-        value['saved'] = true
+      continue
+    }
+
+    // Check if any of the markers for this cycle have received the minimum number of confirmations
+    if (Object.values(receivedCycleTracker[cycle.counter]).some((value) => value['receivedTimes'] >= minCycleConfirmations)) {
+      // Find cycle with max receivedTimes
+      const maxReceivedTimes = Math.max(
+        ...Object.values(receivedCycleTracker[cycle.counter]).map((value) => value['receivedTimes'])
+      )
+      // Find first marker with max receivedTimes
+      const markerValue = Object.values(receivedCycleTracker[cycle.counter]).find(
+        (value) => value['receivedTimes'] === maxReceivedTimes
+      )
+
+      if (markerValue) {
+        cycleToSave.push(markerValue['cycleInfo'])
+        markerValue['saved'] = true
       }
     }
+
     if (cycleToSave.length > 0) {
       processCycles(cycleToSave)
     }
