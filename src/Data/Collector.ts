@@ -34,6 +34,7 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 import {verifyTransaction} from "../services/transactionVerification";
+import { CycleShardData } from '@shardeum-foundation/lib-types/build/src/state-manager/shardFunctionTypes'
 
 export let storingAccountData = false
 const processedReceiptsMap: Map<string, number> = new Map()
@@ -61,6 +62,68 @@ export interface ReceiptVerificationResult {
   success: boolean
   failedReasons?: string[]
   nestedCounterMessages?: string[]
+}
+
+/**
+ * Fetches authorized signers that belong to the execution shard from the provided signatures.
+ * @param {Crypto.core.Signature[] | P2PTypes.P2PTypes.Signature[]} signs - The array of signatures to verify.
+ * @param {CycleShardData} cycleShardData - The cycle shard data containing node information.
+ * @param {number} homePartition - The home partition number.
+ * @param {string} txId - The transaction ID.
+ * @param {number} timestamp - The timestamp of the transaction.
+ * @param {number} cycle - The cycle number.
+ * @returns {Set<[number, Crypto.core.Signature]> | Set<[number, P2PTypes.P2PTypes.Signature]>} - A set of tuples containing the index and signature of authorized signers.
+ */
+function fetchAuthorizedSigners(
+  signaturePack: Crypto.core.Signature[] | P2PTypes.P2PTypes.Signature[],
+  cycleShardData: CycleShardData,
+  homePartition: number,
+  txId: string,
+  timestamp: number,
+  cycle: number
+): Set<[number, Crypto.core.Signature]> | Set<[number, P2PTypes.P2PTypes.Signature]> {
+
+  const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
+  // Fill the map with nodes keyed by their public keys
+  cycleShardData.nodes.forEach((node) => {
+    if (node.publicKey) {
+      nodeMap.set(node.publicKey, node)
+    }
+  })
+
+  // Create a set to store acceptable signers
+  // in case of GlobalTxReceipt, the signatures are of type : P2PTypes.P2PTypes.Signature
+  // in case of NonGlobalTxReceipt, signatures are of type : Crypto.core.Signature
+  const acceptableSigners = new Set<[number, Crypto.core.Signature | P2PTypes.P2PTypes.Signature]>()
+
+  for (const [index, sign] of signaturePack.entries()) {
+    const { owner: nodePubKey } = sign
+    // Get the node id from the public key
+    const node = nodeMap.get(nodePubKey)
+
+    // If the node is not found in the active nodes list, log an error and continue
+    if (node == null) {
+      Logger.mainLogger.error(
+        `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the active nodesList of cycle ${cycle}`
+      )
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent('receipt', 'sign_owner_not_in_active_nodesList')
+      continue
+    }
+
+    // Check if the node is in the execution group
+    if (!cycleShardData.parititionShardDataMap.get(homePartition).coveredBy[node.id]) {
+      Logger.mainLogger.error(
+        `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the execution group of the tx`
+      )
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent('receipt', 'node_not_in_execution_group_of_tx')
+      continue
+    }
+
+    acceptableSigners.add([index, sign])
+  }
+  return acceptableSigners
 }
 
 const verifyReceiptMajority = async (
@@ -368,42 +431,7 @@ const verifyGlobalTxreceiptOffline = async (
     return result
   }
 
-  const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
-  // Fill the map with nodes keyed by their public keys
-  cycleShardData.nodes.forEach((node) => {
-    if (node.publicKey) {
-      nodeMap.set(node.publicKey, node)
-    }
-  })
-  // Using a set to store the unique signers to avoid duplicates
-  const uniqueSigners = new Set()
-  for (const sign of signs) {
-    const { owner: nodePubKey } = sign
-    // Get the node id from the public key
-    const node = nodeMap.get(nodePubKey)
-    if (node == null) {
-      Logger.mainLogger.error(
-        `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the active nodesList of cycle ${cycle}`
-      )
-      if (nestedCountersInstance)
-        nestedCountersInstance.countEvent('receipt', 'globalModification_sign_owner_not_in_active_nodesList')
-      continue
-    }
-    // Check if the node is in the execution group
-    if (!cycleShardData.parititionShardDataMap.get(homePartition).coveredBy[node.id]) {
-      Logger.mainLogger.error(
-        `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the execution group of the tx`
-      )
-      if (nestedCountersInstance)
-        nestedCountersInstance.countEvent(
-          'receipt',
-          'globalModification_sign_node_not_in_execution_group_of_tx'
-        )
-      continue
-    }
-
-    uniqueSigners.add(nodePubKey)
-  }
+  const uniqueSigners = fetchAuthorizedSigners(signs, cycleShardData, homePartition, txId, timestamp, cycle) as Set<[number, P2PTypes.P2PTypes.Signature]>
   isReceiptMajority = (uniqueSigners.size / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
   if (!isReceiptMajority) {
     Logger.mainLogger.error(
@@ -576,37 +604,9 @@ export const verifyReceiptData = async (
         )
       return result
     }
-    // Using a set to store the unique signatures to avoid duplicates
-    const uniqueSigners = new Set()
-    for (const signature of signaturePack) {
-      const { owner: nodePubKey } = signature
-      // Get the node id from the public key
-      const node = cycleShardData.nodes.find((node) => node.publicKey === nodePubKey)
-      if (node == null) {
-        Logger.mainLogger.error(
-          `The node with public key ${nodePubKey} of the receipt ${txId}} with ${timestamp} is not in the active nodesList of cycle ${cycle}`
-        )
-        if (nestedCountersInstance)
-          nestedCountersInstance.countEvent(
-            'receipt',
-            'appliedReceipt_signature_owner_not_in_active_nodesList'
-          )
-        continue
-      }
-      // Check if the node is in the execution group
-      if (!cycleShardData.parititionShardDataMap.get(homePartition).coveredBy[node.id]) {
-        Logger.mainLogger.error(
-          `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the execution group of the tx`
-        )
-        if (nestedCountersInstance)
-          nestedCountersInstance.countEvent(
-            'receipt',
-            'appliedReceipt_signature_node_not_in_execution_group_of_tx'
-          )
-        continue
-      }
-      uniqueSigners.add(nodePubKey)
-    }
+    
+    const uniqueSigners = fetchAuthorizedSigners(signaturePack, cycleShardData, homePartition, txId, timestamp, cycle) as Set<[number, Crypto.core.Signature]>
+
     if (uniqueSigners.size < requiredSignatures) {
       Logger.mainLogger.error(
         `Invalid receipt appliedReceipt valid signatures count is less than requiredSignatures ${uniqueSigners.size}, ${requiredSignatures}`
@@ -675,46 +675,10 @@ const verifyAppliedReceiptSignatures = (
     executionShardKey = tx.source
     const cycleShardData = shardValuesByCycle.get(cycle)
     const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
-    const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
-    // Fill the map with nodes keyed by their public keys
-    cycleShardData.nodes.forEach((node) => {
-      if (node.publicKey) {
-        nodeMap.set(node.publicKey, node)
-      }
-    })
-    const acceptableSigners = new Set<P2PTypes.P2PTypes.Signature>()
-    for (const sign of signs) {
-      const { owner: nodePubKey } = sign
-      // Get the node id from the public key
-      const node = nodeMap.get(nodePubKey)
-      if (node == null) {
-        Logger.mainLogger.error(
-          `The node with public key ${nodePubKey} of the receipt ${txid} with ${timestamp} is not in the active nodesList of cycle ${cycle}`
-        )
-        if (nestedCountersInstance)
-          nestedCountersInstance.countEvent(
-            'receipt',
-            'globalModification_sign_owner_not_in_active_nodesList'
-          )
-        continue
-      }
-      // Check if the node is in the execution group
-      if (!cycleShardData.parititionShardDataMap.get(homePartition).coveredBy[node.id]) {
-        Logger.mainLogger.error(
-          `The node with public key ${nodePubKey} of the receipt ${txid} with ${timestamp} is not in the execution group of the tx`
-        )
-        if (nestedCountersInstance)
-          nestedCountersInstance.countEvent(
-            'receipt',
-            'globalModification_sign_node_not_in_execution_group_of_tx'
-          )
-        continue
-      }
-      acceptableSigners.add(sign)
-    }
+    const acceptableSigners = fetchAuthorizedSigners(signs, cycleShardData, homePartition, txid, timestamp, cycle) as Set<[number, P2PTypes.P2PTypes.Signature]>
     // Using a map to store the good signatures to avoid duplicates
     const goodSignatures = new Map()
-    for (const sign of acceptableSigners) {
+    for (const [index, sign] of acceptableSigners) {
       if (Crypto.verify({ ...tx, sign: sign })) {
         goodSignatures.set(sign.owner, sign)
         // Break the loop if the required number of good signatures are found
@@ -744,40 +708,7 @@ const verifyAppliedReceiptSignatures = (
 
   const cycleShardData = shardValuesByCycle.get(cycle)
   const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
-  const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
-  // Fill the map with nodes keyed by their public keys
-  cycleShardData.nodes.forEach((node) => {
-    if (node.publicKey) {
-      nodeMap.set(node.publicKey, node)
-    }
-  })
-  const acceptableSigners = new Set<[number, Crypto.core.Signature]>()
-  for (const [index, sign] of signaturePack.entries()) {
-    const { owner: nodePubKey } = sign
-    // Get the node id from the public key
-    const node = nodeMap.get(nodePubKey)
-    if (node == null) {
-      Logger.mainLogger.error(
-        `The node with public key ${nodePubKey} of the receipt ${txid} with ${timestamp} is not in the active nodesList of cycle ${cycle}`
-      )
-      if (nestedCountersInstance)
-        nestedCountersInstance.countEvent('receipt', 'globalModification_sign_owner_not_in_active_nodesList')
-      continue
-    }
-    // Check if the node is in the execution group
-    if (!cycleShardData.parititionShardDataMap.get(homePartition).coveredBy[node.id]) {
-      Logger.mainLogger.error(
-        `The node with public key ${nodePubKey} of the receipt ${txid} with ${timestamp} is not in the execution group of the tx`
-      )
-      if (nestedCountersInstance)
-        nestedCountersInstance.countEvent(
-          'receipt',
-          'globalModification_sign_node_not_in_execution_group_of_tx'
-        )
-      continue
-    }
-    acceptableSigners.add([index, sign])
-  }
+  const acceptableSigners = fetchAuthorizedSigners(signaturePack, cycleShardData, homePartition, txid, timestamp, cycle) as Set<[number, Crypto.core.Signature]>
 
   // Using a map to store the good signatures to avoid duplicates
   const goodSignatures = new Map()
