@@ -35,6 +35,7 @@ import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 import {verifyTransaction} from "../services/transactionVerification";
 import { CycleShardData } from '@shardeum-foundation/lib-types/build/src/state-manager/shardFunctionTypes'
+import { generateTxId } from '../Utils'
 
 export let storingAccountData = false
 const processedReceiptsMap: Map<string, number> = new Map()
@@ -401,7 +402,17 @@ const verifyGlobalTxreceiptOffline = async (
   const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
   const { signs, tx } = appliedReceipt
   const result = { success: false }
-  const { txId, timestamp } = receipt.tx
+
+  const { txId, timestamp, originalTxData } = receipt.tx
+  const generatedTxId = generateTxId((originalTxData as any)?.tx)
+  if (generatedTxId != txId) {
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
+    Logger.mainLogger.error(
+      `verifyGlobalTxreceiptOffline : Transaction ID mismatch detected. Incoming txId: ${txId}, Generated txId: ${generatedTxId}`
+    )
+    return result
+  }
+
   const { cycle } = receipt
   const executionShardKey = tx.source // while finding the home partition/node on the setGlobal side, the source string is used
   const cycleShardData = shardValuesByCycle.get(cycle)
@@ -532,7 +543,17 @@ export const verifyReceiptData = async (
   const result = { success: false }
   // Check the signed nodes are part of the execution group nodes of the tx
   const { cycle, globalModification } = receipt
-  const { txId, timestamp } = receipt.tx
+
+  const { txId, timestamp, originalTxData } = receipt.tx
+  const generatedTxId = generateTxId((originalTxData as any)?.tx)
+  if (generatedTxId != txId) {
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
+    Logger.mainLogger.error(
+      `verifyReceiptData : Transaction ID mismatch detected. Incoming txId: ${txId}, Generated txId: ${generatedTxId}`
+    )
+    return result
+  }
+
   if (config.VERBOSE) {
     const currentTimestamp = Date.now()
     // Console log the timetaken between the receipt timestamp and the current time ( both in ms and s)
@@ -650,8 +671,18 @@ const verifyAppliedReceiptSignatures = (
 ): { success: boolean } => {
   const result = { success: false, failedReasons, nestedCounterMessages }
   const { globalModification, cycle } = receipt
-  let executionShardKey
-  const { txId: txid, timestamp } = receipt.tx
+  let executionShardKey : string
+
+  const { txId, timestamp, originalTxData } = receipt.tx
+  const generatedTxId = generateTxId((originalTxData as any)?.tx)
+  if (generatedTxId != txId) {
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
+    Logger.mainLogger.error(
+      `verifyAppliedReceiptSignatures : Transaction ID mismatch detected. Incoming txId: ${txId}, Generated txId: ${generatedTxId}`
+    )
+    return result
+  }
+
   let globalReceiptValidationErrors // This is used to store the validation errors of the globalTxReceipt
 
   try {
@@ -675,7 +706,7 @@ const verifyAppliedReceiptSignatures = (
     executionShardKey = tx.source
     const cycleShardData = shardValuesByCycle.get(cycle)
     const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
-    const acceptableSigners = fetchAuthorizedSigners(signs, cycleShardData, homePartition, txid, timestamp, cycle) as Set<[number, P2PTypes.P2PTypes.Signature]>
+    const acceptableSigners = fetchAuthorizedSigners(signs, cycleShardData, homePartition, txId, timestamp, cycle) as Set<[number, P2PTypes.P2PTypes.Signature]>
     // Using a map to store the good signatures to avoid duplicates
     const goodSignatures = new Map()
     for (const [index, sign] of acceptableSigners) {
@@ -687,7 +718,7 @@ const verifyAppliedReceiptSignatures = (
     }
     if (goodSignatures.size < requiredSignatures) {
       failedReasons.push(
-        `Invalid receipt globalModification valid signs count is less than requiredSignatures ${txid}, ${goodSignatures.size}, ${requiredSignatures}`
+        `Invalid receipt globalModification valid signs count is less than requiredSignatures ${txId}, ${goodSignatures.size}, ${requiredSignatures}`
       )
       nestedCounterMessages.push(
         'Invalid_receipt_globalModification_valid_signs_count_less_than_requiredSignatures'
@@ -702,13 +733,13 @@ const verifyAppliedReceiptSignatures = (
   const voteHash = calculateVoteHash(proposal, failedReasons, nestedCounterMessages)
   // Refer to https://github.com/shardeum/shardus-core/blob/50b6d00f53a35996cd69210ea817bee068a893d6/src/state-manager/TransactionConsensus.ts#L2663
   const appliedVoteHash = {
-    txid,
+    txId,
     voteHash,
   }
 
   const cycleShardData = shardValuesByCycle.get(cycle)
   const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
-  const acceptableSigners = fetchAuthorizedSigners(signaturePack, cycleShardData, homePartition, txid, timestamp, cycle) as Set<[number, Crypto.core.Signature]>
+  const acceptableSigners = fetchAuthorizedSigners(signaturePack, cycleShardData, homePartition, txId, timestamp, cycle) as Set<[number, Crypto.core.Signature]>
 
   // Using a map to store the good signatures to avoid duplicates
   const goodSignatures = new Map()
@@ -719,14 +750,14 @@ const verifyAppliedReceiptSignatures = (
       if (goodSignatures.size >= requiredSignatures) break
     } else {
       failedReasons.push(
-        `Found invalid signature in receipt signedReceipt ${txid}, ${signature.owner}, ${index}`
+        `Found invalid signature in receipt signedReceipt ${txId}, ${signature.owner}, ${index}`
       )
       nestedCounterMessages.push('Found_invalid_signature_in_receipt_signedReceipt')
     }
   }
   if (goodSignatures.size < requiredSignatures) {
     failedReasons.push(
-      `Invalid receipt signedReceipt valid signatures count is less than requiredSignatures ${txid}, ${goodSignatures.size}, ${requiredSignatures}`
+      `Invalid receipt signedReceipt valid signatures count is less than requiredSignatures ${txId}, ${goodSignatures.size}, ${requiredSignatures}`
     )
     nestedCounterMessages.push(
       'Invalid_receipt_signedReceipt_valid_signatures_count_less_than_requiredSignatures'
