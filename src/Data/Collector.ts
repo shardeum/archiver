@@ -828,9 +828,47 @@ const verifyAppliedReceiptSignatures = (
     txid,
     voteHash,
   }
+
+  const cycleShardData = shardValuesByCycle.get(cycle)
+  const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
+  const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
+  // Fill the map with nodes keyed by their public keys
+  cycleShardData.nodes.forEach((node) => {
+    if (node.publicKey) {
+      nodeMap.set(node.publicKey, node)
+    }
+  })
+  const acceptableSigners = new Set<[number, Crypto.core.Signature]>()
+  for (const [index, sign] of signaturePack.entries()) {
+    const { owner: nodePubKey } = sign
+    // Get the node id from the public key
+    const node = nodeMap.get(nodePubKey)
+    if (node == null) {
+      Logger.mainLogger.error(
+        `The node with public key ${nodePubKey} of the receipt ${txid} with ${timestamp} is not in the active nodesList of cycle ${cycle}`
+      )
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent('receipt', 'globalModification_sign_owner_not_in_active_nodesList')
+      continue
+    }
+    // Check if the node is in the execution group
+    if (!cycleShardData.parititionShardDataMap.get(homePartition).coveredBy[node.id]) {
+      Logger.mainLogger.error(
+        `The node with public key ${nodePubKey} of the receipt ${txid} with ${timestamp} is not in the execution group of the tx`
+      )
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent(
+          'receipt',
+          'globalModification_sign_node_not_in_execution_group_of_tx'
+        )
+      continue
+    }
+    acceptableSigners.add([index, sign])
+  }
+
   // Using a map to store the good signatures to avoid duplicates
   const goodSignatures = new Map()
-  for (const [index, signature] of signaturePack.entries()) {
+  for (const [index, signature] of acceptableSigners) {
     if (Crypto.verify({ ...appliedVoteHash, sign: signature, voteTime: voteOffsets.at(index) })) {
       goodSignatures.set(signature.owner, signature)
       // Break the loop if the required number of good signatures are found
