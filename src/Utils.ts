@@ -6,6 +6,7 @@ import * as Logger from './Logger'
 import {Sign} from "./types/internalTxType";
 import {DevSecurityLevel} from "./types/security";
 import {ethers} from "ethers";
+import * as crypto from '@shardeum-foundation/lib-crypto-utils'
 
 export interface CountSchema {
   count: string
@@ -618,4 +619,37 @@ export function verifyMultiSigs(
     isValid: validSigs >= minSigRequired,
     validCount: validSigs
   }
+}
+
+/**
+ * Generates a hash for the given object. If the object has a `sign` property,
+ * it will generate a signed hash; otherwise, it will generate a regular hash.
+ *
+ * @param obj - The object to be hashed.
+ * @returns The resulting hash as a string.
+ */
+function hashSignedObj(obj: any): string {
+  if (!obj.sign) {
+    return crypto.hashObj(obj)
+  }
+  return crypto.hashObj(obj, true)
+}
+
+/**
+ * Generates a transaction ID (txId) for the given transaction object.
+ *
+ * @param tx - The transaction object. It can be an EVM transaction with a `raw` property or any other transaction object.
+ * @returns The generated transaction ID as a string.
+ *
+ * @remarks
+ * - If the transaction object has a `raw` property (indicating it is an EVM transaction), the `raw` property is used for the txId calculation.
+ * - For other transaction objects, the entire object is used for the txId calculation.
+ */
+export function generateTxId(tx: any): string {
+  if (tx.raw) {
+    // if it is an evm tx, do not involve attached timestamp in txId calculation
+    return hashSignedObj({ raw: tx.raw })
+  }
+
+  return hashSignedObj(tx)
 }

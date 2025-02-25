@@ -16,6 +16,7 @@ export type Proposal = {
   afterStateHashes: string[]
   appReceiptDataHash: string
   txid: string
+  executionShardKey?: string
 }
 
 export type SignedReceipt = {
@@ -40,7 +41,6 @@ export interface ArchiverReceipt {
   afterStates?: AccountsCopy[]
   beforeStates?: AccountsCopy[]
   appReceiptData:object & { accountId?: string; data: object; [key: string]: any }
-  executionShardKey: string
   globalModification: boolean
 }
 
