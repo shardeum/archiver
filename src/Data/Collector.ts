@@ -79,6 +79,7 @@ const verifyReceiptMajority = async (
 
   // If robustQuery is disabled, do offline verification
   if (!config.useRobustQueryForReceipt) {
+    // TODO : what should be the value here?
     return verifyReceiptOffline(receipt, executionGroupNodes, minConfirmations)
   }
   return verifyReceiptWithValidators(receipt, executionGroupNodes, minConfirmations)
@@ -335,12 +336,13 @@ const verifyGlobalTxreceiptOffline = async (
   receipt: Receipt.Receipt | Receipt.ArchiverReceipt
 ): Promise<{ success: boolean; requiredSignatures?: number }> => {
   const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
+  const { signs, tx } = appliedReceipt
   const result = { success: false }
   const { txId, timestamp } = receipt.tx
-  const { executionShardKey, cycle } = receipt
+  const { cycle } = receipt
+  const executionShardKey = tx.source // while finding the home partition/node on the setGlobal side, the source string is used
   const cycleShardData = shardValuesByCycle.get(cycle)
   const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
-  const { signs } = appliedReceipt
   // Refer to https://github.com/shardeum/shardus-core/blob/7d8877b7e1a5b18140f898a64b932182d8a35298/src/p2p/GlobalAccounts.ts#L397
   let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
   if (votingGroupCount > cycleShardData.nodes.length) {
@@ -501,7 +503,7 @@ export const verifyReceiptData = async (
 }> => {
   const result = { success: false }
   // Check the signed nodes are part of the execution group nodes of the tx
-  const { executionShardKey, cycle, globalModification } = receipt
+  const { cycle, globalModification } = receipt
   const { txId, timestamp } = receipt.tx
   if (config.VERBOSE) {
     const currentTimestamp = Date.now()
@@ -524,9 +526,7 @@ export const verifyReceiptData = async (
     if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Cycle_shard_data_not_found')
     return result
   }
-  // Determine the home partition index of the primary account (executionShardKey)
-  const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
-  
+
   let globalReceiptValidationErrors
   try {
     // Validate if receipt is a global modification receipt using AJV
@@ -545,10 +545,16 @@ export const verifyReceiptData = async (
   }
 
   // If the receipt is a global modification receipt, validate the receipt
-  if (!globalReceiptValidationErrors) {
+  if (!globalReceiptValidationErrors && globalModification) {
     return verifyGlobalTxreceiptOffline(receipt)
   }
-  const { signaturePack } = receipt.signedReceipt as Receipt.SignedReceipt
+
+  const { signaturePack, proposal } = receipt.signedReceipt as Receipt.SignedReceipt
+  // shardKey extraction
+  const { executionShardKey } = proposal
+  // Determine the home partition index of the primary account (executionShardKey)
+  const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
+
   if (config.newPOQReceipt === false) {
     // Refer to https://github.com/shardeum/shardus-core/blob/f7000c36faa0cd1e0832aa1e5e3b1414d32dcf66/src/state-manager/TransactionConsensus.ts#L1406
     let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
@@ -730,7 +736,8 @@ const verifyAppliedReceiptSignatures = (
   nestedCounterMessages = []
 ): { success: boolean } => {
   const result = { success: false, failedReasons, nestedCounterMessages }
-  const { globalModification, cycle, executionShardKey } = receipt
+  const { globalModification, cycle } = receipt
+  let executionShardKey
   const { txId: txid, timestamp } = receipt.tx
   let globalReceiptValidationErrors // This is used to store the validation errors of the globalTxReceipt
 
@@ -747,11 +754,12 @@ const verifyAppliedReceiptSignatures = (
     return result
   }
   // If the globalReceiptValidationErrors is null, then the receipt is a globalModification receipt
-  if (!globalReceiptValidationErrors) {
+  if (!globalReceiptValidationErrors && globalModification) {
     const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
     // Refer to https://github.com/shardeum/shardus-core/blob/7d8877b7e1a5b18140f898a64b932182d8a35298/src/p2p/GlobalAccounts.ts#L294
 
     const { signs, tx } = appliedReceipt
+    executionShardKey = tx.source
     const cycleShardData = shardValuesByCycle.get(cycle)
     const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
     const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
@@ -812,6 +820,7 @@ const verifyAppliedReceiptSignatures = (
     return { success: true }
   }
   const { proposal, signaturePack, voteOffsets } = receipt.signedReceipt as Receipt.SignedReceipt
+  executionShardKey = proposal.executionShardKey
   // Refer to https://github.com/shardeum/shardus-core/blob/50b6d00f53a35996cd69210ea817bee068a893d6/src/state-manager/TransactionConsensus.ts#L2799
   const voteHash = calculateVoteHash(proposal, failedReasons, nestedCounterMessages)
   // Refer to https://github.com/shardeum/shardus-core/blob/50b6d00f53a35996cd69210ea817bee068a893d6/src/state-manager/TransactionConsensus.ts#L2663
@@ -1086,11 +1095,21 @@ export const storeReceiptData = async (
     receiptsInValidationMap.delete(tx.txId)
     if (missingReceiptsMap.has(tx.txId)) missingReceiptsMap.delete(tx.txId)
     receipt.beforeStates = globalModification || config.storeReceiptBeforeStates ? receipt.beforeStates : [] // Store beforeStates for globalModification tx, or if config.storeReceiptBeforeStates is true
+    let executionShardKey : string
+    if (globalModification) {
+      const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
+      executionShardKey = appliedReceipt.tx.source
+    } else {
+      const appliedReceipt = receipt.signedReceipt as Receipt.SignedReceipt
+      executionShardKey = appliedReceipt.proposal.executionShardKey
+    }
+
     combineReceipts.push({
       ...receipt,
       receiptId: tx.txId,
       timestamp: tx.timestamp,
       applyTimestamp,
+      executionShardKey,
     })
     if (config.dataLogWrite && ReceiptLogWriter)
       ReceiptLogWriter.writeToLog(
