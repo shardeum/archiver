@@ -15,7 +15,8 @@ const schemaProposal = {
         beforeStateHashes: { type: 'array', items: { type: 'string' } },
         afterStateHashes: { type: 'array', items: { type: 'string' } },
         appReceiptDataHash: { type: 'string' },
-        txid: { type: 'string' }
+        txid: { type: 'string' },
+        executionShardKey : { type: 'string' }
     },
     required: ['applied', 'cant_preApply', 'accountIDs', 'beforeStateHashes', 'afterStateHashes', 'appReceiptDataHash', 'txid'],
     additionalProperties: false
@@ -108,10 +109,9 @@ const schemaArchiverReceipt = {
         afterStates: { type: 'array', items: { $ref: AJVSchemaEnum.AccountsCopy } }, // Using imported schema
         beforeStates: { type: 'array', items: { $ref: AJVSchemaEnum.AccountsCopy } }, // Using imported schema
         appReceiptData: schemaAppReceiptData,
-        executionShardKey: { type: 'string' },
         globalModification: { type: 'boolean' }
     },
-    required: ['tx', 'cycle', 'signedReceipt', 'appReceiptData', 'executionShardKey', 'globalModification'],
+    required: ['tx', 'cycle', 'signedReceipt', 'appReceiptData', 'globalModification'],
     additionalProperties: false
 };
 
