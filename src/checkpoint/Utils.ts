@@ -26,3 +26,11 @@ export const getCheckpointManager = (
     return undefined
   }
 }
+
+export const calculateDataSize = (values: any[]): number => {
+  return values.reduce<number>((total, value) => {
+    // If value is a string, return its byte length; otherwise, convert to string first
+    const stringValue = typeof value === 'string' ? value : String(value)
+    return total + Buffer.byteLength(stringValue, 'utf8')
+  }, 0)
+}

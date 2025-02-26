@@ -105,6 +105,7 @@ export class CheckpointBucketManager<T> {
   updateData: (data: CheckpointData<T>) => Promise<void>
   checkpointType: CheckpointType
   lastFailedBucketTime: number
+  bucketsToPersist: Map<string, CheckpointBucket<T>>
 
   constructor(
     private persistenceCallbacks: DataPersistenceCallbacks<T>,
@@ -114,6 +115,7 @@ export class CheckpointBucketManager<T> {
     this.validateData = persistenceCallbacks.validateData
     this.updateData = persistenceCallbacks.updateData
     this.checkpointType = checkpointType
+    this.bucketsToPersist = new Map<string, CheckpointBucket<T>>()
     // set to 5 minutes ago as we giveup on a bucket after 20 minutes
     this.lastFailedBucketTime = Date.now() - config.checkpointBucketConfig.lastFailedBucketDuration
   }
@@ -148,6 +150,43 @@ export class CheckpointBucketManager<T> {
     bucket.addData(data)
   }
 
+  // Persists the data in the buckets that have majority consensus
+  async persistBucketsData(): Promise<void> {
+    try {
+      const promises: Promise<void>[] = []
+      for (const [bucketID, bucket] of this.bucketsToPersist.entries()) {
+        for (const entry of bucket.radixEntries.values()) {
+          const radixTally = bucket.peerRadixDigests.get(entry.digest.radix)
+          if (radixTally) {
+            // Calculate majority threshold
+            const totalArchivers = State.otherArchivers.length + 1
+            const majorityThreshold = Math.floor(totalArchivers / 2) + 1
+
+            // Get votes for this entry's hash
+            const votesForHash = radixTally.hashTally.get(entry.digest.hash) || 0
+
+            // Only persist if we have majority consensus
+            if (votesForHash >= majorityThreshold) {
+              for (const dataItem of entry.sortedData) {
+                promises.push(bucket.updateData(dataItem))
+              }
+            } else {
+              if (config.VERBOSE) {
+                Logger.mainLogger.debug(
+                  `Skipping persistence for radix ${entry.digest.radix} - insufficient consensus (${votesForHash}/${majorityThreshold} votes)`
+                )
+              }
+            }
+          }
+        }
+        this.bucketsToPersist.delete(bucketID)
+      }
+      await Promise.all(promises)
+    } catch (err) {
+      Logger.mainLogger.error('Error in persistBucketsData:', err)
+    }
+  }
+
   async update(): Promise<void> {
     try {
       const currentTime = Math.floor(Date.now() / 1000)
@@ -169,33 +208,8 @@ export class CheckpointBucketManager<T> {
             bucket.writeToFileAndAlert()
             this.lastFailedBucketTime = Date.now()
           } else {
-            // Only persist entries that have majority consensus
-            const promises: Promise<void>[] = []
-            for (const entry of bucket.radixEntries.values()) {
-              const radixTally = bucket.peerRadixDigests.get(entry.digest.radix)
-              if (radixTally) {
-                // Calculate majority threshold
-                const totalArchivers = State.otherArchivers.length + 1
-                const majorityThreshold = Math.floor(totalArchivers / 2) + 1
-
-                // Get votes for this entry's hash
-                const votesForHash = radixTally.hashTally.get(entry.digest.hash) || 0
-
-                // Only persist if we have majority consensus
-                if (votesForHash >= majorityThreshold) {
-                  for (const dataItem of entry.sortedData) {
-                    promises.push(bucket.updateData(dataItem))
-                  }
-                } else {
-                  if (config.VERBOSE) {
-                    Logger.mainLogger.debug(
-                      `Skipping persistence for radix ${entry.digest.radix} - insufficient consensus (${votesForHash}/${majorityThreshold} votes)`
-                    )
-                  }
-                }
-              }
-            }
-            await Promise.all(promises)
+            // Add the bucket to the bucketsToPersist map so we can handle writing without blocking the update
+            this.bucketsToPersist.set(bucket.bucketID, bucket)
           }
           toRemove.push(id)
         } else {
@@ -208,6 +222,8 @@ export class CheckpointBucketManager<T> {
       for (const id of toRemove) {
         this.checkpointBuckets.delete(id)
       }
+      // Call persistBucketsData to persist the buckets data to tables
+      this.persistBucketsData()
     } catch (err) {
       Logger.mainLogger.error(`Error in update for checkpoint type ${this.checkpointType}`, err)
     }

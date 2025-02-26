@@ -15,6 +15,8 @@ import * as Logger from '../Logger'
 import * as db from '../dbstore/sqlite3storage'
 import { SerializeToJsonString } from '../utils/serialization'
 import { cycleDatabase } from '../dbstore'
+import { config } from '../Config'
+import { calculateDataSize } from './Utils'
 
 //Represents a single piece of cycle data
 export class CycleCheckpointData extends CheckpointData<Cycle> {
@@ -25,7 +27,7 @@ export class CycleCheckpointData extends CheckpointData<Cycle> {
       cycleHash.substring(0, 2), // address (first 2 chars)
       cycle.cycleRecord.start, // timestamp from cycleRecord
       cycleHash, // hash
-      0, // class type 0 for cycle
+      CheckpointType.Cycle, // class type 0 for cycle
       cycle // data
     )
   }
@@ -155,6 +157,11 @@ async function updateData(data: CheckpointData<Cycle>): Promise<void> {
         ? SerializeToJsonString(cycle.cycleRecord) // Serialize objects to JSON
         : cycle.cycleRecord,
     ]
+    // Calculate the size of the data being written
+    const dataSize = calculateDataSize(values)
+    if (config.VERBOSE) {
+      Logger.mainLogger.info(`Size of data being written to cycles table for cycle ${cycle.counter}: ${dataSize} bytes`)
+    }
 
     // Execute the query directly (single-row insert)
     await db.run(cycleDatabase, sql, values)

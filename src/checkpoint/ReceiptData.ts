@@ -16,6 +16,8 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import * as db from '../dbstore/sqlite3storage'
 import { receiptDatabase } from '../dbstore'
 import { SerializeToJsonString } from '../utils/serialization'
+import { config } from '../Config'
+import { calculateDataSize } from './Utils'
 
 export class ReceiptCheckpointData extends CheckpointData<ReceiptType> {
   constructor(receipt: ReceiptType) {
@@ -25,7 +27,7 @@ export class ReceiptCheckpointData extends CheckpointData<ReceiptType> {
       receiptHash.substring(0, 2), // address (first 2 chars)
       receipt.tx.timestamp, // timestamp
       receiptHash, // hash
-      2, // class type 2 for receipts
+      CheckpointType.Receipt, // class type 2 for receipts
       receipt // data
     )
   }
@@ -137,6 +139,13 @@ async function updateData(data: CheckpointData<ReceiptType>): Promise<void> {
         ? SerializeToJsonString(receipt[column]) // Serialize objects to JSON strings
         : receipt[column]
     )
+
+    // Calculate the size of the data being written
+    const dataSize = calculateDataSize(values)
+    if (config.VERBOSE) {
+      Logger.mainLogger.info(`Size of data being written to receipts table for cycle ${receipt.cycle}: ${dataSize} bytes`)
+    }
+
     // Execute the query directly (single-row insert)
     await db.run(receiptDatabase, sql, values)
 

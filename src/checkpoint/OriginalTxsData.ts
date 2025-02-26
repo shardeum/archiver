@@ -15,6 +15,8 @@ import { originalTxDataDatabase } from '../dbstore'
 import * as Logger from '../Logger'
 import { SerializeToJsonString } from '../utils/serialization'
 import { validateOriginalTxDataSchema } from '../Data/Collector'
+import { config } from '../Config'
+import { calculateDataSize } from './Utils'
 
 export class OriginalTxCheckpointData extends CheckpointData<OriginalTxData> {
   constructor(data: OriginalTxData) {
@@ -24,7 +26,7 @@ export class OriginalTxCheckpointData extends CheckpointData<OriginalTxData> {
       originalTxHash.substring(0, 2), // address (first 2 chars)
       data.timestamp, // timestamp
       originalTxHash, // hash
-      1, // class_type 1 for originalTx
+      CheckpointType.OriginalTx, // class_type 1 for originalTx
       data // data
     )
   }
@@ -105,6 +107,13 @@ async function updateData(data: CheckpointData<OriginalTxData>): Promise<void> {
         : originalTx.originalTxData,
     ]
 
+    // Calculate the size of the data being written (in UTF-8 bytes)
+    const dataSize = calculateDataSize(values)
+    if (config.VERBOSE) {
+      Logger.mainLogger.info(
+        `Size of data being written to originalTxsData table for cycle ${originalTx.cycle}: ${dataSize} bytes`
+      )
+    }
     // Execute the query directly (single-row insert)
     await db.run(originalTxDataDatabase, sql, values)
   } catch (err) {
