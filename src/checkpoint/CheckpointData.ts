@@ -115,12 +115,12 @@ export class CheckpointBucketManager<T> {
     this.updateData = persistenceCallbacks.updateData
     this.checkpointType = checkpointType
     // set to 5 minutes ago as we giveup on a bucket after 20 minutes
-    this.lastFailedBucketTime = Date.now() - 5 * 60 * 1000
+    this.lastFailedBucketTime = Date.now() - config.checkpointBucketConfig.lastFailedBucketDuration
   }
 
   // Returns true for success if the last failed bucket time is older than 5 minutes
-  getIsLastSucceededBucketTimeOlderThan5Mins(): boolean {
-    return Date.now() - this.lastFailedBucketTime > 5 * 60 * 1000
+  hasLastFailedBucketExceededDuration(): boolean {
+    return Date.now() - this.lastFailedBucketTime > config.checkpointBucketConfig.lastFailedBucketDuration
   }
 
   addData(data: CheckpointData<T>, bucketID: string): void {
@@ -130,11 +130,10 @@ export class CheckpointBucketManager<T> {
       let startTime = data.t
       if (startTime > 9999999999) {
         // If greater than 10-digit Unix timestamp, assume milliseconds
-        startTime = Math.floor(startTime / 1000) // Convert to seconds
-      } else {
-        startTime = Math.floor(startTime) // Ensure it's a full second
+        startTime /= 1000 // Convert to seconds
       }
-      const endTime = startTime + 60 // End time is 60 seconds (1 min or cycle)
+      startTime = Math.floor(startTime) // Ensure it's a full second
+      const endTime = startTime + config.checkpointBucketConfig.cycleAge
 
       bucket = new CheckpointBucket<T>(
         startTime,
@@ -229,7 +228,7 @@ export class CheckpointBucketManager<T> {
     // receives a list of entries which contain radix metadata ( radixDigest ) and the payload for a respective radix ( radix Sorted Data )
     const bucket = this.checkpointBuckets.get(bucketID)
     if (!bucket) {
-      if ( config.VERBOSE) {
+      if (config.VERBOSE) {
         Logger.mainLogger.debug(`no bucket found for ID=${bucketID}`)
       }
       return []
@@ -456,7 +455,7 @@ export class CheckpointBucket<T> {
         radixEntries: Array.from(this.radixEntries.entries()),
         peerDigests: Array.from(this.peerRadixDigests.entries()),
       }
-      const filename = `${config.FAILEDBUCKETS_DIR}/failed-bucket-${this.checkpointType}-${this.bucketID}-${this.startTime}.json`
+      const filename = `${config.failedBucketsDir}/failed-bucket-${this.checkpointType}-${this.bucketID}-${this.startTime}.json`
       Logger.mainLogger.debug(`Writing bucket id ${this.bucketID} data to file ${filename}`)
       // Write to file
       fs.writeFileSync(filename, StringUtils.safeStringify(bucketData))
@@ -572,7 +571,7 @@ export class CheckpointBucket<T> {
         `http://${peerAddress}/exchangeCheckpointRadixEntries`,
         Crypto.sign({
           bucketID: this.bucketID,
-          entries: [localEntry],
+          entries: StringUtils.safeStringify([localEntry]),
           checkpointType: this.checkpointType,
           sender: State.getNodeInfo().publicKey, // for signature verification
         })

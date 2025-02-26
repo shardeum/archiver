@@ -196,7 +196,7 @@ async function start(): Promise<void> {
   }, 60 * 1000); // Start after 60 seconds
 
   // Create the failed buckets directory
-  createDirectories(config.FAILEDBUCKETS_DIR)
+  createDirectories(config.failedBucketsDir)
   // Initialize checkpoint system with null checks
   setInterval(() => {
     if (cycleCheckpointManager && receiptCheckpointManager && originalTxCheckpointManager) {

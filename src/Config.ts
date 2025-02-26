@@ -35,6 +35,14 @@ export interface Config {
   }
   ARCHIVER_MODE: string
   DevPublicKey: string
+  checkpointBucketConfig: {
+    BucketMatureAge: number //  start sharing hashes after this age is reached.
+    cycleAge: number // In second
+    GiveUpAge: number // eventual give up age.  write bucket to disk in this case and raise warnings/alerts
+    lastFailedBucketDuration: number // in milliseconds, used for alerting
+    RadixDepth: number // 16 way trie depth in nibbles (one hex char)
+  }
+  checkpointUpdateInterval: number // 1 minute in milliseconds
   dataLogWrite: boolean
   dataLogWriter: {
     dirName: string
@@ -44,7 +52,7 @@ export interface Config {
     maxOriginalTxEntries: number
   }
   experimentalSnapshot: boolean
-  FAILEDBUCKETS_DIR: string
+  failedBucketsDir: string
   VERBOSE: boolean
   useSerialization: boolean
   useSyncV2: boolean
@@ -112,12 +120,6 @@ export interface Config {
     requiredSecurityLevel: number
   }
   maxRecordsPerRequest: number // this is the equiavlent of the accountBucketSize config variable used by the validators to fetch records from the archiver
-  checkpointBucketConfig: {
-    BucketMatureAge: number //  start sharing hashes after this age is reached.
-    RadixDepth: number // 16 way trie depth in nibbles (one hex char)
-    GiveUpAge: number // eventual give up age.  write bucket to disk in this case and raise warnings/alerts
-  }
-  checkpointUpdateInterval: number // 1 minute in milliseconds
   multisigKeysSyncFromNetworkInternal: number // in seconds
   minCycleConfirmationsToSave: number // this is the minimum numbers of nodes that we need to a see a cycle from to save it
 }
@@ -160,7 +162,7 @@ let config: Config = {
     maxOriginalTxEntries: 10000, // Should be >= max TPS experienced by the network.
   },
   experimentalSnapshot: true,
-  FAILEDBUCKETS_DIR: 'failed-buckets',
+  failedBucketsDir: 'failed-buckets',
   VERBOSE: false,
   useSerialization: true,
   useSyncV2: true,
@@ -180,6 +182,14 @@ let config: Config = {
     MAX_CYCLES_PER_REQUEST: 100,
     MAX_BETWEEN_CYCLES_PER_REQUEST: 100,
   },
+  checkpointBucketConfig: {
+    BucketMatureAge: 11 * 60, // 11 minutes
+    cycleAge: 60, // 60 seconds
+    GiveUpAge: 20 * 60, // 20 minutes
+    lastFailedBucketDuration: 5 * 60 * 1000, // 5 minutes
+    RadixDepth: 2, // 2 nibbles (1 hex char)
+  },
+  checkpointUpdateInterval: 60 * 1000, // 1 minute in milliseconds  in milliseconds
   cycleRecordsCache: {
     enabled: false,
   },
@@ -253,12 +263,6 @@ let config: Config = {
     minSigRequired: 1,
     requiredSecurityLevel: 5,
   },
-  checkpointBucketConfig: {
-    BucketMatureAge: 11 * 60, // 11 minutes
-    RadixDepth: 2, // 2 nibbles (1 hex char)
-    GiveUpAge: 20 * 60, // 20 minutes
-  },
-  checkpointUpdateInterval: 60 * 1000, // 1 minute in milliseconds
   maxRecordsPerRequest: 200,
   multisigKeysSyncFromNetworkInternal: 600,
   minCycleConfirmationsToSave: -1,

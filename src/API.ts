@@ -38,11 +38,8 @@ import * as ServiceQueue from './ServiceQueue'
 import ticketRoutes from './routes/tickets'
 import { Cycle } from './dbstore/types'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
-import { cycleCheckpointManager } from './checkpoint/CycleData'
-import { receiptCheckpointManager } from './checkpoint/ReceiptData'
-import { originalTxCheckpointManager } from './checkpoint/OriginalTxsData'
-import { CheckpointType, CheckpointBucketManager, CheckpointRadixEntry } from './checkpoint/CheckpointData'
-
+import { CheckpointRadixEntry, CheckpointType } from './checkpoint/CheckpointData'
+import { getCheckpointManager } from './checkpoint/Utils'
 const { version } = require('../package.json') // eslint-disable-line @typescript-eslint/no-var-requires
 const TXID_LENGTH = 64
 const {
@@ -919,11 +916,11 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
     // Get the last five minutes bucket status for each checkpoint manager
     const cycleLastFiveMinutesGiveUpBucketStatus =
-      cycleCheckpointManager.getIsLastSucceededBucketTimeOlderThan5Mins()
+      getCheckpointManager(CheckpointType.Cycle)?.hasLastFailedBucketExceededDuration()
     const originalTxLastFiveMinutesGiveUpBucketStatus =
-      originalTxCheckpointManager.getIsLastSucceededBucketTimeOlderThan5Mins()
+      getCheckpointManager(CheckpointType.OriginalTx)?.hasLastFailedBucketExceededDuration()
     const receiptLastFiveMinutesGiveUpBucketStatus =
-      receiptCheckpointManager.getIsLastSucceededBucketTimeOlderThan5Mins()
+      getCheckpointManager(CheckpointType.Receipt)?.hasLastFailedBucketExceededDuration()
 
     reply.send(
       Crypto.sign({
@@ -1319,29 +1316,19 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const result = validateRequestData(req.body, {
         sender: 's',
         sign: 'o',
+        senderAddress: 's',
+        bucketID: 's',
+        radixDigests: 's',
+        checkpointType: 'n',
       })
       if (!result.success) {
         reply.send({ success: false, error: result.error })
         return
       }
       const { bucketID, radixDigests, senderAddress, checkpointType } = req.body
-      if (!bucketID || !radixDigests) {
-        Logger.mainLogger.error(
-          `Invalid payload: Missing bucketID or radixDigests in request from ${senderAddress}. CheckpointType: ${checkpointType}`
-        )
-        reply.status(400).send(`Invalid payload: Missing bucketID or radixDigests.`)
-        return
-      }
 
       // Identify the correct manager based on the checkpoint type
-      let manager: CheckpointBucketManager<any>
-      if (checkpointType === CheckpointType.Cycle) {
-        manager = cycleCheckpointManager
-      } else if (checkpointType === CheckpointType.OriginalTx) {
-        manager = originalTxCheckpointManager
-      } else if (checkpointType === CheckpointType.Receipt) {
-        manager = receiptCheckpointManager
-      }
+      const manager = getCheckpointManager(checkpointType)
       const bucket = manager.checkpointBuckets.get(bucketID)
       if (!bucket) {
         Logger.mainLogger.error(
@@ -1371,28 +1358,18 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const result = validateRequestData(req.body, {
         sender: 's',
         sign: 'o',
+        bucketID: 's',
+        entries: 's',
+        checkpointType: 'n',
       })
       if (!result.success) {
         reply.send({ success: false, error: result.error })
         return
       }
       const { bucketID, entries, checkpointType } = req.body
-      if (!bucketID || !entries) {
-        Logger.mainLogger.error(
-          `Invalid payload: Missing bucketID or entries in request. CheckpointType: ${checkpointType}`
-        )
-        reply.status(400).send(`Invalid payload: Missing bucketID or entries.`)
-        return
-      }
+      const parsedEntries = StringUtils.safeJsonParse(entries)
 
-      let manager: CheckpointBucketManager<any>
-      if (checkpointType === CheckpointType.Cycle) {
-        manager = cycleCheckpointManager
-      } else if (checkpointType === CheckpointType.OriginalTx) {
-        manager = originalTxCheckpointManager
-      } else if (checkpointType === CheckpointType.Receipt) {
-        manager = receiptCheckpointManager
-      }
+      const manager = getCheckpointManager(checkpointType)
       const bucket = manager.checkpointBuckets.get(bucketID)
       if (!bucket) {
         Logger.mainLogger.error(
@@ -1406,7 +1383,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const ourEntries: CheckpointRadixEntry<Cycle>[] = []
 
       // For each incoming entry, get our corresponding entry
-      for (const incomingEntry of entries) {
+      for (const incomingEntry of parsedEntries) {
         const radix = incomingEntry.digest.radix
         const ourEntry = bucket.radixEntries.get(radix)
         if (ourEntry) {
@@ -1416,7 +1393,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       }
 
       // Process their entries
-      bucket.onExchangeRadixEntries(bucketID, entries)
+      bucket.onExchangeRadixEntries(bucketID, parsedEntries)
 
       // Send our entries back
       const res = Crypto.sign({
