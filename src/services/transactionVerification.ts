@@ -8,7 +8,6 @@ import {DevSecurityLevel} from '../types/security'
 import {join} from "path";
 import {readFileSync} from "fs";
 import { Transaction, TransactionFactory, TransactionType, TypedTransaction } from '@ethereumjs/tx'
-import { toBuffer } from 'ethereumjs-util'
 import { Address } from '@ethereumjs/util'
 import { getSenderAddress } from '@shardeum-foundation/lib-net'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
@@ -317,7 +316,7 @@ export function getTransactionObj(
 ): Transaction[TransactionType.Legacy] | Transaction[TransactionType.AccessListEIP2930] {
   if (!tx.raw) throw Error('fail')
   let transactionObj
-  const serializedInput = toBuffer(tx.raw)
+  const serializedInput = Buffer.from(tx.raw)
   try {
     transactionObj = TransactionFactory.fromSerializedData<TransactionType.Legacy>(serializedInput)
   } catch (e) {
