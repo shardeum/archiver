@@ -37,7 +37,7 @@ const defaultConfig: ConfigSchema = {
     maxSyncTimeFloor: 12000,
   },
   sharding: {
-    nodesPerConsensusGroup: 1280,
+    nodesPerConsensusGroup: 128,
   },
 }
 
