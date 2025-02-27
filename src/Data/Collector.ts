@@ -177,7 +177,7 @@ const verifyGlobalTxreceipt = async (
     )
     votingGroupCount = cycleShardData.nodes.length
   }
-  let isReceiptMajority = (signs.length / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
+  let isReceiptMajority = signs.length / votingGroupCount >= config.requiredMajorityVotesPercentage
   if (!isReceiptMajority) {
     Logger.mainLogger.error(
       `Invalid receipt globalModification signs count is less than ${config.requiredMajorityVotesPercentage}% of the votingGroupCount, ${signs.length}, ${votingGroupCount}`
@@ -190,8 +190,15 @@ const verifyGlobalTxreceipt = async (
     return result
   }
 
-  const acceptableSigners = fetchAuthorizedSigners(signs, cycleShardData, homePartition, txId, timestamp, cycle) as Set<[number, P2PTypes.P2PTypes.Signature]>
-  isReceiptMajority = (acceptableSigners.size / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
+  const acceptableSigners = fetchAuthorizedSigners(
+    signs,
+    cycleShardData,
+    homePartition,
+    txId,
+    timestamp,
+    cycle
+  ) as Set<[number, P2PTypes.P2PTypes.Signature]>
+  isReceiptMajority = acceptableSigners.size / votingGroupCount >= config.requiredMajorityVotesPercentage
   if (!isReceiptMajority) {
     Logger.mainLogger.error(
       `Invalid receipt globalModification valid signs count is less than votingGroupCount ${acceptableSigners.size}, ${votingGroupCount}`
@@ -203,7 +210,7 @@ const verifyGlobalTxreceipt = async (
       )
     return result
   }
-  const requiredSignatures = Math.floor(votingGroupCount * (config.requiredMajorityVotesPercentage / 100))
+  const requiredSignatures = Math.floor(votingGroupCount * config.requiredMajorityVotesPercentage)
 
   const goodSignatures = new Map()
   for (const [index, signature] of acceptableSigners) {
@@ -281,8 +288,7 @@ const verifyNonGlobalTxReceipt = async (
     votingGroupCount = cycleShardData.nodes.length
   }
 
-  let isReceiptMajority =
-    (signaturePack.length / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
+  let isReceiptMajority = signaturePack.length / votingGroupCount >= config.requiredMajorityVotesPercentage
   if (!isReceiptMajority) {
     Logger.mainLogger.error(
       `VerifyNonGlobalTxReceipt : Invalid receipt globalModification signs count is less than ${config.requiredMajorityVotesPercentage}% of the votingGroupCount, ${signaturePack.length}, ${votingGroupCount}`
@@ -304,8 +310,7 @@ const verifyNonGlobalTxReceipt = async (
     timestamp,
     cycle
   ) as Set<[number, P2PTypes.P2PTypes.Signature]>
-  isReceiptMajority =
-    (acceptableSigners.size / votingGroupCount) * 100 >= config.requiredMajorityVotesPercentage
+  isReceiptMajority = acceptableSigners.size / votingGroupCount >= config.requiredMajorityVotesPercentage
   if (!isReceiptMajority) {
     Logger.mainLogger.error(
       `VerifyNonGlobalTxReceipt : Invalid receipt valid signs count is less than votingGroupCount ${acceptableSigners.size}, ${votingGroupCount}`
@@ -318,7 +323,7 @@ const verifyNonGlobalTxReceipt = async (
     return result
   }
 
-  const requiredSignatures = Math.floor(votingGroupCount * (config.requiredMajorityVotesPercentage / 100))
+  const requiredSignatures = Math.floor(votingGroupCount * config.requiredMajorityVotesPercentage)
 
   // Using a map to store the good signatures to avoid duplicates
   const goodSignatures = new Map()
