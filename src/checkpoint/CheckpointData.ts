@@ -523,8 +523,7 @@ export class CheckpointBucket<T> {
         if (
           majorityHash &&
           maxVotes >= majorityThreshold &&
-          majorityHash !== localEntry.digest.hash &&
-          (tally.hashTally.get(localHash) || 0) < maxVotes
+          majorityHash !== localEntry.digest.hash
         ) {
           this.requestRepairForRadix(radix)
         }

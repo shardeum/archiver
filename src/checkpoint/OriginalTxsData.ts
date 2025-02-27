@@ -9,14 +9,10 @@ import {
   DataPersistenceCallbacks,
 } from './CheckpointData'
 import * as Crypto from '../Crypto'
-import { OriginalTxData } from '../dbstore/originalTxsData'
+import { insertOriginalTxData, OriginalTxData } from '../dbstore/originalTxsData'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
-import { originalTxDataDatabase } from '../dbstore'
 import * as Logger from '../Logger'
-import { SerializeToJsonString } from '../utils/serialization'
 import { validateOriginalTxDataSchema } from '../Data/Collector'
-import { config } from '../Config'
-import { calculateDataSize } from './Utils'
 
 export class OriginalTxCheckpointData extends CheckpointData<OriginalTxData> {
   constructor(data: OriginalTxData) {
@@ -93,29 +89,9 @@ class OriginalTxCheckpointManager extends CheckpointBucketManager<OriginalTxData
 async function updateData(data: CheckpointData<OriginalTxData>): Promise<void> {
   try {
     // Insert/Update into originalTxsData table
-    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData']
     const originalTx = data.d
-    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES (?, ?, ?, ?)`
-
-    // Map the `originalTx` object to match the columns
-    const values = [
-      originalTx.txId,
-      data.t,
-      originalTx.cycle,
-      typeof originalTx.originalTxData === 'object'
-        ? SerializeToJsonString(originalTx.originalTxData) // Serialize objects to JSON
-        : originalTx.originalTxData,
-    ]
-
-    // Calculate the size of the data being written (in UTF-8 bytes)
-    const dataSize = calculateDataSize(values)
-    if (config.VERBOSE) {
-      Logger.mainLogger.info(
-        `Size of data being written to originalTxsData table for cycle ${originalTx.cycle}: ${dataSize} bytes`
-      )
-    }
-    // Execute the query directly (single-row insert)
-    await db.run(originalTxDataDatabase, sql, values)
+    // Avg entry size is about 860 bytes
+    await insertOriginalTxData(originalTx, false)
   } catch (err) {
     Logger.mainLogger.error('Failed to store originalTx checkpoint data:', err)
     throw err

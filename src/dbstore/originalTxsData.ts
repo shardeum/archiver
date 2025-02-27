@@ -28,13 +28,15 @@ type DbOriginalTxDataCount = OriginalTxDataCount & {
   'COUNT(*)': number
 }
 
-export async function insertOriginalTxData(originalTxData: OriginalTxData): Promise<void> {
+export async function insertOriginalTxData(originalTxData: OriginalTxData, storeCheckpoints: boolean = true): Promise<void> {
 
   try {
-    // Create checkpoint for originalTxData
-    const checkpointData = new OriginalTxCheckpointData(originalTxData)
-    const bucketID = calculateBucketID(originalTxData)
-    originalTxCheckpointManager.addData(checkpointData, bucketID)
+    if (storeCheckpoints) {
+      // Create checkpoint for originalTxData
+      const checkpointData = new OriginalTxCheckpointData(originalTxData)
+      const bucketID = calculateBucketID(originalTxData)
+      originalTxCheckpointManager.addData(checkpointData, bucketID)
+    }
 
     // Define the table columns based on schema
     const columns = ['txId', 'timestamp', 'cycle', 'originalTxData']
@@ -66,14 +68,16 @@ export async function insertOriginalTxData(originalTxData: OriginalTxData): Prom
 }
 
 
-export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[]): Promise<void> {
+export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[], storeCheckpoints: boolean = true): Promise<void> {
 
   try {
-    // Create checkpoints for all originalTxs
-    for (const originalTx of originalTxsData) {
-      const checkpointData = new OriginalTxCheckpointData(originalTx)
+    if (storeCheckpoints) {
+      // Create checkpoints for all originalTxs
+      for (const originalTx of originalTxsData) {
+        const checkpointData = new OriginalTxCheckpointData(originalTx)
       const bucketID = calculateBucketID(originalTx)
-      originalTxCheckpointManager.addData(checkpointData, bucketID)
+        originalTxCheckpointManager.addData(checkpointData, bucketID)
+      }
     }
 
     // Then do the database operation

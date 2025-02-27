@@ -107,12 +107,14 @@ type DbReceiptCount = ReceiptCount & {
   'COUNT(*)': number
 }
 
-export async function insertReceipt(receipt: Receipt): Promise<void> {
+export async function insertReceipt(receipt: Receipt, storeCheckpoints: boolean = true): Promise<void> {
   try {
-    // Create checkpoint for receipt
-    const checkpointData = new ReceiptCheckpointData(receipt)
-    const bucketID = calculateBucketID(receipt)
-    receiptCheckpointManager.addData(checkpointData, bucketID)
+    if (storeCheckpoints) {
+      // Create checkpoint for receipt
+      const checkpointData = new ReceiptCheckpointData(receipt)
+      const bucketID = calculateBucketID(receipt)
+      receiptCheckpointManager.addData(checkpointData, bucketID)
+    }
 
     // Define the columns to match the database schema
     const columns = [
@@ -155,14 +157,16 @@ export async function insertReceipt(receipt: Receipt): Promise<void> {
   }
 }
 
-export async function bulkInsertReceipts(receipts: Receipt[]): Promise<void> {
+export async function bulkInsertReceipts(receipts: Receipt[], storeCheckpoints: boolean = true): Promise<void> {
 
   try {
-    // Create checkpoints for all receipts
-    for (const receipt of receipts) {
-      const checkpointData = new ReceiptCheckpointData(receipt)
-      const bucketID = calculateBucketID(receipt)
-      receiptCheckpointManager.addData(checkpointData, bucketID)
+    if (storeCheckpoints) {
+      // Create checkpoints for all receipts
+      for (const receipt of receipts) {
+        const checkpointData = new ReceiptCheckpointData(receipt)
+        const bucketID = calculateBucketID(receipt)
+        receiptCheckpointManager.addData(checkpointData, bucketID)
+      }
     }
 
     // Define the table columns based on schema

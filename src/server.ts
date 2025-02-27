@@ -197,20 +197,32 @@ async function start(): Promise<void> {
 
   // Create the failed buckets directory
   createDirectories(config.failedBucketsDir)
-  // Initialize checkpoint system with null checks
-  setInterval(() => {
-    if (cycleCheckpointManager && receiptCheckpointManager && originalTxCheckpointManager) {
-      try {
-        cycleCheckpointManager.update()
-        receiptCheckpointManager.update()
-        originalTxCheckpointManager.update()
-      } catch (err) {
-        Logger.mainLogger.error('Error updating checkpoints:', err)
+  
+  async function updateCheckpoints() {
+    const startTime = Date.now()
+
+    try {
+      // Initialize checkpoint system with null checks
+      if (cycleCheckpointManager && receiptCheckpointManager && originalTxCheckpointManager) {
+        await Promise.all([
+          cycleCheckpointManager.update(),
+          receiptCheckpointManager.update(),
+          originalTxCheckpointManager.update(),
+        ])
       }
-    } else {
-      Logger.mainLogger.error('One or more checkpoint managers not initialized')
+    } catch (error) {
+      Logger.mainLogger.error('Error updating checkpoints:', error)
     }
-  }, config.checkpointUpdateInterval)
+
+    const elapsedTime = Date.now() - startTime
+    const nextExecutionDelay = Math.max(0, config.checkpointUpdateInterval - elapsedTime)
+
+    setTimeout(updateCheckpoints, nextExecutionDelay)
+  }
+
+  // Start the update loop
+  updateCheckpoints()
+  
 }
 
 function initProfiler(server: FastifyInstance): void {

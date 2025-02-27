@@ -8,16 +8,11 @@ import {
   CheckpointBucket,
   RadixDigestTally,
 } from './CheckpointData'
-import { Receipt as ReceiptType, ArchiverReceipt, SignedReceipt } from '../dbstore/receipts'
+import { Receipt as ReceiptType, ArchiverReceipt, SignedReceipt, insertReceipt } from '../dbstore/receipts'
 import * as Logger from '../Logger'
 import * as Crypto from '../Crypto'
 import { verifyAppReceiptData } from '../shardeum/verifyAppReceiptData'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
-import * as db from '../dbstore/sqlite3storage'
-import { receiptDatabase } from '../dbstore'
-import { SerializeToJsonString } from '../utils/serialization'
-import { config } from '../Config'
-import { calculateDataSize } from './Utils'
 
 export class ReceiptCheckpointData extends CheckpointData<ReceiptType> {
   constructor(receipt: ReceiptType) {
@@ -118,36 +113,9 @@ async function validateData(data: CheckpointData<ReceiptType>): Promise<boolean>
 async function updateData(data: CheckpointData<ReceiptType>): Promise<void> {
   try {
     // Insert/Update into checkpoint_data table
-    const columns = [
-      'receiptId',
-      'tx',
-      'cycle',
-      'applyTimestamp',
-      'timestamp',
-      'signedReceipt',
-      'afterStates',
-      'beforeStates',
-      'appReceiptData',
-      'executionShardKey',
-      'globalModification',
-    ]
     const receipt = data.d
-    const sql = `INSERT OR REPLACE INTO receipts (${columns.join(', ')}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-
-    const values = columns.map((column) =>
-      typeof receipt[column] === 'object'
-        ? SerializeToJsonString(receipt[column]) // Serialize objects to JSON strings
-        : receipt[column]
-    )
-
-    // Calculate the size of the data being written
-    const dataSize = calculateDataSize(values)
-    if (config.VERBOSE) {
-      Logger.mainLogger.info(`Size of data being written to receipts table for cycle ${receipt.cycle}: ${dataSize} bytes`)
-    }
-
-    // Execute the query directly (single-row insert)
-    await db.run(receiptDatabase, sql, values)
+    // Avg entry size is about 41000 bytes
+    await insertReceipt(receipt, false)
 
   } catch (err) {
     Logger.mainLogger.error('Failed to store receipt checkpoint data:', err)

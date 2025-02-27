@@ -12,11 +12,7 @@ import {
 import * as Crypto from '../Crypto'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import * as Logger from '../Logger'
-import * as db from '../dbstore/sqlite3storage'
-import { SerializeToJsonString } from '../utils/serialization'
-import { cycleDatabase } from '../dbstore'
-import { config } from '../Config'
-import { calculateDataSize } from './Utils'
+import { insertCycle } from '../dbstore/cycles'
 
 //Represents a single piece of cycle data
 export class CycleCheckpointData extends CheckpointData<Cycle> {
@@ -144,27 +140,10 @@ async function validateData(data: CheckpointData<Cycle>): Promise<boolean> {
 // Define the updateData function
 async function updateData(data: CheckpointData<Cycle>): Promise<void> {
   try {
-    // Insert/Update into checkpoint_data table
-    const columns = ['cycleMarker', 'counter', 'cycleRecord']
+    // Insert/Update into checkpointdata table
     const cycle = data.d
-    const sql = `INSERT OR REPLACE INTO cycles (${columns.join(', ')}) VALUES (?, ?, ?)`
-
-    // Map the `cycle` object to match the columns
-    const values = [
-      cycle.cycleMarker,
-      cycle.counter,
-      typeof cycle.cycleRecord === 'object'
-        ? SerializeToJsonString(cycle.cycleRecord) // Serialize objects to JSON
-        : cycle.cycleRecord,
-    ]
-    // Calculate the size of the data being written
-    const dataSize = calculateDataSize(values)
-    if (config.VERBOSE) {
-      Logger.mainLogger.info(`Size of data being written to cycles table for cycle ${cycle.counter}: ${dataSize} bytes`)
-    }
-
-    // Execute the query directly (single-row insert)
-    await db.run(cycleDatabase, sql, values)
+    //average entry size observations: 40000 = 18394.7144, 4005264.9725, 400=4620.4675, 40=26892.925
+    await insertCycle(cycle, false)
   } catch (err) {
     Logger.mainLogger.error('Failed to store cycle checkpoint data:', err)
     throw err

@@ -7,7 +7,7 @@ import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/seria
 import { Cycle, DbCycle } from './types'
 import { calculateBucketID, CycleCheckpointData, cycleCheckpointManager } from '../checkpoint/CycleData'
 
-export async function insertCycle(cycle: Cycle): Promise<void> {
+export async function insertCycle(cycle: Cycle, storeCheckpoints: boolean = true): Promise<void> {
 
   try {
     // Define the table columns based on schema
@@ -27,10 +27,12 @@ export async function insertCycle(cycle: Cycle): Promise<void> {
     // Execute the query directly (single-row insert)
     await db.run(cycleDatabase, sql, values);
 
-    //Create checkpoint for cycle
-    const bucketID = calculateBucketID(cycle)
-    const checkpointData = new CycleCheckpointData(cycle)
-    cycleCheckpointManager.addData(checkpointData, bucketID)
+    if (storeCheckpoints) {
+      //Create checkpoint for cycle
+      const bucketID = calculateBucketID(cycle)
+      const checkpointData = new CycleCheckpointData(cycle)
+      cycleCheckpointManager.addData(checkpointData, bucketID)
+    }
     
     if (config.VERBOSE) {
       Logger.mainLogger.debug(
@@ -49,13 +51,15 @@ export async function insertCycle(cycle: Cycle): Promise<void> {
   }
 }
 
-export async function bulkInsertCycles(cycles: Cycle[]): Promise<void> {
+export async function bulkInsertCycles(cycles: Cycle[], storeCheckpoints: boolean = true): Promise<void> {
   try {
-    // Create checkpoints for all cycles
-    for (const cycle of cycles) {
-      const checkpointData = new CycleCheckpointData(cycle)
+    if (storeCheckpoints) {
+      // Create checkpoints for all cycles
+      for (const cycle of cycles) {
+        const checkpointData = new CycleCheckpointData(cycle)
       const bucketID = calculateBucketID(cycle)
-      cycleCheckpointManager.addData(checkpointData, bucketID)
+        cycleCheckpointManager.addData(checkpointData, bucketID)
+      }
     }
     // Then do the database operation
     const columns = ['cycleMarker', 'counter', 'cycleRecord']
@@ -85,12 +89,14 @@ export async function bulkInsertCycles(cycles: Cycle[]): Promise<void> {
   }
 }
 
-export async function updateCycle(marker: string, cycle: Cycle): Promise<void> {
+export async function updateCycle(marker: string, cycle: Cycle, storeCheckpoints: boolean = true): Promise<void> {
   try {
-    // Create a checkpoint before updating
-    const checkpointData = new CycleCheckpointData(cycle)
-    const bucketID = calculateBucketID(cycle)
-    cycleCheckpointManager.addData(checkpointData, bucketID)
+    if (storeCheckpoints) {
+      // Create a checkpoint before updating
+      const checkpointData = new CycleCheckpointData(cycle)
+      const bucketID = calculateBucketID(cycle)
+      cycleCheckpointManager.addData(checkpointData, bucketID)
+    }
     const sql = `UPDATE cycles SET counter = $counter, cycleRecord = $cycleRecord WHERE cycleMarker = $marker `
     await db.run(cycleDatabase, sql, {
       $counter: cycle.counter,

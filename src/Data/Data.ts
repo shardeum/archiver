@@ -1786,7 +1786,6 @@ export const syncOriginalTxs = async (): Promise<void> => {
             complete = true
           }
         }
-        continue
       }
     }
 
@@ -2358,7 +2357,7 @@ export async function compareWithOldCyclesData(lastCycleCounter = 0): Promise<Co
     }
     return { success, matchedCycle }
   } catch (error) {
-    Logger.mainLogger.error(error)
+    Logger.mainLogger.error('compareWithOldCyclesData error: ' + error)
     return { success: false, matchedCycle: 0 }
   }
 }
