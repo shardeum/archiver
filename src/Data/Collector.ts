@@ -604,6 +604,7 @@ export const verifyReceiptData = async (
   // Determine the home partition index of the primary account (executionShardKey)
   const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
 
+  // TODO : remove this code section, possibly has been removed on the shardus-core side as well.
   if (config.newPOQReceipt === false) {
     // Refer to https://github.com/shardeum/shardus-core/blob/f7000c36faa0cd1e0832aa1e5e3b1414d32dcf66/src/state-manager/TransactionConsensus.ts#L1406
     let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
@@ -818,8 +819,7 @@ const calculateVoteHash = (
 }
 
 export const verifyArchiverReceipt = async (
-  receipt: Receipt.ArchiverReceipt | Receipt.Receipt,
-  requiredSignatures: number
+  receipt: Receipt.ArchiverReceipt | Receipt.Receipt
 ): Promise<ReceiptVerificationResult> => {
   const { txId, timestamp } = receipt.tx
   const existingReceipt = await Receipt.queryReceiptByReceiptId(txId)
@@ -858,22 +858,6 @@ export const verifyArchiverReceipt = async (
         `Invalid receipt: Account Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`
       )
       nestedCounterMessages.push('Invalid_receipt_account_verification_failed')
-      return { success: false, failedReasons, nestedCounterMessages }
-    }
-  }
-  if (config.verifyReceiptSignaturesSeparately) {
-    // if (profilerInstance) profilerInstance.profileSectionStart('Verify_receipt_signatures_data')
-    // if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Verify_receipt_signatures_data')
-    const { success } = verifyAppliedReceiptSignatures(
-      receipt,
-      requiredSignatures,
-      failedReasons,
-      nestedCounterMessages
-    )
-    // if (profilerInstance) profilerInstance.profileSectionEnd('Verify_receipt_signatures_data')
-    if (!success) {
-      failedReasons.push(`Invalid receipt: Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`)
-      nestedCounterMessages.push('Invalid_receipt_verification_failed')
       return { success: false, failedReasons, nestedCounterMessages }
     }
   }
@@ -963,7 +947,7 @@ export const storeReceiptData = async (
         // const result = await offloadReceipt(txId, timestamp, requiredSignatures, receipt)
         let result
         try {
-          result = await verifyArchiverReceipt(receipt, requiredSignatures)
+          result = await verifyArchiverReceipt(receipt)
         } catch (error) {
           receiptsInValidationMap.delete(txId)
           if (nestedCountersInstance)
