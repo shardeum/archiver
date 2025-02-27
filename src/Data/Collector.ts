@@ -1,5 +1,4 @@
 import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
-import { isDeepStrictEqual } from 'util'
 import * as Account from '../dbstore/accounts'
 import * as Transaction from '../dbstore/transactions'
 import * as Receipt from '../dbstore/receipts'
@@ -10,7 +9,6 @@ import {
   clearCombinedAccountsData,
   combineAccountsData,
   collectCycleData,
-  nodesPerConsensusGroup,
 } from './Data'
 import { config } from '../Config'
 import * as Logger from '../Logger'
@@ -26,7 +24,6 @@ import { globalAccountsMap, setGlobalNetworkAccount } from '../GlobalAccount'
 import { CycleLogWriter, ReceiptLogWriter, OriginalTxDataLogWriter } from '../Data/DataLogWriter'
 import * as OriginalTxDB from '../dbstore/originalTxsData'
 import ShardFunction from '../ShardFunctions'
-import { ConsensusNodeInfo } from '../NodeList'
 import { accountSpecificHash, verifyAccountHash } from '../shardeum/calculateAccountHash'
 import { verifyAppReceiptData } from '../shardeum/verifyAppReceiptData'
 import { Cycle as DbCycle } from '../dbstore/types'
@@ -43,9 +40,9 @@ const receiptsInValidationMap: Map<string, number> = new Map()
 const processedOriginalTxsMap: Map<string, number> = new Map()
 const originalTxsInValidationMap: Map<string, number> = new Map()
 const missingReceiptsMap: Map<string, MissingTx> = new Map()
-const missingOriginalTxsMap: Map<string, MissingTx> = new Map()
+// const missingOriginalTxsMap: Map<string, MissingTx> = new Map()
 const collectingMissingReceiptsMap: Map<string, number> = new Map()
-const collectingMissingOriginalTxsMap: Map<string, number> = new Map()
+// const collectingMissingOriginalTxsMap: Map<string, number> = new Map()
 
 interface MissingTx {
   txTimestamp: number
@@ -1112,7 +1109,7 @@ export const storeOriginalTxData = async (
     if (config.VERBOSE) console.log('ORIGINAL_TX_DATA', 'Save', txId, timestamp, senderInfo)
     processedOriginalTxsMap.set(txId, timestamp)
     originalTxsInValidationMap.delete(txId)
-    if (missingOriginalTxsMap.has(txId)) missingOriginalTxsMap.delete(txId)
+    // if (missingOriginalTxsMap.has(txId)) missingOriginalTxsMap.delete(txId)
 
     if (config.dataLogWrite && OriginalTxDataLogWriter)
       OriginalTxDataLogWriter.writeToLog(`${StringUtils.safeStringify(originalTxData)}\n`)
@@ -1227,43 +1224,45 @@ export const processGossipData = (gossipdata: GossipData): void => {
       }
     }
   }
-  if (dataType === DataType.ORIGINAL_TX_DATA) {
-    for (const { txId, timestamp } of data as TxData[]) {
-      if (
-        (processedOriginalTxsMap.has(txId) && processedOriginalTxsMap.get(txId) === timestamp) ||
-        (originalTxsInValidationMap.has(txId) && originalTxsInValidationMap.get(txId) === timestamp) ||
-        (collectingMissingOriginalTxsMap.has(txId) && collectingMissingOriginalTxsMap.get(txId) === timestamp)
-      ) {
-        // console.log('GOSSIP', 'ORIGINAL_TX_DATA', 'SKIP', txId, 'sender', sign.owner)
-        continue
-      } else {
-        if (missingOriginalTxsMap.has(txId)) {
-          if (
-            missingOriginalTxsMap.get(txId).txTimestamp === timestamp &&
-            !missingOriginalTxsMap.get(txId).senders.some((sender) => sender === sign.owner)
-          )
-            missingOriginalTxsMap.get(txId).senders.push(sign.owner)
-          else {
-            // Not expected to happen, but log error if it happens <-- could be malicious act of the sender
-            if (missingOriginalTxsMap.get(txId).txTimestamp !== timestamp)
-              Logger.mainLogger.error(
-                `Received gossip for originalTxData ${txId} with different timestamp ${timestamp} from archiver ${sign.owner}`
-              )
-            if (missingOriginalTxsMap.get(txId).senders.some((sender) => sender === sign.owner))
-              Logger.mainLogger.error(
-                `Received gossip for originalTxData ${txId} from the same sender ${sign.owner}`
-              )
-          }
-        } else
-          missingOriginalTxsMap.set(txId, {
-            txTimestamp: timestamp,
-            receivedTimestamp,
-            senders: [sign.owner],
-          })
-        // console.log('GOSSIP', 'ORIGINAL_TX_DATA', 'MISS', txId, 'sender', sign.owner)
-      }
-    }
-  }
+
+  // if (dataType === DataType.ORIGINAL_TX_DATA) {
+  //   for (const { txId, timestamp } of data as TxData[]) {
+  //     if (
+  //       (processedOriginalTxsMap.has(txId) && processedOriginalTxsMap.get(txId) === timestamp) ||
+  //       (originalTxsInValidationMap.has(txId) && originalTxsInValidationMap.get(txId) === timestamp) ||
+  //       (collectingMissingOriginalTxsMap.has(txId) && collectingMissingOriginalTxsMap.get(txId) === timestamp)
+  //     ) {
+  //       // console.log('GOSSIP', 'ORIGINAL_TX_DATA', 'SKIP', txId, 'sender', sign.owner)
+  //       continue
+  //     } else {
+  //       if (missingOriginalTxsMap.has(txId)) {
+  //         if (
+  //           missingOriginalTxsMap.get(txId).txTimestamp === timestamp &&
+  //           !missingOriginalTxsMap.get(txId).senders.some((sender) => sender === sign.owner)
+  //         )
+  //           missingOriginalTxsMap.get(txId).senders.push(sign.owner)
+  //         else {
+  //           // Not expected to happen, but log error if it happens <-- could be malicious act of the sender
+  //           if (missingOriginalTxsMap.get(txId).txTimestamp !== timestamp)
+  //             Logger.mainLogger.error(
+  //               `Received gossip for originalTxData ${txId} with different timestamp ${timestamp} from archiver ${sign.owner}`
+  //             )
+  //           if (missingOriginalTxsMap.get(txId).senders.some((sender) => sender === sign.owner))
+  //             Logger.mainLogger.error(
+  //               `Received gossip for originalTxData ${txId} from the same sender ${sign.owner}`
+  //             )
+  //         }
+  //       } else
+  //         missingOriginalTxsMap.set(txId, {
+  //           txTimestamp: timestamp,
+  //           receivedTimestamp,
+  //           senders: [sign.owner],
+  //         })
+  //       // console.log('GOSSIP', 'ORIGINAL_TX_DATA', 'MISS', txId, 'sender', sign.owner)
+  //     }
+  //   }
+  // }
+
   if (dataType === DataType.CYCLE) {
     collectCycleData(
       data as P2PTypes.CycleCreatorTypes.CycleData[],
@@ -1290,22 +1289,23 @@ export const collectMissingTxDataFromArchivers = async (): Promise<void> => {
     }
     cloneMissingReceiptsMap.clear()
   }
-  if (missingOriginalTxsMap.size > 0) {
-    const cloneMissingOriginalTxsMap: Map<string, Omit<MissingTx, 'receivedTimestamp'>> = new Map()
-    for (const [txId, { txTimestamp, receivedTimestamp, senders }] of missingOriginalTxsMap) {
-      if (currentTimestamp - receivedTimestamp > config.waitingTimeForMissingTxData) {
-        cloneMissingOriginalTxsMap.set(txId, { txTimestamp, senders })
-        collectingMissingOriginalTxsMap.set(txId, txTimestamp)
-        missingOriginalTxsMap.delete(txId)
-      }
-    }
-    if (cloneMissingOriginalTxsMap.size > 0)
-      Logger.mainLogger.debug('Collecting missing originalTxsData', cloneMissingOriginalTxsMap.size)
-    for (const [txId, { txTimestamp, senders }] of cloneMissingOriginalTxsMap) {
-      collectMissingOriginalTxsData(senders, txId, txTimestamp)
-    }
-    cloneMissingOriginalTxsMap.clear()
-  }
+
+  // if (missingOriginalTxsMap.size > 0) {
+  //   const cloneMissingOriginalTxsMap: Map<string, Omit<MissingTx, 'receivedTimestamp'>> = new Map()
+  //   for (const [txId, { txTimestamp, receivedTimestamp, senders }] of missingOriginalTxsMap) {
+  //     if (currentTimestamp - receivedTimestamp > config.waitingTimeForMissingTxData) {
+  //       cloneMissingOriginalTxsMap.set(txId, { txTimestamp, senders })
+  //       collectingMissingOriginalTxsMap.set(txId, txTimestamp)
+  //       missingOriginalTxsMap.delete(txId)
+  //     }
+  //   }
+  //   if (cloneMissingOriginalTxsMap.size > 0)
+  //     Logger.mainLogger.debug('Collecting missing originalTxsData', cloneMissingOriginalTxsMap.size)
+  //   for (const [txId, { txTimestamp, senders }] of cloneMissingOriginalTxsMap) {
+  //     collectMissingOriginalTxsData(senders, txId, txTimestamp)
+  //   }
+  //   cloneMissingOriginalTxsMap.clear()
+  // }
 }
 
 export const collectMissingReceipts = async (
@@ -1401,7 +1401,7 @@ const collectMissingOriginalTxsData = async (
       `Failed to collect originalTxData for txId ${txId} with timestamp ${txTimestamp} from archivers ${senders}`
     )
   }
-  collectingMissingOriginalTxsMap.delete(txId)
+  // collectingMissingOriginalTxsMap.delete(txId)
   if (profilerInstance) profilerInstance.profileSectionEnd('Collect_missing_originalTxData')
 }
 
