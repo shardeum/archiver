@@ -89,15 +89,19 @@ const schemaAppReceiptData = {
 };
 
 const schemaTx = {
-    type: 'object',
-    properties: {
-        originalTxData: { type: 'object', additionalProperties: true },
-        txId: { type: 'string' },
-        timestamp: { type: 'integer', minimum: 0 }
+  type: 'object',
+  properties: {
+    originalTxData: {
+      type: 'object',
+      items: { $ref: AJVSchemaEnum.OriginalTxData }, // receipt is now coupled with OriginalTxData during validation
+      additionalProperties: true, // TODO[1892] : should we remove or set this to false or leave it as it is
     },
-    required: ['originalTxData', 'txId', 'timestamp'],
-    additionalProperties: false
-};
+    txId: { type: 'string' },
+    timestamp: { type: 'integer', minimum: 0 },
+  },
+  required: ['originalTxData', 'txId', 'timestamp'],
+  additionalProperties: false,
+}
 
 // Define the main ArchiverReceipt schema
 const schemaArchiverReceipt = {
