@@ -86,6 +86,7 @@ export async function processCycles(cycles: P2PTypes.CycleCreatorTypes.CycleData
         sendDataToAdjacentArchivers(DataType.CYCLE, [cycle])
         // Check the archivers reputaion in every new cycle & record the status
         recordArchiversReputation()
+        State.syncOtherArchivers()
       }
       await updateGlobalNetworkAccount(cycle.counter)
 
@@ -411,8 +412,7 @@ export async function getNewestCycleFromConsensors(
 }
 
 export async function getNewestCycleFromArchivers(): Promise<P2PTypes.CycleCreatorTypes.CycleData> {
-  const activeArchivers = Utils.getRandomItemFromArr(State.activeArchivers, 0, 5)
-
+  const activeArchivers = Utils.getRandomItemFromArr(State.otherArchivers, 0, 5)
   const data = {
     count: 1,
     sender: config.ARCHIVER_PUBLIC_KEY,
@@ -424,8 +424,17 @@ export async function getNewestCycleFromArchivers(): Promise<P2PTypes.CycleCreat
   ): Promise<P2PTypes.CycleCreatorTypes.CycleData[]> => {
     const response = (await postJson(
       `http://${node.ip}:${node.port}/cycleinfo`,
-      data
+      Crypto.sign(data)
     )) as ArchiverCycleResponse
+    if (!response?.cycleInfo?.length) {
+      throw new Error('Invalid response format from archiver')
+    }
+    // Validate the cycle info has required fields
+    const cycle = response.cycleInfo[0]
+    if (!cycle?.counter || !cycle?.networkId || !cycle?.nodeListHash) {
+      throw new Error('Cycle info missing required fields')
+    }
+
     return response.cycleInfo
   }
   const cycleInfo = await Utils.robustQuery(activeArchivers, queryFn)

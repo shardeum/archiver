@@ -123,6 +123,12 @@ export interface Config {
   }
   maxRecordsPerRequest: number // this is the equiavlent of the accountBucketSize config variable used by the validators to fetch records from the archiver
   multisigKeysSyncFromNetworkInternal: number // in seconds
+  checkpointV2: {
+    enabled: boolean
+    syncInterval: number
+    maxCyclesToSync: number
+    syncOnStartup: boolean
+  }
   minCycleConfirmationsToSave: number // this is the minimum numbers of nodes that we need to a see a cycle from to save it
 }
 
@@ -194,6 +200,12 @@ let config: Config = {
     allowCheckpointStorage: false
   },
   checkpointUpdateInterval: 60 * 1000, // 1 minute in milliseconds  in milliseconds
+  checkpointV2: {
+    enabled: true, // Enable V2 checkpoint system
+    syncInterval: 10000, // 10 seconds in milliseconds
+    maxCyclesToSync: 100, // Maximum number of cycles to sync in one go
+    syncOnStartup: true, // Sync missing checkpoints on startup
+  },
   cycleRecordsCache: {
     enabled: false,
   },

@@ -2418,3 +2418,51 @@ async function downloadOldCycles(
     endCycle = startCycle - 1
   }
 }
+
+/**
+ * Syncs cycle data for a specific cycle
+ * @param cycle The cycle number to sync
+ * @returns True if successful, false otherwise
+ */
+export async function syncCycleData(cycle: number): Promise<boolean> {
+  Logger.mainLogger.debug(`Syncing cycle data for cycle ${cycle}`)
+
+  const MAX_RETRIES = 3
+  let retryCount = 0
+  let success = false
+
+  while (!success && retryCount < MAX_RETRIES) {
+    try {
+      const res = await queryFromArchivers(
+        RequestDataType.CYCLE,
+        {
+          start: cycle,
+          end: cycle,
+        },
+        QUERY_TIMEOUT_MAX
+      ) as ArchiverCycleResponse
+
+      if (res && res.cycleInfo && res.cycleInfo.length > 0) {
+        const cycleData = res.cycleInfo[0]
+
+        if (!validateCycleData(cycleData)) {
+          Logger.mainLogger.error(`Invalid cycle data for cycle ${cycle}`)
+          retryCount++
+          continue
+        }
+
+        await processCycles([cycleData])
+        Logger.mainLogger.debug(`Successfully synced cycle data for cycle ${cycle}`)
+        success = true
+        return true
+      } else {
+        Logger.mainLogger.error(`Failed to get cycle data for cycle ${cycle}, attempt ${retryCount + 1} of ${MAX_RETRIES}`)
+        retryCount++
+      }
+    } catch (error) {
+      Logger.mainLogger.error(`Error syncing cycle data for cycle ${cycle}: ${error}`)
+      retryCount++
+    }
+  }
+  return false
+}
