@@ -196,7 +196,7 @@ const verifyGlobalTxreceipt = async (
     txId,
     timestamp,
     cycle
-  ) as Map<string, { index: number; sign: Crypto.core.Signature | P2PTypes.P2PTypes.Signature }>
+  ) as Map<string, { index: number; sign: P2PTypes.P2PTypes.Signature }>
   isReceiptMajority = acceptableSigners.size / votingGroupCount >= config.requiredMajorityVotesPercentage
   if (!isReceiptMajority) {
     Logger.mainLogger.error(
@@ -221,10 +221,10 @@ const verifyGlobalTxreceipt = async (
       if (nestedCountersInstance)
         nestedCountersInstance.countEvent(
           'receipt',
-          'VerifyNonGlobalTxReceipt_Found_invalid_signature_in_receipt_signedReceipt'
+          'VerifyGlobalTxReceipt_Found_invalid_signature_in_receipt_signedReceipt'
         )
       Logger.mainLogger.error(
-        `VerifyNonGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txId}, ${nodePubKey}, ${signature.index}`
+        `VerifyGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txId}, ${nodePubKey}, ${signature.index}`
       )
     }
   }
@@ -233,10 +233,10 @@ const verifyGlobalTxreceipt = async (
     if (nestedCountersInstance)
       nestedCountersInstance.countEvent(
         'receipt',
-        'VerifyNonGlobalTxReceipt_Invalid_receipt_signedReceipt_valid_signatures_count_less_than_requiredSignatures'
+        'VerifyGlobalTxReceipt_Invalid_receipt_signedReceipt_valid_signatures_count_less_than_requiredSignatures'
       )
     Logger.mainLogger.error(
-      `VerifyNonGlobalTxReceipt : Invalid receipt signedReceipt valid signatures count is less than requiredSignatures ${txId}, ${goodSignatures.size}, ${requiredSignatures}`
+      `VerifyGlobalTxReceipt : Invalid receipt signedReceipt valid signatures count is less than requiredSignatures ${txId}, ${goodSignatures.size}, ${requiredSignatures}`
     )
 
     return result
@@ -267,7 +267,7 @@ const verifyNonGlobalTxReceipt = async (
 ): Promise<{ success: boolean }> => {
   const result = { success: false }
   const { cycle } = receipt
-  const { txId, timestamp, originalTxData } = receipt.tx
+  const { txId: txid, timestamp, originalTxData } = receipt.tx
   const cycleShardData = shardValuesByCycle.get(cycle)
   const { signaturePack, proposal, voteOffsets } = receipt.signedReceipt as Receipt.SignedReceipt
   // verify tx id
@@ -275,7 +275,7 @@ const verifyNonGlobalTxReceipt = async (
   if (generatedTxId != proposal.txid) {
     if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
     Logger.mainLogger.error(
-      `VerifyNonGlobalTxReceipt : Transaction ID mismatch detected. Incoming txId: ${txId}, Generated txId: ${generatedTxId}`
+      `VerifyNonGlobalTxReceipt : Transaction ID mismatch detected. Incoming txId: ${txid}, Generated txId: ${generatedTxId}`
     )
     return result
   }
@@ -315,10 +315,10 @@ const verifyNonGlobalTxReceipt = async (
     signaturePack,
     cycleShardData,
     homePartition,
-    txId,
+    txid,
     timestamp,
     cycle
-  ) as Map<string, { index: number; sign: Crypto.core.Signature | P2PTypes.P2PTypes.Signature }>
+  ) as Map<string, { index: number; sign: Crypto.core.Signature}>
   isReceiptMajority = acceptableSigners.size / votingGroupCount >= config.requiredMajorityVotesPercentage
   if (!isReceiptMajority) {
     Logger.mainLogger.error(
@@ -337,7 +337,7 @@ const verifyNonGlobalTxReceipt = async (
   // Using a map to store the good signatures to avoid duplicates
   const goodSignatures = new Map()
   for (const [nodePublicKey, signature] of acceptableSigners) {
-    if (Crypto.verify({ txId, voteHash, voteTime: voteOffsets.at(signature.index), sign: signature.sign })) {
+    if (Crypto.verify({ txid, voteHash, sign: signature.sign, voteTime: voteOffsets.at(signature.index) })) {
       goodSignatures.set(nodePublicKey, signature)
       // Break the loop if the required number of good signatures are found
       if (goodSignatures.size >= requiredSignatures) break
@@ -348,7 +348,7 @@ const verifyNonGlobalTxReceipt = async (
           'VerifyNonGlobalTxReceipt_Found_invalid_signature_in_receipt_signedReceipt'
         )
       Logger.mainLogger.error(
-        `VerifyNonGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txId}, ${nodePublicKey}, ${signature.index}`
+        `VerifyNonGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txid}, ${nodePublicKey}, ${signature.index} | voteHash: ${voteHash} | voteTime: ${voteOffsets.at(signature.index)}`
       )
     }
   }
@@ -359,7 +359,7 @@ const verifyNonGlobalTxReceipt = async (
         'VerifyNonGlobalTxReceipt_Invalid_receipt_signedReceipt_valid_signatures_count_less_than_requiredSignatures'
       )
     Logger.mainLogger.error(
-      `VerifyNonGlobalTxReceipt : Invalid receipt signedReceipt valid signatures count is less than requiredSignatures ${txId}, ${goodSignatures.size}, ${requiredSignatures}`
+      `VerifyNonGlobalTxReceipt : Invalid receipt signedReceipt valid signatures count is less than requiredSignatures ${txid}, ${goodSignatures.size}, ${requiredSignatures}`
     )
 
     return result
@@ -515,7 +515,7 @@ const calculateVoteHash = (vote: Receipt.AppliedVote | Receipt.Proposal): string
           Crypto.hashObj(proposal.afterStateHashes)
       )
       const proposalHash = Crypto.hash(
-        Crypto.hashObj(applyStatus) + accountsHash + proposal.appReceiptDataHash
+        Crypto.hashObj(applyStatus) + accountsHash + proposal.appReceiptDataHash + proposal.executionShardKey
       )
       return proposalHash
     } else if (config.usePOQo === true) {
