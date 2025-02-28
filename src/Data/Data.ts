@@ -414,21 +414,9 @@ export function collectCycleData(
       continue
     }
 
-    // Check if any of the markers for this cycle have received the minimum number of confirmations
-    if (Object.values(receivedCycleTracker[cycle.counter]).some((value) => value['receivedTimes'] >= minCycleConfirmations)) {
-      // Find cycle with max receivedTimes
-      const maxReceivedTimes = Math.max(
-        ...Object.values(receivedCycleTracker[cycle.counter]).map((value) => value['receivedTimes'])
-      )
-      // Find first marker with max receivedTimes
-      const markerValue = Object.values(receivedCycleTracker[cycle.counter]).find(
-        (value) => value['receivedTimes'] === maxReceivedTimes
-      )
-
-      if (markerValue) {
-        cycleToSave.push(markerValue['cycleInfo'])
-        markerValue['saved'] = true
-      }
+    if (receivedCycleTracker[cycle.counter][cycle.marker]['receivedTimes'] >= minCycleConfirmations) {
+      cycleToSave.push(receivedCycleTracker[cycle.counter][cycle.marker].cycleInfo)
+      receivedCycleTracker[cycle.counter][cycle.marker]['saved'] = true
     }
 
     if (cycleToSave.length > 0) {
