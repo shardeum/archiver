@@ -639,9 +639,11 @@ export const storeReceiptData = async (
   const bucketSize = 1000
   let combineReceipts = []
   let combineAccounts = []
+  let combineOriginalTxsData = []
   let combineTransactions = []
   let combineProcessedTxs = []
   let txDataList: TxData[] = []
+  let originalTxDataList: TxData[] = [] // this is kind of duplicate of 'txDataList' but have created to avoid confusion
   if (saveOnlyGossipData) return
   for (let receipt of receipts) {
     const txId = receipt?.tx?.txId
@@ -782,6 +784,7 @@ export const storeReceiptData = async (
         })}\n`
       )
     txDataList.push({ txId, timestamp })
+    originalTxDataList.push({ txId, timestamp })
     // If the receipt is a challenge, then skip updating its accounts data or transaction data
     // if (
     //   config.newPOQReceipt === true &&
@@ -842,6 +845,17 @@ export const storeReceiptData = async (
     //     combineAccounts.push(accObj)
     //   }
     // }
+
+    const originalTxData: OriginalTxsData.OriginalTxData = {
+      txId: tx.txId,
+      timestamp: tx.timestamp,
+      cycle: cycle,
+      originalTxData: tx.originalTxData,
+    }
+    if (config.dataLogWrite && OriginalTxDataLogWriter) {
+      OriginalTxDataLogWriter.writeToLog(`${StringUtils.safeStringify(originalTxData)}\n`)
+    }
+
     const txObj: Transaction.Transaction = {
       txId: tx.txId,
       appReceiptId: appReceiptData ? appReceiptData.accountId : tx.txId, // Set txId if appReceiptData lacks appReceiptId
@@ -859,6 +873,7 @@ export const storeReceiptData = async (
     }
 
     // await Transaction.insertTransaction(txObj)
+    combineOriginalTxsData.push(originalTxData)
     combineTransactions.push(txObj)
     combineProcessedTxs.push(processedTx)
     // Receipts size can be big, better to save per 100
@@ -868,13 +883,20 @@ export const storeReceiptData = async (
       combineReceipts = []
       txDataList = []
     }
+
+    if (combineOriginalTxsData.length >= bucketSize) {
+      await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
+      if (State.isActive) sendDataToAdjacentArchivers(DataType.ORIGINAL_TX_DATA, originalTxDataList)
+      combineOriginalTxsData = []
+      originalTxDataList = []
+    }
+
     if (combineAccounts.length >= bucketSize) {
       await Account.bulkInsertAccounts(combineAccounts)
       combineAccounts = []
     }
     if (combineTransactions.length >= bucketSize) {
       await Transaction.bulkInsertTransactions(combineTransactions)
-
       combineTransactions = []
     }
     if (combineProcessedTxs.length >= bucketSize) {
@@ -887,6 +909,12 @@ export const storeReceiptData = async (
     await Receipt.bulkInsertReceipts(combineReceipts)
     if (State.isActive) sendDataToAdjacentArchivers(DataType.RECEIPT, txDataList)
   }
+
+  if (combineOriginalTxsData.length > 0) {
+    await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
+    if (State.isActive) sendDataToAdjacentArchivers(DataType.ORIGINAL_TX_DATA, originalTxDataList)
+  }
+
   if (combineAccounts.length > 0) await Account.bulkInsertAccounts(combineAccounts)
   if (combineTransactions.length > 0) await Transaction.bulkInsertTransactions(combineTransactions)
   if (combineProcessedTxs.length > 0) await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs)
