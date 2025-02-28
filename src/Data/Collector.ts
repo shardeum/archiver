@@ -646,7 +646,15 @@ export const storeReceiptData = async (
   let originalTxDataList: TxData[] = [] // this is kind of duplicate of 'txDataList' but have created to avoid confusion
   if (saveOnlyGossipData) return
   for (let receipt of receipts) {
-    const txId = receipt?.tx?.txId
+    let txId: string 
+    if (receipt.globalModification) {
+      const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
+      txId = appliedReceipt.tx.txId
+    } else {
+      const { proposal } = receipt.signedReceipt as Receipt.SignedReceipt
+      txId = proposal.txid
+    }
+
     const timestamp = receipt?.tx?.timestamp
     if (!txId || !timestamp) continue
     if (
@@ -754,9 +762,9 @@ export const storeReceiptData = async (
     const medianOffset = sortedVoteOffsets[Math.floor(sortedVoteOffsets.length / 2)] ?? 0
     const applyTimestamp = tx.timestamp + medianOffset * 1000
     if (config.VERBOSE) console.log('RECEIPT', 'Save', txId, timestamp, senderInfo)
-    processedReceiptsMap.set(tx.txId, tx.timestamp)
-    receiptsInValidationMap.delete(tx.txId)
-    if (missingReceiptsMap.has(tx.txId)) missingReceiptsMap.delete(tx.txId)
+    processedReceiptsMap.set(txId, tx.timestamp)
+    receiptsInValidationMap.delete(txId)
+    if (missingReceiptsMap.has(txId)) missingReceiptsMap.delete(txId)
     receipt.beforeStates = globalModification || config.storeReceiptBeforeStates ? receipt.beforeStates : [] // Store beforeStates for globalModification tx, or if config.storeReceiptBeforeStates is true
     let executionShardKey: string
     if (globalModification) {
@@ -769,7 +777,7 @@ export const storeReceiptData = async (
 
     combineReceipts.push({
       ...receipt,
-      receiptId: tx.txId,
+      receiptId: txId,
       timestamp: tx.timestamp,
       applyTimestamp,
       executionShardKey,
@@ -778,7 +786,7 @@ export const storeReceiptData = async (
       ReceiptLogWriter.writeToLog(
         `${StringUtils.safeStringify({
           ...receipt,
-          receiptId: tx.txId,
+          receiptId: txId,
           timestamp: tx.timestamp,
           applyTimestamp,
         })}\n`
@@ -847,7 +855,7 @@ export const storeReceiptData = async (
     // }
 
     const originalTxData: OriginalTxsData.OriginalTxData = {
-      txId: tx.txId,
+      txId: txId,
       timestamp: tx.timestamp,
       cycle: cycle,
       originalTxData: tx.originalTxData,
@@ -857,8 +865,8 @@ export const storeReceiptData = async (
     }
 
     const txObj: Transaction.Transaction = {
-      txId: tx.txId,
-      appReceiptId: appReceiptData ? appReceiptData.accountId : tx.txId, // Set txId if appReceiptData lacks appReceiptId
+      txId: txId,
+      appReceiptId: appReceiptData ? appReceiptData.accountId : txId, // Set txId if appReceiptData lacks appReceiptId
       timestamp: tx.timestamp,
       cycleNumber: cycle,
       data: appReceiptData ? appReceiptData.data : {},
@@ -866,7 +874,7 @@ export const storeReceiptData = async (
     }
 
     const processedTx: ProcessedTransaction.ProcessedTransaction = {
-      txId: tx.txId,
+      txId: txId,
       cycle: cycle,
       txTimestamp: tx.timestamp,
       applyTimestamp,
