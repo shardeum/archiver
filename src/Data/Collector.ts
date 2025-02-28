@@ -79,8 +79,7 @@ function fetchAuthorizedSigners(
   txId: string,
   timestamp: number,
   cycle: number
-): Set<[number, Crypto.core.Signature]> | Set<[number, P2PTypes.P2PTypes.Signature]> {
-
+): Map<string, { index: number; sign: Crypto.core.Signature | P2PTypes.P2PTypes.Signature }> {
   const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
   // Fill the map with nodes keyed by their public keys
   cycleShardData.nodes.forEach((node) => {
@@ -92,10 +91,13 @@ function fetchAuthorizedSigners(
   // Create a set to store acceptable signers
   // in case of GlobalTxReceipt, the signatures are of type : P2PTypes.P2PTypes.Signature
   // in case of NonGlobalTxReceipt, signatures are of type : Crypto.core.Signature
-  const acceptableSigners = new Set<[number, Crypto.core.Signature | P2PTypes.P2PTypes.Signature]>()
-
+  const acceptableSigners = new Map<
+    string,
+    { index: number; sign: Crypto.core.Signature | P2PTypes.P2PTypes.Signature }
+  >()
   for (const [index, sign] of signaturePack.entries()) {
     const { owner: nodePubKey } = sign
+
     // Get the node id from the public key
     const node = nodeMap.get(nodePubKey.toLowerCase())
 
@@ -119,7 +121,7 @@ function fetchAuthorizedSigners(
       continue
     }
 
-    acceptableSigners.add([index, sign])
+    acceptableSigners.set(nodePubKey.toLowerCase(), { index, sign })
   }
   return acceptableSigners
 }
@@ -194,7 +196,7 @@ const verifyGlobalTxreceipt = async (
     txId,
     timestamp,
     cycle
-  ) as Set<[number, P2PTypes.P2PTypes.Signature]>
+  ) as Map<string, { index: number; sign: Crypto.core.Signature | P2PTypes.P2PTypes.Signature }>
   isReceiptMajority = acceptableSigners.size / votingGroupCount >= config.requiredMajorityVotesPercentage
   if (!isReceiptMajority) {
     Logger.mainLogger.error(
@@ -210,9 +212,9 @@ const verifyGlobalTxreceipt = async (
   const requiredSignatures = Math.floor(votingGroupCount * config.requiredMajorityVotesPercentage)
 
   const goodSignatures = new Map()
-  for (const [index, signature] of acceptableSigners) {
-    if (Crypto.verify({ ...tx, sign: signature })) {
-      goodSignatures.set(signature.owner, signature)
+  for (const [nodePubKey, signature] of acceptableSigners) {
+    if (Crypto.verify({ ...tx, sign: signature.sign })) {
+      goodSignatures.set(nodePubKey, signature)
       // Break the loop if the required number of good signatures are found
       if (goodSignatures.size >= requiredSignatures) break
     } else {
@@ -222,7 +224,7 @@ const verifyGlobalTxreceipt = async (
           'VerifyNonGlobalTxReceipt_Found_invalid_signature_in_receipt_signedReceipt'
         )
       Logger.mainLogger.error(
-        `VerifyNonGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txId}, ${signature.owner}, ${index}`
+        `VerifyNonGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txId}, ${nodePubKey}, ${signature.index}`
       )
     }
   }
@@ -316,7 +318,7 @@ const verifyNonGlobalTxReceipt = async (
     txId,
     timestamp,
     cycle
-  ) as Set<[number, P2PTypes.P2PTypes.Signature]>
+  ) as Map<string, { index: number; sign: Crypto.core.Signature | P2PTypes.P2PTypes.Signature }>
   isReceiptMajority = acceptableSigners.size / votingGroupCount >= config.requiredMajorityVotesPercentage
   if (!isReceiptMajority) {
     Logger.mainLogger.error(
@@ -334,9 +336,9 @@ const verifyNonGlobalTxReceipt = async (
 
   // Using a map to store the good signatures to avoid duplicates
   const goodSignatures = new Map()
-  for (const [index, signature] of acceptableSigners) {
-    if (Crypto.verify({ txId, voteHash, voteTime: voteOffsets.at(index), sign: signature })) {
-      goodSignatures.set(signature.owner, signature)
+  for (const [nodePublicKey, signature] of acceptableSigners) {
+    if (Crypto.verify({ txId, voteHash, voteTime: voteOffsets.at(signature.index), sign: signature.sign })) {
+      goodSignatures.set(nodePublicKey, signature)
       // Break the loop if the required number of good signatures are found
       if (goodSignatures.size >= requiredSignatures) break
     } else {
@@ -346,7 +348,7 @@ const verifyNonGlobalTxReceipt = async (
           'VerifyNonGlobalTxReceipt_Found_invalid_signature_in_receipt_signedReceipt'
         )
       Logger.mainLogger.error(
-        `VerifyNonGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txId}, ${signature.owner}, ${index}`
+        `VerifyNonGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txId}, ${nodePublicKey}, ${signature.index}`
       )
     }
   }
@@ -373,15 +375,15 @@ const verifyNonGlobalTxReceipt = async (
  */
 export const validateReceiptType = (receipt: Receipt.Receipt | Receipt.ArchiverReceipt): boolean => {
   // Validate against the Receipt schema will come when archiver is syncing from another archiver
-  const errors_validation_receipt = verifyPayload(AJVSchemaEnum.Receipt, receipt);
+  const errors_validation_receipt = verifyPayload(AJVSchemaEnum.Receipt, receipt)
   if (!errors_validation_receipt) {
-    return true; // Valid Receipt
+    return true // Valid Receipt
   }
 
   // Validate against the ArchiverReceipt schema this will be used when receipt object is getting received from validator
-  const errors_validation_archiver_receipt = verifyPayload(AJVSchemaEnum.ArchiverReceipt, receipt);
+  const errors_validation_archiver_receipt = verifyPayload(AJVSchemaEnum.ArchiverReceipt, receipt)
   if (!errors_validation_archiver_receipt) {
-    return true; // Valid ArchiverReceipt
+    return true // Valid ArchiverReceipt
   }
 
   // If neither validation passes, log the errors and return false
@@ -389,14 +391,14 @@ export const validateReceiptType = (receipt: Receipt.Receipt | Receipt.ArchiverR
     'Invalid Receipt',
     {
       receiptType: errors_validation_receipt ? 'ArchiverReceipt' : 'Receipt',
-      receiptErrors: errors_validation_receipt || errors_validation_archiver_receipt,
+      receiptErrors: [errors_validation_receipt, errors_validation_archiver_receipt],
     },
     'where receipt was',
     StringUtils.safeStringify(receipt)
-  );
+  )
 
-  return false; // Invalid receipt
-};
+  return false // Invalid receipt
+}
 
 /**
  * Verifies the receipt data to ensure its integrity and validity.
