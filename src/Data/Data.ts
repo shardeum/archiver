@@ -357,10 +357,14 @@ export function collectCycleData(
 ): void {
   for (const cycle of cycleData) {
     // Logger.mainLogger.debug('Cycle received', cycle.counter, senderInfo)
-    let cycleToSave = []
     if (receivedCycleTracker[cycle.counter]) {
       if (receivedCycleTracker[cycle.counter][cycle.marker]) {
         if (!receivedCycleTracker[cycle.counter][cycle.marker]['senderNodes'].includes(senderInfo)) {
+          const [ip, port] = senderInfo.split(':')
+          const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
+          const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
+          if (!isInActiveNodes && !isInActiveArchivers) continue
+
           receivedCycleTracker[cycle.counter][cycle.marker]['receivedTimes']++
           receivedCycleTracker[cycle.counter][cycle.marker]['senderNodes'].push(senderInfo)
         }
@@ -387,11 +391,18 @@ export function collectCycleData(
     }
     if (config.VERBOSE)
       Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
+  }
 
-    const minCycleConfirmations =
+  for (const cycle of cycleData) {
+    let cycleToSave = []
+    let minCycleConfirmations =
       Math.min(Math.ceil(NodeList.getActiveNodeCount() / currentConsensusRadius), 5) ||
       (cycle.counter <= 15 ? 1 : 3);
 
+    // we can boost confirmation, but only if we are capped at 5 already:
+    if (minCycleConfirmations === 5 && config.minCycleConfirmationsToSave > 5) {
+      minCycleConfirmations = config.minCycleConfirmationsToSave
+    }
 
     // Check if any of the markers for this cycle are marekd as saved
     if (Object.values(receivedCycleTracker[cycle.counter]).some((value) => value['saved'])) {

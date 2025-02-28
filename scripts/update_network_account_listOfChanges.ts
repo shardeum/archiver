@@ -20,12 +20,12 @@ interface ConfigSchema {
     baselineNodes: number
     minNodes: number
     maxNodes: number
+    existingArchivers: any[]
+    maxSyncTimeFloor: number
   }
-  // Add more configs as needed
-  // sharding: {
-  //   nodesPerConsensusGroup: number
-  //   executeInOneShard: boolean
-  // }
+  sharding: {
+    nodesPerConsensusGroup: number
+  }
 }
 
 const defaultConfig: ConfigSchema = {
@@ -33,12 +33,18 @@ const defaultConfig: ConfigSchema = {
     baselineNodes: 1280,
     minNodes: 1280,
     maxNodes: 1280,
+    existingArchivers: [],
+    maxSyncTimeFloor: 12000,
   },
-  // Add default values for new configurations
-  // sharding: {
-  //   nodesPerConsensusGroup: 1280,
-  //   executeInOneShard: false,
-  // },
+  sharding: {
+    nodesPerConsensusGroup: 128,
+  },
+}
+
+const defaultAppData = {
+  activeVersion: '1.16.5',
+  latestVersion: '1.16.5',
+  minVersion: '1.16.5',
 }
 
 // Readline interface for terminal input
@@ -56,11 +62,15 @@ const parseInput = (value: string, expectedType: string, defaultValue: any): any
   if (value === '') return defaultValue
 
   switch (expectedType) {
-    case 'number':
+    case 'number': {
       const parsedNumber = parseFloat(value)
-      return isNaN(parsedNumber) ? defaultValue : parsedNumber
+      return isNaN(parsedNumber) ? undefined : parsedNumber
+    }
     case 'boolean':
-      return value.toLowerCase() === 'true'
+      if (value.toLowerCase() === 'true' || value.toLowerCase() === 'false') {
+        return value.toLowerCase() === 'true'
+      }
+      return undefined
     case 'string':
       return value
     default:
@@ -68,44 +78,149 @@ const parseInput = (value: string, expectedType: string, defaultValue: any): any
   }
 }
 
-// Function to dynamically ask configuration questions
+// Function to dynamically ask configuration questions for config changes
 const askConfigQuestions = async (): Promise<ConfigSchema> => {
   const userConfig: Partial<ConfigSchema> = {}
 
   for (const section in defaultConfig) {
-    userConfig[section] = {}
-    for (const key in defaultConfig[section]) {
+    const defaultValue = defaultConfig[section]
+    // Check if the section is an object (but not an array) at the top level.
+    if (typeof defaultValue === 'object' && !Array.isArray(defaultValue)) {
+      userConfig[section] = {}
+      for (const key in defaultValue) {
+        const propertyDefault = defaultValue[key]
+        // If the property is an array, handle it with JSON input.
+        if (Array.isArray(propertyDefault)) {
+          let attempts = 0
+          const maxAttempts = 3
+          let isValid = false
+          while (!isValid && attempts < maxAttempts) {
+            const value = await askQuestion(
+              `Enter ${section}.${key} as JSON (default: ${JSON.stringify(propertyDefault)}): `
+            )
+            if (value === '') {
+              userConfig[section][key] = propertyDefault
+              isValid = true
+            } else {
+              try {
+                const parsed = JSON.parse(value)
+                if (Array.isArray(parsed)) {
+                  userConfig[section][key] = parsed
+                  isValid = true
+                } else {
+                  attempts++
+                  console.log(
+                    `Invalid input. Please enter a valid JSON array for ${section}.${key}. (${attempts}/${maxAttempts} attempts)`
+                  )
+                }
+              } catch (e) {
+                attempts++
+                console.log(
+                  `Invalid JSON. Please enter a valid JSON array for ${section}.${key}. (${attempts}/${maxAttempts} attempts)`
+                )
+              }
+            }
+          }
+          if (!isValid) {
+            console.log(`Maximum attempts reached. Using default value for ${section}.${key}.`)
+            userConfig[section][key] = propertyDefault
+          }
+        } else {
+          // Otherwise, handle it as a primitive value.
+          let attempts = 0
+          const maxAttempts = 3
+          let isValid = false
+
+          while (!isValid && attempts < maxAttempts) {
+            const value = await askQuestion(`Enter ${section}.${key} (default: ${propertyDefault}): `)
+            const expectedType = typeof propertyDefault
+            const parsedValue = parseInput(value, expectedType, propertyDefault)
+
+            if (value === '') {
+              userConfig[section][key] = propertyDefault
+              isValid = true
+            } else if (parsedValue !== undefined) {
+              userConfig[section][key] = parsedValue
+              isValid = true
+            } else {
+              attempts++
+              console.log(
+                `Invalid input. Please enter a valid ${expectedType} for ${section}.${key}. (${attempts}/${maxAttempts} attempts)`
+              )
+            }
+          }
+          if (!isValid) {
+            console.log(`Maximum attempts reached. Using default value for ${section}.${key}.`)
+            userConfig[section][key] = propertyDefault
+          }
+        }
+      }
+    }
+    // For top-level arrays (if any)
+    else if (Array.isArray(defaultValue)) {
       let attempts = 0
       const maxAttempts = 3
       let isValid = false
 
       while (!isValid && attempts < maxAttempts) {
-        const value = await askQuestion(`Enter ${section}.${key} (default: ${defaultConfig[section][key]}): `)
-        const expectedType = typeof defaultConfig[section][key]
-        const parsedValue = parseInput(value, expectedType, defaultConfig[section][key])
-
-        // If empty input, use default value
+        const value = await askQuestion(
+          `Enter ${section} as JSON (default: ${JSON.stringify(defaultValue)}): `
+        )
         if (value === '') {
-          userConfig[section][key] = defaultConfig[section][key]
+          userConfig[section] = defaultValue
           isValid = true
+        } else {
+          try {
+            const parsed = JSON.parse(value)
+            if (Array.isArray(parsed)) {
+              userConfig[section] = parsed
+              isValid = true
+            } else {
+              attempts++
+              console.log(
+                `Invalid input. Please enter a valid JSON array for ${section}. (${attempts}/${maxAttempts} attempts)`
+              )
+            }
+          } catch (e) {
+            attempts++
+            console.log(
+              `Invalid JSON. Please enter a valid JSON array for ${section}. (${attempts}/${maxAttempts} attempts)`
+            )
+          }
         }
-        // If valid parsed value
-        else if (parsedValue !== undefined) {
-          userConfig[section][key] = parsedValue
+      }
+      if (!isValid) {
+        console.log(`Maximum attempts reached. Using default value for ${section}.`)
+        userConfig[section] = defaultValue
+      }
+    }
+    // For primitive top-level values
+    else {
+      let attempts = 0
+      const maxAttempts = 3
+      let isValid = false
+
+      while (!isValid && attempts < maxAttempts) {
+        const value = await askQuestion(`Enter ${section} (default: ${defaultValue}): `)
+        const expectedType = typeof defaultValue
+        const parsedValue = parseInput(value, expectedType, defaultValue)
+
+        if (value === '') {
+          userConfig[section] = defaultValue
           isValid = true
-        }
-        // Invalid input
-        else {
+        } else if (parsedValue !== undefined) {
+          userConfig[section] = parsedValue
+          isValid = true
+        } else {
           attempts++
           console.log(
-            `Invalid input. Please enter a valid ${expectedType} for ${section}.${key}. (${attempts}/${maxAttempts} attempts)`
+            `Invalid input. Please enter a valid ${expectedType} for ${section}. (${attempts}/${maxAttempts} attempts)`
           )
         }
       }
-
       if (!isValid) {
-        console.log(`Maximum attempts reached. Using default value for ${section}.${key}.`)
-        userConfig[section][key] = defaultConfig[section][key]
+        console.log(`Maximum attempts reached. Using default value for ${section}.`)
+        userConfig[section] = defaultValue
       }
     }
   }
@@ -113,6 +228,41 @@ const askConfigQuestions = async (): Promise<ConfigSchema> => {
   return userConfig as ConfigSchema
 }
 
+const askAppDataQuestions = async (): Promise<any> => {
+  const appData: any = {}
+
+  for (const key in defaultAppData) {
+    let attempts = 0
+    const maxAttempts = 3
+    let isValid = false
+
+    while (!isValid && attempts < maxAttempts) {
+      const value = await askQuestion(`Enter appData.${key} (default: ${defaultAppData[key]}): `)
+      const expectedType = typeof defaultAppData[key]
+      const parsedValue = parseInput(value, expectedType, defaultAppData[key])
+
+      if (value === '') {
+        appData[key] = defaultAppData[key]
+        isValid = true
+      } else if (parsedValue !== undefined) {
+        appData[key] = parsedValue
+        isValid = true
+      } else {
+        attempts++
+        console.log(
+          `Invalid input. Please enter a valid ${expectedType} for appData.${key}. (${attempts}/${maxAttempts} attempts)`
+        )
+      }
+    }
+
+    if (!isValid) {
+      console.log(`Maximum attempts reached. Using default value for appData.${key}.`)
+      appData[key] = defaultAppData[key]
+    }
+  }
+
+  return appData
+}
 // Function to get the latest cycle from db
 const getCycleNumber = async (): Promise<number> => {
   const latestCycle = await CycleDB.queryLatestCycleRecords(1)
@@ -165,8 +315,10 @@ const runProgram = async (): Promise<void> => {
 
     await dbstore.initializeDB(config)
 
-    const userConfig = await askConfigQuestions() // Get config values
-    const cycleNumber = await getCycleNumber() // Get the latest cycle number
+    // Get configuration and appData changes from the user
+    const configChanges = await askConfigQuestions()
+    const appDataChanges = await askAppDataQuestions()
+    const cycleNumber = await getCycleNumber()
 
     addSigListeners()
 
@@ -175,9 +327,10 @@ const runProgram = async (): Promise<void> => {
       networkAccountId
     )) as AccountDB.AccountsCopy
 
-    // Add changes to listOfChanges
+    // Combine config and appData changes in one change object
     const changes = {
-      change: userConfig,
+      change: configChanges,
+      appData: appDataChanges,
       cycle: cycleNumber,
     }
 
