@@ -358,23 +358,19 @@ export function collectCycleData(
   for (const cycle of cycleData) {
     // Logger.mainLogger.debug('Cycle received', cycle.counter, senderInfo)
     let cycleToSave = []
+
+    const [ip, port] = senderInfo.split(':')
+    const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
+    const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
+    if (!isInActiveNodes && !isInActiveArchivers) break
+
     if (receivedCycleTracker[cycle.counter]) {
       if (receivedCycleTracker[cycle.counter][cycle.marker]) {
         if (!receivedCycleTracker[cycle.counter][cycle.marker]['senderNodes'].includes(senderInfo)) {
-          const [ip, port] = senderInfo.split(':')
-          const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
-          const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
-          if (!isInActiveNodes && !isInActiveArchivers) continue
-
           receivedCycleTracker[cycle.counter][cycle.marker]['receivedTimes']++
           receivedCycleTracker[cycle.counter][cycle.marker]['senderNodes'].push(senderInfo)
         }
       } else {
-        const [ip, port] = senderInfo.split(':')
-        const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
-        const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
-        if (!isInActiveNodes && !isInActiveArchivers) continue
-
         if (!validateCycleData(cycle)) continue
         receivedCycleTracker[cycle.counter][cycle.marker] = {
           cycleInfo: cycle,
@@ -385,11 +381,6 @@ export function collectCycleData(
         if (config.VERBOSE) Logger.mainLogger.debug('Different Cycle Record received', cycle.counter)
       }
     } else {
-      const [ip, port] = senderInfo.split(':')
-      const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
-      const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
-      if (!isInActiveNodes && !isInActiveArchivers) continue
-      
       if (!validateCycleData(cycle)) continue
       receivedCycleTracker[cycle.counter] = {
         [cycle.marker]: {
@@ -412,19 +403,20 @@ export function collectCycleData(
       minCycleConfirmations = config.minCycleConfirmationsToSave
     }
 
-    // Check if any of the markers for this cycle are marekd as saved
-    if (Object.values(receivedCycleTracker[cycle.counter]).some((value) => value['saved'])) {
-      // If there is a saved cycle, clear the cycleToSave of this counter; This is to prevent saving the another cycle of the same counter
-      for (let i = 0; i < cycleToSave.length; i++) {
-        // eslint-disable-next-line security/detect-object-injection
-        receivedCycleTracker[cycle.counter][cycleToSave[i].marker]['saved'] = false
+    for (const value of Object.values(receivedCycleTracker[cycle.counter])) {
+      if (value['saved']) {
+        // If there is a saved cycle, clear the cycleToSave of this counter; This is to prevent saving the another cycle of the same counter
+        for (let i = 0; i < cycleToSave.length; i++) {
+          // eslint-disable-next-line security/detect-object-injection
+          receivedCycleTracker[cycle.counter][cycleToSave[i].marker]['saved'] = false
+        }
+        cycleToSave = []
+        break
       }
-      continue
-    }
-
-    if (receivedCycleTracker[cycle.counter][cycle.marker]['receivedTimes'] >= minCycleConfirmations) {
-      cycleToSave.push(receivedCycleTracker[cycle.counter][cycle.marker].cycleInfo)
-      receivedCycleTracker[cycle.counter][cycle.marker]['saved'] = true
+      if (value['receivedTimes'] >= minCycleConfirmations) {
+        cycleToSave.push(receivedCycleTracker[cycle.counter][cycle.marker].cycleInfo)
+        value['saved'] = true
+      }
     }
 
     if (cycleToSave.length > 0) {
