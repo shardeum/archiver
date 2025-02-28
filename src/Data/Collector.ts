@@ -84,8 +84,8 @@ function fetchAuthorizedSigners(
   const nodeMap = new Map<string, P2PTypes.NodeListTypes.Node>()
   // Fill the map with nodes keyed by their public keys
   cycleShardData.nodes.forEach((node) => {
-    if (node.publicKey) {
-      nodeMap.set(node.publicKey, node)
+    if (node.publicKey && node.publicKey.length == 64) {
+      nodeMap.set(node.publicKey.toLowerCase(), node)
     }
   })
 
@@ -97,7 +97,7 @@ function fetchAuthorizedSigners(
   for (const [index, sign] of signaturePack.entries()) {
     const { owner: nodePubKey } = sign
     // Get the node id from the public key
-    const node = nodeMap.get(nodePubKey)
+    const node = nodeMap.get(nodePubKey.toLowerCase())
 
     // If the node is not found in the active nodes list, log an error and continue
     if (node == null) {
