@@ -126,6 +126,11 @@ export class CheckpointBucketManager<T> {
   }
 
   addData(data: CheckpointData<T>, bucketID: string): void {
+    if (!config.checkpointBucketConfig.allowCheckpointUpdates) {
+      // Don't save data if checkpoint system updates are disabled 
+      return
+    }
+    
     let bucket = this.checkpointBuckets.get(bucketID)
     if (!bucket) {
       // Determine if data.t is in milliseconds or seconds
