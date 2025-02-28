@@ -357,15 +357,14 @@ export function collectCycleData(
 ): void {
   for (const cycle of cycleData) {
     // Logger.mainLogger.debug('Cycle received', cycle.counter, senderInfo)
-    let cycleToSave = []
     if (receivedCycleTracker[cycle.counter]) {
       if (receivedCycleTracker[cycle.counter][cycle.marker]) {
         if (!receivedCycleTracker[cycle.counter][cycle.marker]['senderNodes'].includes(senderInfo)) {
-          const [ ip, port ] = senderInfo.split(':')
+          const [ip, port] = senderInfo.split(':')
           const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
           const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
           if (!isInActiveNodes && !isInActiveArchivers) continue
-          
+
           receivedCycleTracker[cycle.counter][cycle.marker]['receivedTimes']++
           receivedCycleTracker[cycle.counter][cycle.marker]['senderNodes'].push(senderInfo)
         }
@@ -392,7 +391,10 @@ export function collectCycleData(
     }
     if (config.VERBOSE)
       Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
+  }
 
+  for (const cycle of cycleData) {
+    let cycleToSave = []
     let minCycleConfirmations =
       Math.min(Math.ceil(NodeList.getActiveNodeCount() / currentConsensusRadius), 5) ||
       (cycle.counter <= 15 ? 1 : 3);
