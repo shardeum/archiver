@@ -385,6 +385,11 @@ export function collectCycleData(
         if (config.VERBOSE) Logger.mainLogger.debug('Different Cycle Record received', cycle.counter)
       }
     } else {
+      const [ip, port] = senderInfo.split(':')
+      const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
+      const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
+      if (!isInActiveNodes && !isInActiveArchivers) continue
+      
       if (!validateCycleData(cycle)) continue
       receivedCycleTracker[cycle.counter] = {
         [cycle.marker]: {
