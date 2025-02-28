@@ -208,6 +208,11 @@ export class CheckpointBucketManager<T> {
             bucket.writeToFileAndAlert()
             this.lastFailedBucketTime = Date.now()
           } else {
+            if (config.VERBOSE) {
+              Logger.mainLogger.debug(
+                `Bucket ${bucket.bucketID} has reached consensus. Marking it as read to writing to database.`
+              )
+            }
             // Add the bucket to the bucketsToPersist map so we can handle writing without blocking the update
             this.bucketsToPersist.set(bucket.bucketID, bucket)
           }
@@ -222,8 +227,11 @@ export class CheckpointBucketManager<T> {
       for (const id of toRemove) {
         this.checkpointBuckets.delete(id)
       }
-      // Call persistBucketsData to persist the buckets data to tables
-      this.persistBucketsData()
+
+      if (config.checkpointBucketConfig.allowCheckpointStorage) {
+        // Call persistBucketsData to persist the buckets data to tables
+        this.persistBucketsData()
+      }
     } catch (err) {
       Logger.mainLogger.error(`Error in update for checkpoint type ${this.checkpointType}`, err)
     }

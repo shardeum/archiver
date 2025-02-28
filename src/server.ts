@@ -220,9 +220,10 @@ async function start(): Promise<void> {
     setTimeout(updateCheckpoints, nextExecutionDelay)
   }
 
-  // Start the update loop
-  updateCheckpoints()
-  
+  if (config.checkpointBucketConfig.allowCheckpointUpdates) {
+    // Start the update loop
+    updateCheckpoints()
+  }  
 }
 
 function initProfiler(server: FastifyInstance): void {

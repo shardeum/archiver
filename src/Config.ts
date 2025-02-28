@@ -41,6 +41,8 @@ export interface Config {
     GiveUpAge: number // eventual give up age.  write bucket to disk in this case and raise warnings/alerts
     lastFailedBucketDuration: number // in milliseconds, used for alerting
     RadixDepth: number // 16 way trie depth in nibbles (one hex char)
+    allowCheckpointUpdates: boolean
+    allowCheckpointStorage: boolean
   }
   checkpointUpdateInterval: number // 1 minute in milliseconds
   dataLogWrite: boolean
@@ -188,6 +190,8 @@ let config: Config = {
     GiveUpAge: 20 * 60, // 20 minutes
     lastFailedBucketDuration: 5 * 60 * 1000, // 5 minutes
     RadixDepth: 2, // 2 nibbles (1 hex char)
+    allowCheckpointUpdates: false,
+    allowCheckpointStorage: false
   },
   checkpointUpdateInterval: 60 * 1000, // 1 minute in milliseconds  in milliseconds
   cycleRecordsCache: {
