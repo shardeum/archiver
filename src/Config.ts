@@ -201,10 +201,10 @@ let config: Config = {
   },
   checkpointUpdateInterval: 60 * 1000, // 1 minute in milliseconds  in milliseconds
   checkpointV2: {
-    enabled: true, // Enable V2 checkpoint system
+    enabled: false, // Enable V2 checkpoint system
     syncInterval: 10000, // 10 seconds in milliseconds
     maxCyclesToSync: 100, // Maximum number of cycles to sync in one go
-    syncOnStartup: true, // Sync missing checkpoints on startup
+    syncOnStartup: false, // Sync missing checkpoints on startup
   },
   cycleRecordsCache: {
     enabled: false,
