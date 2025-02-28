@@ -368,12 +368,17 @@ const verifyNonGlobalTxReceipt = async (
   return { success: true }
 }
 
+
 /**
  * Validate type and field existence of the receipt data before processing it further
  * @param receipt
  * @returns boolean
  */
 export const validateReceiptType = (receipt: Receipt.Receipt | Receipt.ArchiverReceipt): boolean => {
+  if ((receipt as any).executionShardKey) {
+    delete (receipt as any).executionShardKey
+  }
+
   // Validate against the Receipt schema will come when archiver is syncing from another archiver
   const errors_validation_receipt = verifyPayload(AJVSchemaEnum.Receipt, receipt)
   if (!errors_validation_receipt) {
@@ -896,7 +901,6 @@ export const storeReceiptData = async (
 
     if (combineOriginalTxsData.length >= bucketSize) {
       await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
-      if (State.isActive) sendDataToAdjacentArchivers(DataType.ORIGINAL_TX_DATA, originalTxDataList)
       combineOriginalTxsData = []
       originalTxDataList = []
     }
@@ -922,7 +926,6 @@ export const storeReceiptData = async (
 
   if (combineOriginalTxsData.length > 0) {
     await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
-    if (State.isActive) sendDataToAdjacentArchivers(DataType.ORIGINAL_TX_DATA, originalTxDataList)
   }
 
   if (combineAccounts.length > 0) await Account.bulkInsertAccounts(combineAccounts)
