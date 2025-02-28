@@ -153,7 +153,7 @@ const verifyGlobalTxreceipt = async (
   if (generatedTxId != txId) {
     if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
     Logger.mainLogger.error(
-      `verifyGlobalTxreceiptOffline : Transaction ID mismatch detected. Incoming txId: ${txId}, Generated txId: ${generatedTxId}`
+      `VerifyGlobalTxreceipt : Transaction ID mismatch detected. Incoming txId: ${txId}, Generated txId: ${generatedTxId}`
     )
     return result
   }
@@ -268,6 +268,16 @@ const verifyNonGlobalTxReceipt = async (
   const { txId, timestamp, originalTxData } = receipt.tx
   const cycleShardData = shardValuesByCycle.get(cycle)
   const { signaturePack, proposal, voteOffsets } = receipt.signedReceipt as Receipt.SignedReceipt
+  // verify tx id
+  const generatedTxId = generateTxId((originalTxData as any)?.tx)
+  if (generatedTxId != proposal.txid) {
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
+    Logger.mainLogger.error(
+      `VerifyNonGlobalTxReceipt : Transaction ID mismatch detected. Incoming txId: ${txId}, Generated txId: ${generatedTxId}`
+    )
+    return result
+  }
+
   // shardKey extraction
   const { executionShardKey } = proposal
   // Determine the home partition index of the primary account (executionShardKey)
@@ -413,15 +423,7 @@ export const verifyReceiptData = async (
   // Check the signed nodes are part of the execution group nodes of the tx
   const { cycle, globalModification } = receipt
 
-  const { txId, timestamp, originalTxData } = receipt.tx
-  const generatedTxId = generateTxId((originalTxData as any)?.tx)
-  if (generatedTxId != txId) {
-    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
-    Logger.mainLogger.error(
-      `verifyReceiptData : Transaction ID mismatch detected. Incoming txId: ${txId}, Generated txId: ${generatedTxId}`
-    )
-    return result
-  }
+  const { txId, timestamp } = receipt.tx
 
   if (config.VERBOSE) {
     const currentTimestamp = Date.now()
