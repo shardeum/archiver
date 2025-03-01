@@ -359,10 +359,12 @@ export function collectCycleData(
     // Logger.mainLogger.debug('Cycle received', cycle.counter, senderInfo)
     let cycleToSave = []
 
-    const [ip, port] = senderInfo.split(':')
-    const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
-    const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
-    if (!isInActiveNodes && !isInActiveArchivers) break
+    if (NodeList.activeListByIdSorted.length > 0) {
+      const [ip, port] = senderInfo.split(':')
+      const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
+      const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
+      if (!isInActiveNodes && !isInActiveArchivers) break
+    }
 
     if (receivedCycleTracker[cycle.counter]) {
       if (receivedCycleTracker[cycle.counter][cycle.marker]) {
