@@ -357,14 +357,18 @@ export function collectCycleData(
 ): void {
   for (const cycle of cycleData) {
     // Logger.mainLogger.debug('Cycle received', cycle.counter, senderInfo)
+    let cycleToSave = []
+
+    if (NodeList.activeListByIdSorted.length > 0) {
+      const [ip, port] = senderInfo.split(':')
+      const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
+      const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
+      if (!isInActiveNodes && !isInActiveArchivers) break
+    }
+
     if (receivedCycleTracker[cycle.counter]) {
       if (receivedCycleTracker[cycle.counter][cycle.marker]) {
         if (!receivedCycleTracker[cycle.counter][cycle.marker]['senderNodes'].includes(senderInfo)) {
-          const [ip, port] = senderInfo.split(':')
-          const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
-          const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
-          if (!isInActiveNodes && !isInActiveArchivers) continue
-
           receivedCycleTracker[cycle.counter][cycle.marker]['receivedTimes']++
           receivedCycleTracker[cycle.counter][cycle.marker]['senderNodes'].push(senderInfo)
         }
@@ -391,10 +395,7 @@ export function collectCycleData(
     }
     if (config.VERBOSE)
       Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
-  }
-
-  for (const cycle of cycleData) {
-    let cycleToSave = []
+    
     let minCycleConfirmations =
       Math.min(Math.ceil(NodeList.getActiveNodeCount() / currentConsensusRadius), 5) ||
       (cycle.counter <= 15 ? 1 : 3);
@@ -404,30 +405,19 @@ export function collectCycleData(
       minCycleConfirmations = config.minCycleConfirmationsToSave
     }
 
-    // Check if any of the markers for this cycle are marekd as saved
-    if (Object.values(receivedCycleTracker[cycle.counter]).some((value) => value['saved'])) {
-      // If there is a saved cycle, clear the cycleToSave of this counter; This is to prevent saving the another cycle of the same counter
-      for (let i = 0; i < cycleToSave.length; i++) {
-        // eslint-disable-next-line security/detect-object-injection
-        receivedCycleTracker[cycle.counter][cycleToSave[i].marker]['saved'] = false
+    for (const value of Object.values(receivedCycleTracker[cycle.counter])) {
+      if (value['saved']) {
+        // If there is a saved cycle, clear the cycleToSave of this counter; This is to prevent saving the another cycle of the same counter
+        for (let i = 0; i < cycleToSave.length; i++) {
+          // eslint-disable-next-line security/detect-object-injection
+          receivedCycleTracker[cycle.counter][cycleToSave[i].marker]['saved'] = false
+        }
+        cycleToSave = []
+        break
       }
-      continue
-    }
-
-    // Check if any of the markers for this cycle have received the minimum number of confirmations
-    if (Object.values(receivedCycleTracker[cycle.counter]).some((value) => value['receivedTimes'] >= minCycleConfirmations)) {
-      // Find cycle with max receivedTimes
-      const maxReceivedTimes = Math.max(
-        ...Object.values(receivedCycleTracker[cycle.counter]).map((value) => value['receivedTimes'])
-      )
-      // Find first marker with max receivedTimes
-      const markerValue = Object.values(receivedCycleTracker[cycle.counter]).find(
-        (value) => value['receivedTimes'] === maxReceivedTimes
-      )
-
-      if (markerValue) {
-        cycleToSave.push(markerValue['cycleInfo'])
-        markerValue['saved'] = true
+      if (value['receivedTimes'] >= minCycleConfirmations) {
+        cycleToSave.push(receivedCycleTracker[cycle.counter][cycle.marker].cycleInfo)
+        value['saved'] = true
       }
     }
 
