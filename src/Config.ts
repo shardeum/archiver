@@ -22,6 +22,7 @@ export interface Config {
     originalTxDataDB: string
     processedTxDB: string
     txDigestDB: string
+    checkpointStatusDB: string
   }
   DATASENDER_TIMEOUT: number
   RATE_LIMIT: number // number of allowed request per second,
@@ -148,6 +149,7 @@ let config: Config = {
     originalTxDataDB: 'originalTxsData.sqlite3',
     processedTxDB: 'processedTransactions.sqlite3',
     txDigestDB: 'txDigest.sqlite3',
+    checkpointStatusDB: 'checkpointStatus.sqlite3',
   },
   DATASENDER_TIMEOUT: 1000 * 60 * 5,
   RATE_LIMIT: 100, // 100 req per second,

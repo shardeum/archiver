@@ -532,7 +532,6 @@ export class CheckpointBucket<T> {
         // 1. We have a majority hash
         // 2. The majority hash has enough votes
         // 3. Our hash is different from majority hash
-        // 4. Our hash has fewer votes than the majority hash
         if (
           majorityHash &&
           maxVotes >= majorityThreshold &&

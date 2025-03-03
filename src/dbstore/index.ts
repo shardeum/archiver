@@ -29,7 +29,7 @@ export const initializeDB = async (config: Config): Promise<void> => {
     'ProcessedTransaction'
   )
   checkpointStatusDatabase = await createDB(
-    `${config.ARCHIVER_DB}/checkpoint_status.db`,
+    `${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.checkpointStatusDB}`,
     'CheckpointStatus'
   )
   await runCreate(
@@ -117,7 +117,7 @@ export const initializeDB = async (config: Config): Promise<void> => {
   // Create checkpoint_status table
   await runCreate(
     checkpointStatusDatabase,
-    'CREATE TABLE if not exists `checkpoint_status` (`cycle` NUMBER NOT NULL PRIMARY KEY, `type` TEXT NOT NULL, `status` TEXT NOT NULL, `timestamp` BIGINT NOT NULL, `totalArchivers` NUMBER NOT NULL, `matchedArchivers` NUMBER NOT NULL, `failedRadixes` JSON, `lastSyncAttempt` BIGINT, `syncAttempts` NUMBER DEFAULT 0)'
+    'CREATE TABLE if not exists `checkpoint_status` (`cycle` NUMBER NOT NULL, `type` TEXT NOT NULL, `status` TEXT NOT NULL, `timestamp` BIGINT NOT NULL, `totalArchivers` NUMBER NOT NULL, `matchedArchivers` NUMBER NOT NULL, `failedRadixes` JSON, `lastSyncAttempt` BIGINT, `syncAttempts` NUMBER DEFAULT 0, PRIMARY KEY (`cycle`, `type`))'
   )
   await runCreate(
     checkpointStatusDatabase,

@@ -2425,8 +2425,6 @@ async function downloadOldCycles(
  * @returns True if successful, false otherwise
  */
 export async function syncCycleData(cycle: number): Promise<boolean> {
-  Logger.mainLogger.debug(`Syncing cycle data for cycle ${cycle}`)
-
   const MAX_RETRIES = 3
   let retryCount = 0
   let success = false
@@ -2452,7 +2450,7 @@ export async function syncCycleData(cycle: number): Promise<boolean> {
         }
 
         await processCycles([cycleData])
-        Logger.mainLogger.debug(`Successfully synced cycle data for cycle ${cycle}`)
+        // Successfully synced cycle data for cycle
         success = true
         return true
       } else {

@@ -1,11 +1,8 @@
 import * as Logger from '../Logger'
 import { config } from '../Config'
 import * as State from '../State'
-import * as CycleDB from '../dbstore/cycles'
-import * as ReceiptDB from '../dbstore/receipts'
-import * as OriginalTxDB from '../dbstore/originalTxsData'
 import * as Data from '../Data/Data'
-import * as Utils from '../Utils'
+import * as Cycles from '../Data/Cycles'
 import {
     CheckpointStatus,
     CheckpointStatusType,
@@ -13,8 +10,6 @@ import {
     upsertCheckpointStatus,
     updateCheckpointStatus,
     getCheckpointStatus,
-    getFailedCheckpointStatuses,
-    getOldestPendingOrFailedCheckpointStatus,
     getCheckpointSyncRange
 } from '../dbstore/checkpointStatus'
 import { CheckpointBucket, CheckpointType } from './CheckpointData'
@@ -113,11 +108,6 @@ export async function recordCheckpointStatus(
         }
 
         await upsertCheckpointStatus(checkpointStatus)
-
-        Logger.mainLogger.info(
-            `Recorded checkpoint status for cycle ${cycle}, type ${checkpointStatus.type}, ` +
-            `status: ${status}, matched: ${matchedArchivers}/${totalArchivers}`
-        )
     } catch (error) {
         Logger.mainLogger.error('Error recording checkpoint status:', error)
     }
@@ -146,7 +136,7 @@ export async function syncMissingCheckpoints(maxCyclesToSync: number = 10): Prom
         for (let cycle = minCycle; cycle <= endCycle; cycle++) {
             // Check if we need to sync cycle data
             const cycleStatus = await getCheckpointStatus(cycle, CheckpointStatusType.CYCLE)
-            if (cycleStatus && (cycleStatus.status === CheckpointSyncStatus.PENDING || cycleStatus.status === CheckpointSyncStatus.FAILED)) {
+            if (!cycleStatus || cycleStatus.status === CheckpointSyncStatus.PENDING || cycleStatus.status === CheckpointSyncStatus.FAILED) {
                 await updateCheckpointStatus(cycle, CheckpointStatusType.CYCLE, CheckpointSyncStatus.SYNCING)
 
                 try {
@@ -164,13 +154,13 @@ export async function syncMissingCheckpoints(maxCyclesToSync: number = 10): Prom
 
             // Check if we need to sync receipt data
             const receiptStatus = await getCheckpointStatus(cycle, CheckpointStatusType.RECEIPT)
-            if (receiptStatus && (receiptStatus.status === CheckpointSyncStatus.PENDING || receiptStatus.status === CheckpointSyncStatus.FAILED)) {
+            if (!receiptStatus || receiptStatus.status === CheckpointSyncStatus.PENDING || receiptStatus.status === CheckpointSyncStatus.FAILED) {
                 await updateCheckpointStatus(cycle, CheckpointStatusType.RECEIPT, CheckpointSyncStatus.SYNCING)
 
                 try {
                     // Sync receipt data
                     Logger.mainLogger.info(`Syncing receipt data for cycle ${cycle}`)
-                    await Data.syncReceiptsByCycle(cycle)
+                    await Data.syncReceiptsByCycle(cycle, cycle)
 
                     // Mark as completed
                     await updateCheckpointStatus(cycle, CheckpointStatusType.RECEIPT, CheckpointSyncStatus.COMPLETED)
@@ -182,13 +172,13 @@ export async function syncMissingCheckpoints(maxCyclesToSync: number = 10): Prom
 
             // Check if we need to sync original tx data
             const originalTxStatus = await getCheckpointStatus(cycle, CheckpointStatusType.ORIGINAL_TX)
-            if (originalTxStatus && (originalTxStatus.status === CheckpointSyncStatus.PENDING || originalTxStatus.status === CheckpointSyncStatus.FAILED)) {
+            if (!originalTxStatus || originalTxStatus.status === CheckpointSyncStatus.PENDING || originalTxStatus.status === CheckpointSyncStatus.FAILED) {
                 await updateCheckpointStatus(cycle, CheckpointStatusType.ORIGINAL_TX, CheckpointSyncStatus.SYNCING)
 
                 try {
                     // Sync original tx data
                     Logger.mainLogger.info(`Syncing original tx data for cycle ${cycle}`)
-                    await Data.syncOriginalTxsByCycle(cycle)
+                    await Data.syncOriginalTxsByCycle(cycle, cycle)
 
                     // Mark as completed
                     await updateCheckpointStatus(cycle, CheckpointStatusType.ORIGINAL_TX, CheckpointSyncStatus.COMPLETED)
@@ -208,15 +198,47 @@ export async function syncMissingCheckpoints(maxCyclesToSync: number = 10): Prom
  */
 export function scheduleMissingCheckpointSync(): void {
     const syncInterval = config.checkpointSyncInterval || 1 * 60 * 1000 // Default to 1 minute
+    let syncActive = true // Flag to track if syncing should continue
 
     async function syncCheckpoints() {
         try {
+            if (!syncActive) {
+                Logger.mainLogger.info('Checkpoint sync has been stopped as stored cycle count matches network cycle count')
+                return // Exit the sync loop if syncing is no longer needed
+            }
+
+            // Get the current stored cycle count
+            const storedCycleCount = Cycles.getCurrentCycleCounter()
+
+            // Get the network cycle count
+            let networkCycleCount = -1
+            try {
+                // Try to get the latest cycle from other archivers
+                const newestCycle = await Cycles.getNewestCycleFromArchivers()
+                if (newestCycle && newestCycle.counter !== undefined) {
+                    networkCycleCount = newestCycle.counter
+                }
+            } catch (error) {
+                Logger.mainLogger.warn('Failed to get network cycle count, will continue syncing:', error)
+            }
+
+            // If we have valid cycle counts and they match, stop syncing
+            if (storedCycleCount >= 0 && networkCycleCount >= 0 && storedCycleCount >= networkCycleCount) {
+                Logger.mainLogger.info(`Stopping checkpoint sync as stored cycle count (${storedCycleCount}) matches or exceeds network cycle count (${networkCycleCount})`)
+                syncActive = false
+                return
+            }
+
+            // Otherwise, continue with the sync
             await syncMissingCheckpoints()
         } catch (error) {
             Logger.mainLogger.error('Error in scheduled checkpoint sync:', error)
         }
 
-        setTimeout(syncCheckpoints, Number(syncInterval))
+        // Schedule the next sync if still active
+        if (syncActive) {
+            setTimeout(syncCheckpoints, Number(syncInterval))
+        }
     }
 
     // Start the sync loop

@@ -207,7 +207,6 @@ async function start(): Promise<void> {
 
     // Sync missing checkpoints on startup if enabled
     if (config.checkpointV2?.syncOnStartup) {
-      Logger.mainLogger.info('Syncing missing checkpoints on startup')
       setTimeout(async () => {
         try {
           await syncMissingCheckpoints(config.checkpointV2.maxCyclesToSync)
@@ -243,7 +242,7 @@ async function start(): Promise<void> {
   if (config.checkpointBucketConfig.allowCheckpointUpdates) {
     // Start the update loop
     updateCheckpoints()
-  }
+  }  
 }
 
 function initProfiler(server: FastifyInstance): void {
@@ -329,10 +328,6 @@ async function syncAndStartServer(): Promise<void> {
 
     // If the cycle data does not match, patch the data instead of throwing an error
     if (!cycleResult.success) {
-      Logger.mainLogger.warn(
-        'The last saved 10 cycles data does not match with the archiver data. Attempting to patch the data...'
-      )
-
       // Get the latest cycle from archivers to know how far we need to sync
       const latestNetworkCycle = await Cycles.getNewestCycleFromArchivers()
 
@@ -340,12 +335,15 @@ async function syncAndStartServer(): Promise<void> {
       let lastValidCycle = cycleResult.matchedCycle
       if (lastValidCycle === 0) {
         // If no valid cycle was found, we'll start from scratch
-        Logger.mainLogger.warn('No valid cycles found. Starting from cycle 0.')
         lastStoredCycleCount = 0
       } else {
         // We have a valid cycle, so we'll start from there
-        Logger.mainLogger.info(`Last valid cycle found: ${lastValidCycle}. Will sync from there.`)
         lastStoredCycleCount = lastValidCycle
+      }
+
+      // Check if the cycle difference is too large and checkpoint v2 is not enabled
+      if (!config.checkpointV2?.enabled && (latestNetworkCycle.counter - lastStoredCycleCount) > 10) {
+        throw new Error('Cycle difference is more than 10 and checkpoint v2 is not enabled. Please enable checkpoint v2 to sync large cycle differences.')
       }
 
       // Sync cycles in batches
@@ -377,7 +375,6 @@ async function syncAndStartServer(): Promise<void> {
             currentStart = currentEnd
             currentEnd = Math.min(currentStart + BATCH_SIZE, latestNetworkCycle.counter)
           } else {
-            Logger.mainLogger.error(`Failed to fetch cycles from ${currentStart} to ${currentEnd}. Retrying...`)
             // Reduce batch size on failure
             const newBatchSize = Math.max(1, Math.floor(BATCH_SIZE / 2))
             currentEnd = Math.min(currentStart + newBatchSize, latestNetworkCycle.counter)
@@ -482,9 +479,11 @@ async function syncAndStartServer(): Promise<void> {
 
     // If the receipt data does not match, patch the data instead of throwing an error
     if (!receiptResult.success) {
-      Logger.mainLogger.warn(
-        'The last saved receipts of last 10 cycles data do not match with the archiver data. Attempting to patch the data...'
-      )
+      if (!config.checkpointV2?.enabled) {
+        throw new Error(
+          'Receipt cycle difference is more than 10 and checkpoint v2 is not enabled. Please enable checkpoint v2 to sync large differences.'
+        )
+      }
 
       // Get the latest cycle to know how far we need to sync
       const latestNetworkCycle = await Cycles.getNewestCycleFromArchivers()
@@ -493,11 +492,9 @@ async function syncAndStartServer(): Promise<void> {
       let lastValidReceiptCycle = receiptResult.matchedCycle
       if (lastValidReceiptCycle === 0) {
         // If no valid cycle was found, we'll start from scratch
-        Logger.mainLogger.warn('No valid receipt cycles found. Starting from cycle 0.')
         lastStoredReceiptCycle = 0
       } else {
         // We have a valid cycle, so we'll start from there
-        Logger.mainLogger.info(`Last valid receipt cycle found: ${lastValidReceiptCycle}. Will sync from there.`)
         lastStoredReceiptCycle = lastValidReceiptCycle
       }
 
@@ -507,18 +504,16 @@ async function syncAndStartServer(): Promise<void> {
       let currentEnd = Math.min(currentStart + BATCH_SIZE, latestNetworkCycle.counter)
 
       while (currentStart < latestNetworkCycle.counter) {
-        Logger.mainLogger.info(`Patching receipts from cycle ${currentStart} to ${currentEnd}...`)
-
         try {
-          const response = await queryFromArchivers(
+          const response = (await queryFromArchivers(
             RequestDataType.RECEIPT,
             {
               startCycle: currentStart,
               endCycle: currentEnd,
-              type: 'full'
+              type: 'full',
             },
             10000 // 10 seconds
-          ) as any
+          )) as any
 
           if (response && response.receipts && response.receipts.length > 0) {
             // Store the receipts
@@ -528,17 +523,21 @@ async function syncAndStartServer(): Promise<void> {
             currentStart = currentEnd
             currentEnd = Math.min(currentStart + BATCH_SIZE, latestNetworkCycle.counter)
           } else {
-            Logger.mainLogger.error(`Failed to fetch receipts from cycle ${currentStart} to ${currentEnd}. Retrying...`)
             // Reduce batch size on failure
             const newBatchSize = Math.max(1, Math.floor(BATCH_SIZE / 2))
             currentEnd = Math.min(currentStart + newBatchSize, latestNetworkCycle.counter)
           }
         } catch (error) {
-          Logger.mainLogger.error(`Error patching receipts from cycle ${currentStart} to ${currentEnd}:`, error)
+          Logger.mainLogger.error(
+            `Error patching receipts from cycle ${currentStart} to ${currentEnd}:`,
+            error
+          )
           // Reduce batch size on error
           const newBatchSize = Math.max(1, Math.floor(BATCH_SIZE / 2))
           currentEnd = Math.min(currentStart + newBatchSize, latestNetworkCycle.counter)
-
+          Logger.mainLogger.error(
+            `Failed to fetch receipts from cycle ${currentStart} to ${currentEnd}. Retrying...`
+          )
           // If we're trying to fetch just one cycle and still failing, skip it
           if (currentEnd - currentStart === 1) {
             Logger.mainLogger.warn(`Skipping problematic receipt cycle ${currentStart}`)
@@ -570,9 +569,9 @@ async function syncAndStartServer(): Promise<void> {
 
     // If the original tx data does not match, patch the data instead of throwing an error
     if (!txResult.success) {
-      Logger.mainLogger.warn(
-        'The saved Original-Txs of last 10 cycles data do not match with the archiver data. Attempting to patch the data...'
-      )
+      if (!config.checkpointV2?.enabled) {
+        throw new Error('Original tx cycle difference is more than 10 and checkpoint v2 is not enabled. Please enable checkpoint v2 to sync large differences.')
+      }
 
       // Get the latest cycle to know how far we need to sync
       const latestNetworkCycle = await Cycles.getNewestCycleFromArchivers()
@@ -581,11 +580,9 @@ async function syncAndStartServer(): Promise<void> {
       let lastValidOriginalTxCycle = txResult.matchedCycle
       if (lastValidOriginalTxCycle === 0) {
         // If no valid cycle was found, we'll start from scratch
-        Logger.mainLogger.warn('No valid original tx cycles found. Starting from cycle 0.')
         lastStoredOriginalTxCycle = 0
       } else {
         // We have a valid cycle, so we'll start from there
-        Logger.mainLogger.info(`Last valid original tx cycle found: ${lastValidOriginalTxCycle}. Will sync from there.`)
         lastStoredOriginalTxCycle = lastValidOriginalTxCycle
       }
 
@@ -595,8 +592,6 @@ async function syncAndStartServer(): Promise<void> {
       let currentEnd = Math.min(currentStart + BATCH_SIZE, latestNetworkCycle.counter)
 
       while (currentStart < latestNetworkCycle.counter) {
-        Logger.mainLogger.info(`Patching original txs from cycle ${currentStart} to ${currentEnd}...`)
-
         try {
           const response = await queryFromArchivers(
             RequestDataType.ORIGINALTX,
@@ -616,7 +611,6 @@ async function syncAndStartServer(): Promise<void> {
             currentStart = currentEnd
             currentEnd = Math.min(currentStart + BATCH_SIZE, latestNetworkCycle.counter)
           } else {
-            Logger.mainLogger.error(`Failed to fetch original txs from cycle ${currentStart} to ${currentEnd}. Retrying...`)
             // Reduce batch size on failure
             const newBatchSize = Math.max(1, Math.floor(BATCH_SIZE / 2))
             currentEnd = Math.min(currentStart + newBatchSize, latestNetworkCycle.counter)
