@@ -112,6 +112,7 @@ export interface Config {
   }
   maxRecordsPerRequest: number // this is the equiavlent of the accountBucketSize config variable used by the validators to fetch records from the archiver
   multisigKeysSyncFromNetworkInternal: number // in seconds
+  minCycleConfirmationsToSave: number // this is the minimum numbers of nodes that we need to a see a cycle from to save it
 }
 
 let config: Config = {
@@ -245,7 +246,8 @@ let config: Config = {
     requiredSecurityLevel: 5
   },
   maxRecordsPerRequest: 200,
-  multisigKeysSyncFromNetworkInternal: 600
+  multisigKeysSyncFromNetworkInternal: 600,
+  minCycleConfirmationsToSave: -1,
 }
 // Override default config params from config file, env vars, and cli args
 export async function overrideDefaultConfig(file: string): Promise<void> {
