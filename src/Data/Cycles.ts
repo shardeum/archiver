@@ -426,15 +426,6 @@ export async function getNewestCycleFromArchivers(): Promise<P2PTypes.CycleCreat
       `http://${node.ip}:${node.port}/cycleinfo`,
       Crypto.sign(data)
     )) as ArchiverCycleResponse
-    if (!response?.cycleInfo?.length) {
-      throw new Error('Invalid response format from archiver')
-    }
-    // Validate the cycle info has required fields
-    const cycle = response.cycleInfo[0]
-    if (!cycle?.counter || !cycle?.networkId || !cycle?.nodeListHash) {
-      throw new Error('Cycle info missing required fields')
-    }
-
     return response.cycleInfo
   }
   const cycleInfo = await Utils.robustQuery(activeArchivers, queryFn)
