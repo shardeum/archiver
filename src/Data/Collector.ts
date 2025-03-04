@@ -166,11 +166,11 @@ const verifyGlobalTxreceipt = async (
   const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
   // Refer to https://github.com/shardeum/shardus-core/blob/7d8877b7e1a5b18140f898a64b932182d8a35298/src/p2p/GlobalAccounts.ts#L397
   let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
-  if (votingGroupCount > cycleShardData.nodes.length) {
+  if (votingGroupCount < cycleShardData.nodes.length) {
     if (nestedCountersInstance)
-      nestedCountersInstance.countEvent('receipt', 'votingGroupCount_greater_than_nodes_length')
+      nestedCountersInstance.countEvent('receipt', 'votingGroupCount_lesser_than_nodes_length')
     Logger.mainLogger.error(
-      'votingGroupCount_greater_than_nodes_length',
+      'votingGroupCount_lesser_than_nodes_length',
       votingGroupCount,
       cycleShardData.nodes.length
     )
@@ -286,11 +286,11 @@ const verifyNonGlobalTxReceipt = async (
   const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
 
   let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
-  if (votingGroupCount > cycleShardData.nodes.length) {
+  if (votingGroupCount < cycleShardData.nodes.length) {
     if (nestedCountersInstance)
-      nestedCountersInstance.countEvent('receipt', 'votingGroupCount_greater_than_nodes_length')
+      nestedCountersInstance.countEvent('receipt', 'votingGroupCount_lesser_than_nodes_length')
     Logger.mainLogger.error(
-      'verifyNonGlobalTxReceipt : votingGroupCount_greater_than_nodes_length',
+      'verifyNonGlobalTxReceipt : votingGroupCount_lesser_than_nodes_length',
       votingGroupCount,
       cycleShardData.nodes.length
     )
