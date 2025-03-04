@@ -4,6 +4,7 @@ import { originalTxDataDatabase } from '.'
 import * as Logger from '../Logger'
 import { config } from '../Config'
 import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
+import { getPreparedStmt } from './prepared-statements/preparedStmtManager'
 
 export interface OriginalTxData {
   txId: string
@@ -28,25 +29,21 @@ type DbOriginalTxDataCount = OriginalTxDataCount & {
 }
 
 export async function insertOriginalTxData(originalTxData: OriginalTxData): Promise<void> {
-
   try {
-
-    // Define the table columns based on schema
-    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData'];
-
-    // Construct the SQL query with placeholders
-    const placeholders = `(${columns.map(() => '?').join(', ')})`;
-    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES ${placeholders}`;
-
-    // Map the `originalTxData` object to match the columns
-    const values = columns.map((column) =>
-      typeof originalTxData[column] === 'object'
-        ? SerializeToJsonString(originalTxData[column]) // Serialize objects to JSON
-        : originalTxData[column]
-    );
-
-    // Execute the query directly (single-row insert)
-    await db.run(originalTxDataDatabase, sql, values);
+    const stmt = getPreparedStmt('insertOriginalTxData');
+    const values = [
+      originalTxData.txId,
+      originalTxData.timestamp,
+      originalTxData.cycle,
+      SerializeToJsonString(originalTxData.originalTxData),
+    ];
+    
+    await new Promise<void>((resolve, reject) => {
+      stmt.run(values, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
 
     if (config.VERBOSE) {
       Logger.mainLogger.debug('Successfully inserted OriginalTxData', originalTxData.txId);
@@ -59,7 +56,6 @@ export async function insertOriginalTxData(originalTxData: OriginalTxData): Prom
     );
   }
 }
-
 
 export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[]): Promise<void> {
 
@@ -93,25 +89,34 @@ export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[
   }
 }
 
-
-
 export async function queryOriginalTxDataCount(startCycle?: number, endCycle?: number): Promise<number> {
-  let originalTxsData
   try {
-    let sql = `SELECT COUNT(*) FROM originalTxsData`
-    const values: number[] = []
-    if (startCycle && endCycle) {
-      sql += ` WHERE cycle BETWEEN ? AND ?`
-      values.push(startCycle, endCycle)
+    let stmt;
+    const values: number[] = [];
+
+    if (startCycle !== undefined && endCycle !== undefined) {
+      stmt = getPreparedStmt('queryOriginalTxDataCountBetweenCycles');
+      values.push(startCycle, endCycle);
+    } else {
+      stmt = getPreparedStmt('queryOriginalTxDataCount');
     }
-    originalTxsData = await db.get(originalTxDataDatabase, sql, values)
+
+    const result = await new Promise<{ 'COUNT(*)': number }>((resolve, reject) => {
+      stmt.get(values, (err, row) => {
+        if (err) reject(err);
+        else resolve(row as { 'COUNT(*)': number });
+      });
+    });
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('OriginalTxData count', result);
+    }
+
+    return result ? result['COUNT(*)'] || 0 : 0;
   } catch (e) {
-    console.log(e)
+    Logger.mainLogger.error(e);
+    return 0;
   }
-  if (config.VERBOSE) {
-    Logger.mainLogger.debug('OriginalTxData count', originalTxsData)
-  }
-  return originalTxsData['COUNT(*)'] || 0
 }
 
 export async function queryOriginalTxsData(
@@ -120,108 +125,151 @@ export async function queryOriginalTxsData(
   startCycle?: number,
   endCycle?: number
 ): Promise<OriginalTxData[]> {
-  let originalTxsData: DbOriginalTxData[] = []
+  let originalTxsData: DbOriginalTxData[] = [];
+
   if (!Number.isInteger(skip) || !Number.isInteger(limit)) {
-    Logger.mainLogger.error('queryOriginalTxsData - Invalid skip or limit')
-    return originalTxsData
+    Logger.mainLogger.error('queryOriginalTxsData - Invalid skip or limit');
+    return originalTxsData;
   }
+
   try {
-    let sql = `SELECT * FROM originalTxsData`
-    const sqlSuffix = ` ORDER BY cycle ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
-    const values: number[] = []
-    if (startCycle && endCycle) {
-      sql += ` WHERE cycle BETWEEN ? AND ?`
-      values.push(startCycle, endCycle)
+    let stmt;
+    const values: number[] = [limit, skip];
+
+    if (startCycle !== undefined && endCycle !== undefined) {
+      stmt = getPreparedStmt('queryOriginalTxsDataByCycles');
+      values.unshift(startCycle, endCycle); // Add startCycle and endCycle to the values
+    } else {
+      stmt = getPreparedStmt('queryOriginalTxsData');
     }
-    sql += sqlSuffix
-    originalTxsData = (await db.all(originalTxDataDatabase, sql, values)) as DbOriginalTxData[]
+
+    originalTxsData = await new Promise<DbOriginalTxData[]>((resolve, reject) => {
+      stmt.all(values, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as DbOriginalTxData[]);
+      });
+    });
+
     originalTxsData.forEach((originalTxData: DbOriginalTxData) => {
-      if (originalTxData.originalTxData)
-        originalTxData.originalTxData = DeSerializeFromJsonString(originalTxData.originalTxData)
-      // if (originalTxData.sign) originalTxData.sign = DeSerializeFromJsonString(originalTxData.sign)
-    })
+      if (originalTxData.originalTxData) {
+        originalTxData.originalTxData = DeSerializeFromJsonString(originalTxData.originalTxData);
+      }
+    });
   } catch (e) {
-    console.log(e)
+    Logger.mainLogger.error(e);
   }
+
   if (config.VERBOSE) {
-    Logger.mainLogger.debug('OriginalTxData originalTxsData', originalTxsData)
+    Logger.mainLogger.debug('OriginalTxData originalTxsData', originalTxsData);
   }
-  return originalTxsData
+
+  return originalTxsData;
 }
 
-export async function queryOriginalTxDataByTxId(txId: string, timestamp = 0): Promise<OriginalTxData> {
+export async function queryOriginalTxDataByTxId(
+  txId: string,
+  timestamp = 0
+): Promise<OriginalTxData | null> {
   try {
-    const sql = `SELECT * FROM originalTxsData WHERE txId=?` + (timestamp ? ` AND timestamp=?` : '')
-    const value = timestamp ? [txId, timestamp] : [txId]
-    const originalTxData = (await db.get(originalTxDataDatabase, sql, value)) as DbOriginalTxData
+    let stmt;
+    const values: (string | number)[] = [txId];
+
+    if (timestamp) {
+      stmt = getPreparedStmt('queryOriginalTxDataByTxIdWithTimestamp');
+      values.push(timestamp);
+    } else {
+      stmt = getPreparedStmt('queryOriginalTxDataByTxId');
+    }
+
+    const originalTxData = await new Promise<DbOriginalTxData | null>((resolve, reject) => {
+      stmt.get(values, (err, row) => {
+        if (err) reject(err);
+        else resolve(row as DbOriginalTxData | null);
+      });
+    });
+
     if (originalTxData) {
-      if (originalTxData.originalTxData)
-        originalTxData.originalTxData = DeSerializeFromJsonString(originalTxData.originalTxData)
-      // if (originalTxData.sign) originalTxData.sign = DeSerializeFromJsonString(originalTxData.sign)
+      if (originalTxData.originalTxData) {
+        originalTxData.originalTxData = DeSerializeFromJsonString(originalTxData.originalTxData);
+      }
     }
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('OriginalTxData txId', originalTxData)
+      Logger.mainLogger.debug('OriginalTxData txId', originalTxData);
     }
-    return originalTxData as OriginalTxData
+
+    return originalTxData as OriginalTxData | null;
   } catch (e) {
-    console.log(e)
+    Logger.mainLogger.error(e);
+    return null;
   }
-  return null
 }
+
 
 export async function queryOriginalTxDataCountByCycles(
   start: number,
   end: number
 ): Promise<OriginalTxDataCount[]> {
-  const originalTxsDataCount: OriginalTxDataCount[] = []
-  let dbOriginalTxsDataCount: DbOriginalTxDataCount[] = []
+  const originalTxsDataCount: OriginalTxDataCount[] = [];
   try {
-    const sql = `SELECT cycle, COUNT(*) FROM originalTxsData GROUP BY cycle HAVING cycle BETWEEN ? AND ? ORDER BY cycle ASC`
-    dbOriginalTxsDataCount = (await db.all(originalTxDataDatabase, sql, [
-      start,
-      end,
-    ])) as DbOriginalTxDataCount[]
-  } catch (e) {
-    Logger.mainLogger.error(e)
-  }
-  if (config.VERBOSE) {
-    Logger.mainLogger.debug('OriginalTxData count by cycle', dbOriginalTxsDataCount)
-  }
-  if (dbOriginalTxsDataCount.length > 0) {
-    for (let i = 0; i < dbOriginalTxsDataCount.length; i++) {
-      /* eslint-disable security/detect-object-injection */
-      originalTxsDataCount.push({
-        cycle: dbOriginalTxsDataCount[i].cycle,
-        originalTxDataCount: dbOriginalTxsDataCount[i]['COUNT(*)'],
-      })
-      /* eslint-enable security/detect-object-injection */
+    const stmt = getPreparedStmt('queryOriginalTxDataCountByCycles');
+
+    const dbOriginalTxsDataCount = await new Promise<DbOriginalTxDataCount[]>((resolve, reject) => {
+      stmt.all([start, end], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as DbOriginalTxDataCount[]);
+      });
+    });
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('OriginalTxData count by cycle', dbOriginalTxsDataCount);
     }
+
+    if (dbOriginalTxsDataCount.length > 0) {
+      for (const dbRecord of dbOriginalTxsDataCount) {
+        originalTxsDataCount.push({
+          cycle: dbRecord.cycle,
+          originalTxDataCount: dbRecord['COUNT(*)'], // Preserve original logic
+        });
+      }
+    }
+  } catch (e) {
+    Logger.mainLogger.error(e);
   }
-  return originalTxsDataCount
+
+  return originalTxsDataCount;
 }
 
-export async function queryLatestOriginalTxs(count: number): Promise<OriginalTxData[]> {
+export async function queryLatestOriginalTxs(count: number): Promise<OriginalTxData[] | null> {
   if (!Number.isInteger(count)) {
-    Logger.mainLogger.error('queryLatestOriginalTxs - Invalid count value')
-    return null
+    Logger.mainLogger.error('queryLatestOriginalTxs - Invalid count value');
+    return null;
   }
+
   try {
-    const sql = `SELECT * FROM originalTxsData ORDER BY cycle DESC, timestamp DESC LIMIT ${
-      count ? count : 100
-    }`
-    const originalTxsData = (await db.all(originalTxDataDatabase, sql)) as DbOriginalTxData[]
+    const stmt = getPreparedStmt('queryLatestOriginalTxs');
+    const originalTxsData = await new Promise<DbOriginalTxData[]>((resolve, reject) => {
+      stmt.all([count], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as DbOriginalTxData[]);
+      });
+    });
+
     if (originalTxsData.length > 0) {
       originalTxsData.forEach((tx: DbOriginalTxData) => {
-        if (tx.originalTxData) tx.originalTxData = DeSerializeFromJsonString(tx.originalTxData)
-        // if (tx.sign) tx.sign = DeSerializeFromJsonString(tx.sign)
-      })
+        if (tx.originalTxData) {
+          tx.originalTxData = DeSerializeFromJsonString(tx.originalTxData);
+        }
+      });
     }
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Latest Original-Tx: ', originalTxsData)
+      Logger.mainLogger.debug('Latest Original-Tx: ', originalTxsData);
     }
-    return originalTxsData
+
+    return originalTxsData;
   } catch (e) {
-    Logger.mainLogger.error(e)
-    return null
+    Logger.mainLogger.error(e);
+    return null;
   }
 }

@@ -5,27 +5,23 @@ import * as Logger from '../Logger'
 import { config } from '../Config'
 import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
 import { Cycle, DbCycle } from './types'
+import { getPreparedStmt } from './prepared-statements/preparedStmtManager'
 
 
 export async function insertCycle(cycle: Cycle): Promise<void> {
-
   try {
-    // Define the table columns based on schema
-    const columns = ['cycleMarker', 'counter', 'cycleRecord'];
-
-    // Construct the SQL query with placeholders
-    const placeholders = `(${columns.map(() => '?').join(', ')})`;
-    const sql = `INSERT OR REPLACE INTO cycles (${columns.join(', ')}) VALUES ${placeholders}`;
-
-    // Map the `cycle` object to match the columns
-    const values = columns.map((column) =>
-      typeof cycle[column] === 'object'
-        ? SerializeToJsonString(cycle[column]) // Serialize objects to JSON
-        : cycle[column]
-    );
-
-    // Execute the query directly (single-row insert)
-    await db.run(cycleDatabase, sql, values);
+    const stmt = getPreparedStmt('insertCycle');
+    const values = [
+      cycle.cycleMarker,
+      cycle.counter,
+      cycle.cycleRecord && SerializeToJsonString(cycle.cycleRecord),
+    ];
+    await new Promise<void>((resolve, reject) => {
+      stmt.run(values, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
 
     if (config.VERBOSE) {
       Logger.mainLogger.debug(
@@ -43,6 +39,7 @@ export async function insertCycle(cycle: Cycle): Promise<void> {
     );
   }
 }
+
 
 export async function bulkInsertCycles(cycles: Cycle[]): Promise<void> {
 
@@ -77,102 +74,133 @@ export async function bulkInsertCycles(cycles: Cycle[]): Promise<void> {
 
 export async function updateCycle(marker: string, cycle: Cycle): Promise<void> {
   try {
-    const sql = `UPDATE cycles SET counter = $counter, cycleRecord = $cycleRecord WHERE cycleMarker = $marker `
-    await db.run(cycleDatabase, sql, {
-      $counter: cycle.counter,
-      $cycleRecord: cycle.cycleRecord && SerializeToJsonString(cycle.cycleRecord),
-      $marker: marker,
-    })
+    const stmt = getPreparedStmt('updateCycle');
+    const values = [
+      cycle.counter,
+      SerializeToJsonString(cycle.cycleRecord),
+      marker,
+    ];
+    await new Promise<void>((resolve, reject) => {
+      stmt.run(values, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Updated cycle for counter', cycle.cycleRecord.counter, cycle.cycleMarker)
+      Logger.mainLogger.debug('Updated cycle for counter', cycle.counter, marker);
     }
   } catch (e) {
-    Logger.mainLogger.error(e)
-    Logger.mainLogger.error('Unable to update Cycle', cycle.cycleMarker)
+    Logger.mainLogger.error(e);
+    Logger.mainLogger.error('Unable to update Cycle', marker);
   }
 }
 
-export async function queryCycleByMarker(marker: string): Promise<Cycle> {
+export async function queryCycleByMarker(marker: string): Promise<Cycle | null> {
   try {
-    const sql = `SELECT * FROM cycles WHERE cycleMarker=? LIMIT 1`
-    const dbCycle = (await db.get(cycleDatabase, sql, [marker])) as DbCycle
-    let cycle: Cycle
+    const stmt = getPreparedStmt('queryCycleByMarker');
+    const dbCycle = await new Promise<DbCycle>((resolve, reject) => {
+      stmt.get([marker], (err, row) => {
+        if (err) reject(err);
+        else resolve(row as DbCycle);
+      });
+    });
+
     if (dbCycle) {
-      cycle = {
+      const cycle: Cycle = {
         counter: dbCycle.counter,
         cycleRecord: DeSerializeFromJsonString(dbCycle.cycleRecord),
         cycleMarker: dbCycle.cycleMarker,
+      };
+
+      if (config.VERBOSE) {
+        Logger.mainLogger.debug('cycle marker', cycle);
       }
+      return cycle;
     }
-    if (config.VERBOSE) {
-      Logger.mainLogger.debug('cycle marker', cycle)
-    }
-    return cycle
+    return null;
   } catch (e) {
-    Logger.mainLogger.error(e)
-    return null
+    Logger.mainLogger.error(e);
+    return null;
   }
 }
 
+
 export async function queryLatestCycleRecords(count: number): Promise<P2P.CycleCreatorTypes.CycleData[]> {
-  if (!Number.isInteger(count)) {
-    Logger.mainLogger.error('queryLatestCycleRecords - Invalid count value')
-    return []
+  if (!Number.isInteger(count) || count <= 0) {
+    Logger.mainLogger.error('queryLatestCycleRecords - Invalid count value');
+    return [];
   }
   try {
-    const sql = `SELECT * FROM cycles ORDER BY counter DESC LIMIT ${count ? count : 100}`
-    const dbCycles = (await db.all(cycleDatabase, sql)) as DbCycle[]
-    const cycleRecords: P2P.CycleCreatorTypes.CycleData[] = []
-    if (dbCycles.length > 0) {
-      for (const cycle of dbCycles) {
-        if (cycle.cycleRecord) cycleRecords.push(DeSerializeFromJsonString(cycle.cycleRecord))
-      }
-    }
+    const stmt = getPreparedStmt('queryLatestCycleRecords');
+    const dbCycles = await new Promise<DbCycle[]>((resolve, reject) => {
+      stmt.all([count], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as DbCycle[]);
+      });
+    });
+
+    const cycleRecords: P2P.CycleCreatorTypes.CycleData[] = dbCycles.map((cycle) =>
+      DeSerializeFromJsonString(cycle.cycleRecord)
+    );
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('cycle latest', cycleRecords)
+      Logger.mainLogger.debug('cycle latest', cycleRecords);
     }
-    return cycleRecords
+    return cycleRecords;
   } catch (e) {
-    Logger.mainLogger.error(e)
-    return []
+    Logger.mainLogger.error(e);
+    return [];
   }
 }
+
 
 export async function queryCycleRecordsBetween(
   start: number,
   end: number
 ): Promise<P2P.CycleCreatorTypes.CycleData[]> {
   try {
-    const sql = `SELECT * FROM cycles WHERE counter BETWEEN ? AND ? ORDER BY counter ASC`
-    const dbCycles = (await db.all(cycleDatabase, sql, [start, end])) as DbCycle[]
-    const cycleRecords: P2P.CycleCreatorTypes.CycleData[] = []
-    if (dbCycles.length > 0) {
-      for (const cycle of dbCycles) {
-        if (cycle.cycleRecord) cycleRecords.push(DeSerializeFromJsonString(cycle.cycleRecord))
-      }
-    }
+    const stmt = getPreparedStmt('queryCycleRecordsBetween');
+    const dbCycles = await new Promise<DbCycle[]>((resolve, reject) => {
+      stmt.all([start, end], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as DbCycle[]);
+      });
+    });
+
+    const cycleRecords: P2P.CycleCreatorTypes.CycleData[] = dbCycles.map((cycle) =>
+      DeSerializeFromJsonString(cycle.cycleRecord)
+    );
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('cycle between', cycleRecords)
+      Logger.mainLogger.debug('cycle between', cycleRecords);
     }
-    return cycleRecords
+    return cycleRecords;
   } catch (e) {
-    Logger.mainLogger.error(e)
-    return []
+    Logger.mainLogger.error(e);
+    return [];
   }
 }
 
-export async function queryCyleCount(): Promise<number> {
-  let cycles
+export async function queryCycleCount(): Promise<number> {
   try {
-    const sql = `SELECT COUNT(*) FROM cycles`
-    cycles = await db.get(cycleDatabase, sql, [])
+    const stmt = getPreparedStmt('queryCycleCount');
+    const result = await new Promise<{ count: number }>((resolve, reject) => {
+      stmt.get([], (err, row) => {
+        if (err) reject(err);
+        else resolve(row as { count: number });
+      });
+    });
+
+    const count = result?.count || 0;
+
+    if (config.VERBOSE) {
+      Logger.mainLogger.debug('Cycle count', count);
+    }
+
+    return count;
   } catch (e) {
-    Logger.mainLogger.error(e)
+    Logger.mainLogger.error(e);
+    return 0;
   }
-  if (config.VERBOSE) {
-    Logger.mainLogger.debug('Cycle count', cycles)
-  }
-  if (cycles) cycles = cycles['COUNT(*)']
-  else cycles = 0
-  return cycles
 }

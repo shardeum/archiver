@@ -882,10 +882,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     } else if (txId) {
       transactions = await TransactionDB.queryTransactionByTxId(txId)
       res = { transactions }
-    } else if (appReceiptId) {
-      transactions = await TransactionDB.queryTransactionByAccountId(appReceiptId)
-      res = { transactions }
-    } else {
+    }  else {
       res = {
         success: false,
         error: 'not specified which transaction to show',
@@ -906,7 +903,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       reply.send({ success: false, error: result.error })
       return
     }
-    const totalCycles = await CycleDB.queryCyleCount()
+    const totalCycles = await CycleDB.queryCycleCount()
     const totalAccounts = await AccountDB.queryAccountCount()
     const totalTransactions = await TransactionDB.queryTransactionCount()
     const totalReceipts = await ReceiptDB.queryReceiptCount()

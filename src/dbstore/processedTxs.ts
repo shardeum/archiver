@@ -2,6 +2,7 @@ import * as db from './sqlite3storage'
 import { processedTxDatabase } from './'
 import * as Logger from '../Logger'
 import { config } from '../Config'
+import { getPreparedStmt } from './prepared-statements/preparedStmtManager'
 
 // const superjson =  require('superjson')
 /**
@@ -15,27 +16,21 @@ export interface ProcessedTransaction {
 }
 
 export async function insertProcessedTx(processedTx: ProcessedTransaction): Promise<void> {
-
   try {
+    const stmt = getPreparedStmt('insertProcessedTx');
+    const values = [
+      processedTx.txId,
+      processedTx.cycle,
+      processedTx.txTimestamp,
+      processedTx.applyTimestamp,
+    ];
 
-    // Define the table columns based on schema
-    const columns = ['txId', 'cycle', 'txTimestamp', 'applyTimestamp'];
-
-    // Construct the SQL query with placeholders
-    const placeholders = `(${columns.map(() => '?').join(', ')})`;
-    const sql = `
-      INSERT INTO processedTxs (${columns.join(', ')}) VALUES ${placeholders}
-      ON CONFLICT (txId) DO UPDATE SET 
-      cycle = excluded.cycle, 
-      txTimestamp = excluded.txTimestamp, 
-      applyTimestamp = excluded.applyTimestamp
-    `;
-
-    // Map the `processedTx` object to match the columns
-    const values = columns.map((column) => processedTx[column]);
-
-    // Execute the query directly (single-row insert/update)
-    await db.run(processedTxDatabase, sql, values);
+    await new Promise<void>((resolve, reject) => {
+      stmt.run(values, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
 
     if (config.VERBOSE) {
       Logger.mainLogger.debug('Successfully inserted ProcessedTransaction', processedTx.txId);
@@ -48,7 +43,6 @@ export async function insertProcessedTx(processedTx: ProcessedTransaction): Prom
     );
   }
 }
-
 
 
 export async function bulkInsertProcessedTxs(processedTxs: ProcessedTransaction[]): Promise<void> {
@@ -85,56 +79,92 @@ export async function bulkInsertProcessedTxs(processedTxs: ProcessedTransaction[
   }
 }
 
-
-
-export async function queryProcessedTxByTxId(txId: string): Promise<ProcessedTransaction> {
+export async function queryProcessedTxByTxId(txId: string): Promise<ProcessedTransaction | null> {
   try {
-    const sql = `SELECT * FROM processedTxs WHERE txId=?`
-    const processedTx = (await db.get(processedTxDatabase, sql, [txId])) as ProcessedTransaction
+    // Get the prepared statement
+    const stmt = getPreparedStmt('queryProcessedTxByTxId');
+
+    // Execute the prepared statement
+    const processedTx = await new Promise<ProcessedTransaction | null>((resolve, reject) => {
+      stmt.get([txId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row as ProcessedTransaction | null);
+      });
+    });
+
+    // Log if verbose mode is enabled
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('ProcessedTransaction txId', processedTx)
+      Logger.mainLogger.debug('ProcessedTransaction txId', processedTx);
     }
-    return processedTx
+
+    return processedTx;
   } catch (e) {
-    Logger.mainLogger.error(e)
-    return null
+    Logger.mainLogger.error(e);
+    return null;
   }
 }
 
-export async function queryProcessedTxsByCycleNumber(cycleNumber: number): Promise<ProcessedTransaction[]> {
+export async function queryProcessedTxsByCycleNumber(
+  cycleNumber: number
+): Promise<ProcessedTransaction[] | null> {
   try {
-    const sql = `SELECT * FROM processedTxs WHERE cycle=?`
-    const processedTxs = (await db.all(processedTxDatabase, sql, [cycleNumber])) as ProcessedTransaction[]
+    // Get the prepared statement
+    const stmt = getPreparedStmt('queryProcessedTxsByCycleNumber');
+
+    // Execute the prepared statement
+    const processedTxs = await new Promise<ProcessedTransaction[]>((resolve, reject) => {
+      stmt.all([cycleNumber], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as ProcessedTransaction[]);
+      });
+    });
+
+    // Log if verbose mode is enabled
     if (config.VERBOSE) {
-      Logger.mainLogger.debug(`ProcessedTransactions for cycle: ${cycleNumber} ${processedTxs.length}`)
+      Logger.mainLogger.debug(
+        `ProcessedTransactions for cycle: ${cycleNumber}, count: ${processedTxs.length}`
+      );
     }
-    return processedTxs
+
+    return processedTxs;
   } catch (e) {
-    Logger.mainLogger.error(e)
-    return null
+    Logger.mainLogger.error(e);
+    return null;
   }
 }
 
 export async function querySortedTxsBetweenCycleRange(
   startCycle: number,
   endCycle: number
-): Promise<string[]> {
+): Promise<string[] | null> {
   try {
-    const sql = `SELECT txId FROM processedTxs WHERE cycle BETWEEN ? AND ?`
-    const txIdsArray = (await db.all(processedTxDatabase, sql, [startCycle, endCycle])) as { txId: string }[]
+    // Get the prepared statement
+    const stmt = getPreparedStmt('querySortedTxsBetweenCycleRange');
+
+    // Execute the prepared statement
+    const txIdsArray = await new Promise<{ txId: string }[]>((resolve, reject) => {
+      stmt.all([startCycle, endCycle], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows as { txId: string }[]);
+      });
+    });
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug(`txIds between ${startCycle} and ${endCycle} are ${txIdsArray ? txIdsArray.length : 0}`)
+      Logger.mainLogger.debug(
+        `txIds between ${startCycle} and ${endCycle} are ${txIdsArray ? txIdsArray.length : 0}`
+      );
     }
 
-    if (!txIdsArray) {
-      return []
+    if (!txIdsArray || txIdsArray.length === 0) {
+      return [];
     }
 
-    const txIds = txIdsArray.map((tx) => tx.txId)
-    txIds.sort()
-    return txIds
+    // Extract and sort transaction IDs
+    const txIds = txIdsArray.map((tx) => tx.txId);
+    txIds.sort();
+    return txIds;
   } catch (e) {
-    Logger.mainLogger.error('error in querySortedTxsBetweenCycleRange: ', e)
-    return null
+    Logger.mainLogger.error('Error in querySortedTxsBetweenCycleRange:', e);
+    return null;
   }
 }

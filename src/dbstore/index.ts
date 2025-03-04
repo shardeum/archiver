@@ -2,6 +2,14 @@ import { Database } from 'sqlite3'
 import { Config } from '../Config'
 import { createDB, runCreate, close } from './sqlite3storage'
 import { createDirectories } from '../Utils'
+import { finalizePreparedStatements } from './prepared-statements/preparedStmtManager'
+import { initialize as initializeAccountPreparedStatements } from './prepared-statements/preparedStmtAccounts';
+import { initialize as initializeCyclesPreparedStatements } from './prepared-statements/preparedStmtCycles';
+import { initialize as initializeOriginalTxDataPreparedStatements } from './prepared-statements/preparedStmtOriginalTxData';
+import { initialize as initializeProcessedTxsPreparedStatements } from './prepared-statements/preparedStmtProcessedTxs';
+import { initialize as initializeReceiptsPreparedStatements } from './prepared-statements/preparedStmtReceipts';
+import { initialize as initializeTransactionsPreparedStatements } from './prepared-statements/preparedStmtTransactions';
+
 
 export let cycleDatabase: Database
 export let accountDatabase: Database
@@ -9,6 +17,7 @@ export let transactionDatabase: Database
 export let receiptDatabase: Database
 export let originalTxDataDatabase: Database
 export let processedTxDatabase: Database
+
 
 export const initializeDB = async (config: Config): Promise<void> => {
   createDirectories(config.ARCHIVER_DB)
@@ -108,10 +117,21 @@ export const initializeDB = async (config: Config): Promise<void> => {
     processedTxDatabase,
     'CREATE INDEX if not exists `processedTxs_cycle_idx` ON `processedTxs` (`cycle`)'
   )
+
+  // Initialize prepared statements
+  initializeAccountPreparedStatements(accountDatabase);
+  initializeCyclesPreparedStatements(cycleDatabase);
+  initializeOriginalTxDataPreparedStatements(originalTxDataDatabase);
+  initializeProcessedTxsPreparedStatements(processedTxDatabase);
+  initializeReceiptsPreparedStatements(receiptDatabase);
+  initializeTransactionsPreparedStatements(transactionDatabase);
+
+
 }
 
 export const closeDatabase = async (): Promise<void> => {
   const promises = []
+  promises.push(finalizePreparedStatements());
   promises.push(close(accountDatabase, 'Account'))
   promises.push(close(transactionDatabase, 'Transaction'))
   promises.push(close(cycleDatabase, 'Cycle'))
