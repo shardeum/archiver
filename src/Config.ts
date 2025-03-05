@@ -193,13 +193,13 @@ let config: Config = {
   },
   checkpoint: {
     bucketConfig: {
-      BucketMatureAge: 3 * 60, // 11 minutes
+      BucketMatureAge: 11 * 60, // 11 minutes
       cycleAge: 60, // 60 seconds
-      GiveUpAge: 6 * 60, // 20 minutes
+      GiveUpAge: 20 * 60, // 20 minutes
       lastFailedBucketDuration: 5 * 60 * 1000, // 5 minutes
       RadixDepth: 2, // 2 nibbles (1 hex char)
-      allowCheckpointUpdates: true,
-      allowCheckpointStorage: true
+      allowCheckpointUpdates: false,
+      allowCheckpointStorage: false
     },
     updateInterval: 60 * 1000, // 1 minute in milliseconds  in milliseconds
     syncInterval: 10000, // 10 seconds in milliseconds

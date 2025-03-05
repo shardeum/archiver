@@ -17,23 +17,6 @@ import { cycleCheckpointManager } from './CycleData'
 import { receiptCheckpointManager } from './ReceiptData'
 import { originalTxCheckpointManager } from './OriginalTxsData'
 
-/**
- * Converts CheckpointType to CheckpointStatusType
- * @param checkpointType The CheckpointType to convert
- * @returns The corresponding CheckpointStatusType
- */
-function mapCheckpointTypeToStatusType(checkpointType: CheckpointType): CheckpointStatusType {
-  switch (checkpointType) {
-    case CheckpointType.Cycle:
-      return CheckpointStatusType.CYCLE
-    case CheckpointType.Receipt:
-      return CheckpointStatusType.RECEIPT
-    case CheckpointType.OriginalTx:
-      return CheckpointStatusType.ORIGINAL_TX
-    default:
-      throw new Error(`Unknown checkpoint type: ${checkpointType}`)
-  }
-}
 
 /**
  * Records the status of a checkpoint bucket when it ages out

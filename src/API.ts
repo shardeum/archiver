@@ -1414,12 +1414,22 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   })
 
   type BucketVerificationRequest = FastifyRequest<{
-    Params: { bucketID: string }
+    Body: { bucketID: string }
   }>
 
-  server.get('/bucket-verification/:bucketID', async (request: BucketVerificationRequest, reply) => {
+  server.post('/bucket-verification', async (request: BucketVerificationRequest & Request, reply) => {
     try {
-      const bucketID = parseInt(request.params.bucketID, 10)
+      const requestData = request.body
+      const result = validateRequestData(requestData, { bucketID: 's' , sender: 's', sign: 'o'})
+      if (!result.success) {
+        reply.code(400).send({
+          success: false,
+          error: result.error
+        })
+        return
+      }
+
+      const bucketID = parseInt(requestData.bucketID, 10)
 
       if (isNaN(bucketID) || bucketID < 0) {
         reply.code(400).send({
@@ -1586,8 +1596,16 @@ export const queryFromArchivers = async (
       try {
         console.log("Checking bucket verification for archiver:", archiver.ip, archiver.port)
         // Check if this archiver has verified the bucket
-        const verificationResponse: { success?: boolean, isVerified?: boolean } = await P2P.getJson(
-          `http://${archiver.ip}:${archiver.port}/bucket-verification/${bucketID}`,
+
+        const data = {
+          bucketID: bucketID.toString(),
+          sender: config.ARCHIVER_PUBLIC_KEY,
+        }
+        const signedDataToSend = Crypto.sign(data)
+        const verificationResponse: { success?: boolean, isVerified?: boolean } = await P2P.postJson(
+          `http://${archiver.ip}:${archiver.port}/bucket-verification`,
+          signedDataToSend,
+          timeoutInSecond
         )
         const isVerifiedBucket = verificationResponse?.success && verificationResponse?.isVerified
         if (isVerifiedBucket) {

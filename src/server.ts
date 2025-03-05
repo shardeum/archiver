@@ -201,8 +201,7 @@ async function start(): Promise<void> {
   createDirectories(config.failedBucketsDir)
 
   // Initialize checkpoint V2 system if enabled and checkpoint updates and storage are allowed
-  if (config.checkpoint.bucketConfig.allowCheckpointUpdates && 
-      config.checkpoint.bucketConfig.allowCheckpointStorage) {
+  if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
     Logger.mainLogger.info('Initializing checkpoint V2 system')
     initCheckpointV2()
 
@@ -223,8 +222,7 @@ async function start(): Promise<void> {
 
     try {
       // Only update checkpoints if both updates and storage are allowed
-      if (config.checkpoint.bucketConfig.allowCheckpointUpdates && 
-          config.checkpoint.bucketConfig.allowCheckpointStorage) {
+      if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
 
         if (cycleCheckpointManager && receiptCheckpointManager && originalTxCheckpointManager) {
           await Promise.all([
@@ -245,8 +243,7 @@ async function start(): Promise<void> {
   }
 
   // Start the update loop only if checkpoint updates and storage are allowed
-  if (config.checkpoint.bucketConfig.allowCheckpointUpdates && 
-      config.checkpoint.bucketConfig.allowCheckpointStorage) {
+  if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
     // Start the update loop
     updateCheckpoints()
   }  
@@ -349,7 +346,7 @@ async function syncAndStartServer(): Promise<void> {
       }
 
       // Check if the cycle difference is too large and checkpoint v2 is not enabled
-      if (!config.checkpoint.bucketConfig.allowCheckpointUpdates && !config.checkpoint.bucketConfig.allowCheckpointStorage && (latestNetworkCycle.counter - lastStoredCycleCount) > 10) {
+      if (!config.checkpoint.bucketConfig.allowCheckpointUpdates && (latestNetworkCycle.counter - lastStoredCycleCount) > 10) {
         throw new Error('Cycle difference is more than 10 and checkpoint v2 is not enabled. Please enable checkpoint v2 to sync large cycle differences.')
       }
 
@@ -486,7 +483,7 @@ async function syncAndStartServer(): Promise<void> {
 
     // If the receipt data does not match, patch the data instead of throwing an error
     if (!receiptResult.success) {
-      if (!config.checkpoint.bucketConfig.allowCheckpointUpdates && !config.checkpoint.bucketConfig.allowCheckpointStorage) {
+      if (!config.checkpoint.bucketConfig.allowCheckpointUpdates) {
         throw new Error(
           'Receipt cycle difference is more than 10 and checkpoint v2 is not enabled. Please enable checkpoint v2 to sync large differences.'
         )
@@ -576,7 +573,7 @@ async function syncAndStartServer(): Promise<void> {
 
     // If the original tx data does not match, patch the data instead of throwing an error
     if (!txResult.success) {
-      if (!config.checkpoint.bucketConfig.allowCheckpointUpdates && !config.checkpoint.bucketConfig.allowCheckpointStorage) {
+      if (!config.checkpoint.bucketConfig.allowCheckpointUpdates) {
         throw new Error('Original tx cycle difference is more than 10 and checkpoint v2 is not enabled. Please enable checkpoint v2 to sync large differences.')
       }
 
@@ -667,7 +664,7 @@ async function syncAndStartServer(): Promise<void> {
     await syncGlobalAccount()
 
     // If checkpoint V2 is enabled, use it for syncing
-    if (config.checkpoint.bucketConfig.allowCheckpointUpdates && config.checkpoint.bucketConfig.allowCheckpointStorage) {
+    if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
       Logger.mainLogger.info('Using checkpoint V2 for data synchronization')
 
       // Import checkpoint status types
