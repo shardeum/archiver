@@ -149,9 +149,11 @@ const verifyGlobalTxreceipt = async (
   const { signs, tx } = appliedReceipt
   const result = { success: false }
 
-  const { timestamp } = receipt.tx
+  const { timestamp, originalTxData } = receipt.tx
   const txId = appliedReceipt.tx.txId
-  const generatedTxId = generateTxId(appliedReceipt.tx.value)
+  // verify tx id
+  const generatedTxId = generateTxId((originalTxData as any)?.tx)
+
   if (generatedTxId != txId) {
     if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
     Logger.mainLogger.error(
