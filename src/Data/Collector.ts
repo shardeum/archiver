@@ -165,18 +165,17 @@ const verifyGlobalTxreceipt = async (
   const cycleShardData = shardValuesByCycle.get(cycle)
   const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
   // Refer to https://github.com/shardeum/shardus-core/blob/7d8877b7e1a5b18140f898a64b932182d8a35298/src/p2p/GlobalAccounts.ts#L397
-  let votingGroupCount = cycleShardData.nodes.length
+  let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
 
   /**
    * Workaround: Early cycles may lack enough nodes for receipts to pass verification.
    * Relaxing the signature requirement for the first x cycles
    * could prevent unnecessary rejections. Needs tuning for larger networks.
    **/
-  if (cycleShardData.cycleNumber > config.formingNetworkCycleThreshold) {
-    votingGroupCount = Math.max(votingGroupCount, cycleShardData.shardGlobals.nodesPerConsenusGroup)
-  } else {
-    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'cycle_less_than_formingNetworkCycleThreshold')
-    Logger.mainLogger.log('cycle_less_than_formingNetworkCycleThreshold', votingGroupCount, cycleShardData.nodes.length)
+  if (cycleShardData.nodes.length < votingGroupCount && cycleShardData.cycleNumber <= config.formingNetworkCycleThreshold) {
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'votingGroupCount_lesser_than_nodes_length_forming_phase')
+    Logger.mainLogger.log('verifyGlobalTxreceipt: votingGroupCount_lesser_than_nodes_length', votingGroupCount, cycleShardData.nodes.length)
+    votingGroupCount = cycleShardData.nodes.length
   }
 
   let isReceiptMajority = signs.length / votingGroupCount >= config.requiredMajorityVotesPercentage
@@ -289,14 +288,15 @@ const verifyNonGlobalTxReceipt = async (
   const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
 
   let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
-  if (votingGroupCount < cycleShardData.nodes.length) {
-    if (nestedCountersInstance)
-      nestedCountersInstance.countEvent('receipt', 'votingGroupCount_lesser_than_nodes_length')
-    Logger.mainLogger.error(
-      'verifyNonGlobalTxReceipt : votingGroupCount_lesser_than_nodes_length',
-      votingGroupCount,
-      cycleShardData.nodes.length
-    )
+
+  /**
+   * Workaround: Early cycles may lack enough nodes for receipts to pass verification.
+   * Relaxing the signature requirement for the first x cycles
+   * could prevent unnecessary rejections. Needs tuning for larger networks.
+   **/
+  if (cycleShardData.nodes.length < votingGroupCount && cycleShardData.cycleNumber <= config.formingNetworkCycleThreshold) {
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'votingGroupCount_lesser_than_nodes_length_forming_phase')
+    Logger.mainLogger.log('verifyNonGlobalTxReceipt : votingGroupCount_lesser_than_nodes_length_forming_phase', votingGroupCount, cycleShardData.nodes.length)
     votingGroupCount = cycleShardData.nodes.length
   }
 
