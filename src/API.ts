@@ -40,6 +40,7 @@ import { Cycle } from './dbstore/types'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
 import { CheckpointRadixEntry, CheckpointType } from './checkpoint/CheckpointData'
 import { getCheckpointManager } from './checkpoint/Utils'
+import { CheckpointStatusType, isBucketVerified } from './dbstore/checkpointStatus'
 const { version } = require('../package.json') // eslint-disable-line @typescript-eslint/no-var-requires
 const TXID_LENGTH = 64
 const {
@@ -1411,6 +1412,39 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
         .send(`Server error in exchangeCheckpointRadixEntries for type ${req.body.checkpointType}`)
     }
   })
+
+  type BucketVerificationRequest = FastifyRequest<{
+    Params: { bucketID: string }
+  }>
+
+  server.get('/bucket-verification/:bucketID', async (request: BucketVerificationRequest, reply) => {
+    try {
+      const bucketID = parseInt(request.params.bucketID, 10)
+
+      if (isNaN(bucketID) || bucketID < 0) {
+        reply.code(400).send({
+          success: false,
+          error: 'Invalid bucketID. Must be a non-negative integer.'
+        })
+        return
+      }
+
+      const isVerified = await isBucketVerified(bucketID)
+
+      const response = Crypto.sign({
+        success: true,
+        isVerified
+      })
+
+      reply.send(response)
+    } catch (error) {
+      Logger.mainLogger.error(`Error checking bucket verification status:`, error)
+      reply.code(500).send({
+        success: false,
+        error: 'Internal server error while checking bucket verification status'
+      })
+    }
+  })
 }
 
 export const validateRequestData = (
@@ -1481,6 +1515,38 @@ export const queryFromArchivers = async (
   queryParameters: object,
   timeoutInSecond?: number
 ): Promise<unknown | null> => {
+  let bucketID: number | undefined;
+  const params = queryParameters as any;
+  let checkpointStatusType: CheckpointStatusType | undefined;
+
+  // Extract bucket ID based on the request type and parameters
+  switch (type) {
+    case RequestDataType.CYCLE:
+      // For cycle info, use start or end as bucket ID
+      if (params.start !== undefined) {
+        bucketID = params.start;
+      } else if (params.end !== undefined) {
+        bucketID = params.end;
+      }
+      checkpointStatusType = CheckpointStatusType.CYCLE;
+      break;
+    case RequestDataType.RECEIPT:
+      checkpointStatusType = CheckpointStatusType.RECEIPT;
+      break;
+    case RequestDataType.ORIGINALTX:
+      checkpointStatusType = CheckpointStatusType.ORIGINAL_TX;
+      break;
+    case RequestDataType.ACCOUNT:
+    case RequestDataType.TRANSACTION:
+      // For other data types, check if startCycle or endCycle is specified
+      if (params.startCycle !== undefined) {
+        bucketID = params.startCycle;
+      } else if (params.endCycle !== undefined) {
+        bucketID = params.endCycle;
+      }
+      break;
+  }
+
   const data = {
     ...queryParameters,
     sender: config.ARCHIVER_PUBLIC_KEY,
@@ -1507,13 +1573,45 @@ export const queryFromArchivers = async (
       url = `/totalData`
       break
   }
+
+  console.log("Querying from archivers...")
   const maxNumberofArchiversToRetry = 3
   const randomArchivers = Utils.getRandomItemFromArr(State.otherArchivers, 0, maxNumberofArchiversToRetry)
   let retry = 0
+
+  // If checkpoint is enabled and we have a bucket ID, try to find an archiver with verified data first
+  if (bucketID !== undefined && randomArchivers.length > 0) {
+    for (const archiver of randomArchivers) {
+      if (!archiver) continue;
+      try {
+        console.log("Checking bucket verification for archiver:", archiver.ip, archiver.port)
+        // Check if this archiver has verified the bucket
+        const verificationResponse: { success?: boolean, isVerified?: boolean } = await P2P.getJson(
+          `http://${archiver.ip}:${archiver.port}/bucket-verification/${bucketID}`,
+        )
+        const isVerifiedBucket = verificationResponse?.success && verificationResponse?.isVerified
+        if (isVerifiedBucket) {
+          console.log("Found verified archiver:", archiver.ip, archiver.port)
+          // Try to get data from this archiver since it has verified data
+          const response = await P2P.postJson(
+            `http://${archiver.ip}:${archiver.port}${url}`,
+            signedDataToSend,
+            timeoutInSecond
+          )
+          if (response) return response;
+        }
+      } catch (error) {
+        Logger.mainLogger.error(`Error checking bucket verification for archiver ${archiver.ip}:${archiver.port}:`, error);
+      }
+    }
+  }
+
+  // If no archiver had verified data or checkpoint is disabled, try any archiver
   while (retry < maxNumberofArchiversToRetry) {
     // eslint-disable-next-line security/detect-object-injection
     let randomArchiver = randomArchivers[retry]
     if (!randomArchiver) randomArchiver = randomArchivers[0]
+    console.log("Querying from archiver:", randomArchiver.ip, randomArchiver.port)
     try {
       const response = await P2P.postJson(
         `http://${randomArchiver.ip}:${randomArchiver.port}${url}`,

@@ -41,6 +41,8 @@ import { AccountsCopy } from '../dbstore/accounts'
 import { getJson } from '../P2P'
 import { robustQuery } from '../Utils'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { updateCheckpointStatusField } from '../dbstore/checkpointStatus'
+import { CheckpointStatusType } from '../dbstore/checkpointStatus'
 
 export const socketClients: Map<string, SocketIOClientStatic['Socket']> = new Map()
 export let combineAccountsData = {
@@ -1694,6 +1696,10 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
         }
       }
       Logger.mainLogger.debug(`Download receipts completed for ${startCycle} - ${endCycle}`)
+      // Update checkpoint status for completed cycles
+      for (let cycle = startCycle; cycle <= endCycle; cycle++) {
+        await updateCheckpointStatusField(cycle, CheckpointStatusType.RECEIPT, true)
+      }
       startCycle = endCycle + 1
       endCycle += MAX_BETWEEN_CYCLES_PER_REQUEST
       retryCount = 0
@@ -1917,6 +1923,10 @@ export const syncOriginalTxsByCycle = async (
         }
       }
       Logger.mainLogger.debug(`Download Original-Txs completed for ${startCycle} - ${endCycle}`)
+      // Update checkpoint status for completed cycles
+      for (let cycle = startCycle; cycle <= endCycle; cycle++) {
+        await updateCheckpointStatusField(cycle, CheckpointStatusType.ORIGINAL_TX, true)
+      }
       startCycle = endCycle + 1
       endCycle += MAX_BETWEEN_CYCLES_PER_REQUEST
     } else {

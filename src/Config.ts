@@ -36,16 +36,21 @@ export interface Config {
   }
   ARCHIVER_MODE: string
   DevPublicKey: string
-  checkpointBucketConfig: {
-    BucketMatureAge: number //  start sharing hashes after this age is reached.
-    cycleAge: number // In second
-    GiveUpAge: number // eventual give up age.  write bucket to disk in this case and raise warnings/alerts
-    lastFailedBucketDuration: number // in milliseconds, used for alerting
-    RadixDepth: number // 16 way trie depth in nibbles (one hex char)
-    allowCheckpointUpdates: boolean
-    allowCheckpointStorage: boolean
+  checkpoint: {
+    bucketConfig: {
+      BucketMatureAge: number
+      cycleAge: number
+      GiveUpAge: number
+      lastFailedBucketDuration: number
+      RadixDepth: number
+      allowCheckpointUpdates: boolean
+      allowCheckpointStorage: boolean
+    }
+    updateInterval: number
+    syncInterval: number
+    maxCyclesToSync: number
+    syncOnStartup: boolean
   }
-  checkpointUpdateInterval: number // 1 minute in milliseconds
   dataLogWrite: boolean
   dataLogWriter: {
     dirName: string
@@ -124,12 +129,6 @@ export interface Config {
   }
   maxRecordsPerRequest: number // this is the equiavlent of the accountBucketSize config variable used by the validators to fetch records from the archiver
   multisigKeysSyncFromNetworkInternal: number // in seconds
-  checkpointV2: {
-    enabled: boolean
-    syncInterval: number
-    maxCyclesToSync: number
-    syncOnStartup: boolean
-  }
   minCycleConfirmationsToSave: number // this is the minimum numbers of nodes that we need to a see a cycle from to save it
 }
 
@@ -192,18 +191,17 @@ let config: Config = {
     MAX_CYCLES_PER_REQUEST: 100,
     MAX_BETWEEN_CYCLES_PER_REQUEST: 100,
   },
-  checkpointBucketConfig: {
-    BucketMatureAge: 11 * 60, // 11 minutes
-    cycleAge: 60, // 60 seconds
-    GiveUpAge: 20 * 60, // 20 minutes
-    lastFailedBucketDuration: 5 * 60 * 1000, // 5 minutes
-    RadixDepth: 2, // 2 nibbles (1 hex char)
-    allowCheckpointUpdates: false,
-    allowCheckpointStorage: false
-  },
-  checkpointUpdateInterval: 60 * 1000, // 1 minute in milliseconds  in milliseconds
-  checkpointV2: {
-    enabled: false, // Enable V2 checkpoint system
+  checkpoint: {
+    bucketConfig: {
+      BucketMatureAge: 3 * 60, // 11 minutes
+      cycleAge: 60, // 60 seconds
+      GiveUpAge: 6 * 60, // 20 minutes
+      lastFailedBucketDuration: 5 * 60 * 1000, // 5 minutes
+      RadixDepth: 2, // 2 nibbles (1 hex char)
+      allowCheckpointUpdates: true,
+      allowCheckpointStorage: true
+    },
+    updateInterval: 60 * 1000, // 1 minute in milliseconds  in milliseconds
     syncInterval: 10000, // 10 seconds in milliseconds
     maxCyclesToSync: 100, // Maximum number of cycles to sync in one go
     syncOnStartup: false, // Sync missing checkpoints on startup

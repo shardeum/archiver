@@ -117,11 +117,11 @@ export const initializeDB = async (config: Config): Promise<void> => {
   // Create checkpoint_status table
   await runCreate(
     checkpointStatusDatabase,
-    'CREATE TABLE if not exists `checkpoint_status` (`cycle` NUMBER NOT NULL, `type` TEXT NOT NULL, `status` TEXT NOT NULL, `timestamp` BIGINT NOT NULL, `totalArchivers` NUMBER NOT NULL, `matchedArchivers` NUMBER NOT NULL, `failedRadixes` JSON, `lastSyncAttempt` BIGINT, `syncAttempts` NUMBER DEFAULT 0, PRIMARY KEY (`cycle`, `type`))'
+    'CREATE TABLE if not exists `checkpoint_status` (`cycle` NUMBER NOT NULL, `unifiedStatus` BOOLEAN NOT NULL, `cycleStatus` BOOLEAN NOT NULL, `receiptStatus` BOOLEAN NOT NULL, `originalTxStatus` BOOLEAN NOT NULL, `created_at` BIGINT NOT NULL, PRIMARY KEY (`cycle`))'
   )
   await runCreate(
     checkpointStatusDatabase,
-    'CREATE INDEX if not exists `checkpoint_status_type_status` ON `checkpoint_status` (`type`, `status`)'
+    'CREATE INDEX if not exists `checkpoint_status_unified_status` ON `checkpoint_status` (`cycle`)'
   )
 }
 

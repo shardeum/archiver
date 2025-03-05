@@ -19,14 +19,11 @@ export enum CheckpointSyncStatus {
 
 export interface CheckpointStatus {
   cycle: number
-  type: CheckpointStatusType
-  status: CheckpointSyncStatus
-  timestamp: number
-  totalArchivers: number
-  matchedArchivers: number
-  failedRadixes?: string[]
-  lastSyncAttempt?: number
-  syncAttempts?: number
+  unifiedStatus: boolean
+  cycleStatus: boolean
+  receiptStatus: boolean
+  originalTxStatus: boolean
+  created_at: number
 }
 
 /**
@@ -37,27 +34,25 @@ export async function upsertCheckpointStatus(status: CheckpointStatus): Promise<
   try {
     const sql = `
       INSERT OR REPLACE INTO checkpoint_status 
-      (cycle, type, status, timestamp, totalArchivers, matchedArchivers, failedRadixes, lastSyncAttempt, syncAttempts) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (cycle, unifiedStatus, cycleStatus, receiptStatus, originalTxStatus, created_at) 
+      VALUES (?, ?, ?, ?, ?, ?)
     `
 
-    const failedRadixesJson = status.failedRadixes ? SerializeToJsonString(status.failedRadixes) : null
+    // Calculate unifiedStatus based on the other three statuses
+    const unifiedStatus = status.cycleStatus && status.receiptStatus && status.originalTxStatus
 
     await db.run(checkpointStatusDatabase, sql, [
       status.cycle,
-      status.type,
-      status.status,
-      status.timestamp,
-      status.totalArchivers,
-      status.matchedArchivers,
-      failedRadixesJson,
-      status.lastSyncAttempt || null,
-      status.syncAttempts || 0,
+      unifiedStatus,
+      status.cycleStatus,
+      status.receiptStatus,
+      status.originalTxStatus,
+      status.created_at,
     ])
 
     if (config.VERBOSE) {
       Logger.mainLogger.debug(
-        `Successfully upserted checkpoint status for cycle ${status.cycle}, type ${status.type}, status ${status.status}`
+        `Successfully upserted checkpoint status for cycle ${status.cycle}, unifiedStatus ${status.unifiedStatus}`
       )
     }
   } catch (err) {
@@ -67,139 +62,136 @@ export async function upsertCheckpointStatus(status: CheckpointStatus): Promise<
 }
 
 /**
- * Updates the status of a checkpoint
+ * Updates a specific status field for a checkpoint
  * @param cycle The cycle number
- * @param type The checkpoint type
- * @param status The new status
- * @param lastSyncAttempt Optional timestamp of the last sync attempt
+ * @param statusField The status field to update ('cycleStatus', 'receiptStatus', or 'originalTxStatus')
+ * @param value The boolean value to set
  */
-export async function updateCheckpointStatus(
+export async function updateCheckpointStatusField(
   cycle: number,
-  type: CheckpointStatusType,
-  status: CheckpointSyncStatus,
-  lastSyncAttempt?: number
+  statusField: CheckpointStatusType,
+  value: boolean
 ): Promise<void> {
   try {
-    let sql = `
-      UPDATE checkpoint_status 
-      SET status = ?, lastSyncAttempt = ?, syncAttempts = syncAttempts + 1
-      WHERE cycle = ? AND type = ?
+    // First, get the current status
+    const currentStatus = await getCheckpointStatus(cycle)
+
+    if (!currentStatus) {
+      // Create a new status with default values
+      const newStatus: CheckpointStatus = {
+        cycle,
+        unifiedStatus: false,
+        cycleStatus: statusField === CheckpointStatusType.CYCLE ? value : false,
+        receiptStatus: statusField === CheckpointStatusType.RECEIPT ? value : false,
+        originalTxStatus: statusField === CheckpointStatusType.ORIGINAL_TX ? value : false,
+        created_at: Date.now(),
+      }
+      await upsertCheckpointStatus(newStatus)
+      return
+    }
+
+    // Update the specific field
+    currentStatus[statusField] = value
+
+    // Calculate the unified status
+    const unifiedStatus =
+      currentStatus.cycleStatus && currentStatus.receiptStatus && currentStatus.originalTxStatus
+
+    const sql = `
+      UPDATE checkpoint_status
+      SET ${statusField} = ?, unifiedStatus = ?, created_at = ?
+      WHERE cycle = ?
     `
 
-    await db.run(checkpointStatusDatabase, sql, [status, lastSyncAttempt || Date.now(), cycle, type])
+    await db.run(checkpointStatusDatabase, sql, [value, unifiedStatus, Date.now(), cycle])
 
     if (config.VERBOSE) {
-      Logger.mainLogger.debug(`Updated checkpoint status for cycle ${cycle}, type ${type} to ${status}`)
+      Logger.mainLogger.debug(`Updated checkpoint status for cycle ${cycle}, ${statusField} to ${value}`)
     }
   } catch (err) {
-    Logger.mainLogger.error('Error updating checkpoint status:', err)
+    Logger.mainLogger.error('Error updating checkpoint status field:', err)
     throw err
   }
 }
 
 /**
- * Gets checkpoint status for a specific cycle and type
+ * Gets a checkpoint status by cycle
  * @param cycle The cycle number
- * @param type The checkpoint type
- * @returns The checkpoint status or null if not found
  */
-export async function getCheckpointStatus(
-  cycle: number,
-  type: CheckpointStatusType
-): Promise<CheckpointStatus | null> {
+export async function getCheckpointStatus(cycle: number): Promise<CheckpointStatus | null> {
   try {
     const sql = `
-      SELECT *
-      FROM checkpoint_status
-      WHERE cycle = ? AND type = ?
+      SELECT * FROM checkpoint_status
+      WHERE cycle = ?
     `
 
-    const result = await db.get(checkpointStatusDatabase, sql, [cycle, type])
+    const row = await db.get(checkpointStatusDatabase, sql, [cycle])
 
-    if (!result) {
+    if (!row) {
       return null
     }
 
     // Add type assertion to fix TypeScript errors
-    const typedResult = result as {
+    const typedRow = row as {
       cycle: number
-      type: string
-      status: string
-      timestamp: number
-      totalArchivers: number
-      matchedArchivers: number
-      failedRadixes: string | null
-      lastSyncAttempt: number | null
-      syncAttempts: number | null
+      unifiedStatus: number | boolean
+      cycleStatus: number | boolean
+      receiptStatus: number | boolean
+      originalTxStatus: number | boolean
+      created_at: number
     }
 
     return {
-      cycle: typedResult.cycle,
-      type: typedResult.type as CheckpointStatusType,
-      status: typedResult.status as CheckpointSyncStatus,
-      timestamp: typedResult.timestamp,
-      totalArchivers: typedResult.totalArchivers,
-      matchedArchivers: typedResult.matchedArchivers,
-      failedRadixes: typedResult.failedRadixes
-        ? DeSerializeFromJsonString(typedResult.failedRadixes)
-        : undefined,
-      lastSyncAttempt: typedResult.lastSyncAttempt ?? undefined,
-      syncAttempts: typedResult.syncAttempts ?? undefined,
+      cycle: typedRow.cycle,
+      unifiedStatus: Boolean(typedRow.unifiedStatus),
+      cycleStatus: Boolean(typedRow.cycleStatus),
+      receiptStatus: Boolean(typedRow.receiptStatus),
+      originalTxStatus: Boolean(typedRow.originalTxStatus),
+      created_at: typedRow.created_at,
     }
-  } catch (err) {
-    Logger.mainLogger.error('Error getting checkpoint status:', err)
-    throw err
+  } catch (error) {
+    Logger.mainLogger.error(`Error getting checkpoint status: ${error}`)
+    throw error
   }
 }
 
 /**
- * Gets all checkpoint statuses with a specific status
- * @param status The status to filter by
- * @returns Array of checkpoint statuses
+ * Gets all checkpoint statuses with a specific unified status
+ * @param unified Whether to get checkpoints with unified status true or false
  */
-export async function getCheckpointStatusesByStatus(
-  status: CheckpointSyncStatus
-): Promise<CheckpointStatus[]> {
+export async function getCheckpointStatusesByUnifiedStatus(unified: boolean): Promise<CheckpointStatus[]> {
   try {
     const sql = `
       SELECT * FROM checkpoint_status
-      WHERE status = ?
+      WHERE unifiedStatus = ?
       ORDER BY cycle ASC
     `
 
-    const results = await db.all(checkpointStatusDatabase, sql, [status])
+    const rows = await db.all(checkpointStatusDatabase, sql, [unified ? 1 : 0])
 
-    return results.map((result) => {
+    return rows.map((row) => {
       // Add type assertion to fix TypeScript errors
-      const typedResult = result as {
+      const typedRow = row as {
         cycle: number
-        type: string
-        status: string
-        timestamp: number
-        totalArchivers: number
-        matchedArchivers: number
-        failedRadixes: string | null
-        lastSyncAttempt: number | null
-        syncAttempts: number | null
+        unifiedStatus: number | boolean
+        cycleStatus: number | boolean
+        receiptStatus: number | boolean
+        originalTxStatus: number | boolean
+        created_at: number
       }
 
       return {
-        cycle: typedResult.cycle,
-        type: typedResult.type as CheckpointStatusType,
-        status: typedResult.status as CheckpointSyncStatus,
-        timestamp: typedResult.timestamp,
-        totalArchivers: typedResult.totalArchivers,
-        matchedArchivers: typedResult.matchedArchivers,
-        failedRadixes: typedResult.failedRadixes
-          ? DeSerializeFromJsonString(typedResult.failedRadixes)
-          : undefined,
-        lastSyncAttempt: typedResult.lastSyncAttempt ?? undefined,
-        syncAttempts: typedResult.syncAttempts ?? undefined,
+        cycle: typedRow.cycle,
+        unifiedStatus: Boolean(typedRow.unifiedStatus),
+        cycleStatus: Boolean(typedRow.cycleStatus),
+        receiptStatus: Boolean(typedRow.receiptStatus),
+        originalTxStatus: Boolean(typedRow.originalTxStatus),
+        created_at: typedRow.created_at,
       }
     })
-  } catch (err) {
-    Logger.mainLogger.error('Error getting checkpoint statuses by status:', err)
-    throw err
+  } catch (error) {
+    Logger.mainLogger.error(`Error getting checkpoint statuses by unified status: ${error}`)
+    throw error
   }
 }
 
@@ -208,49 +200,41 @@ export async function getCheckpointStatusesByStatus(
  * @param type The checkpoint type
  * @returns Array of failed checkpoint statuses
  */
-export async function getFailedCheckpointStatuses(type: CheckpointStatusType): Promise<CheckpointStatus[]> {
-  try {
-    const sql = `
-      SELECT * FROM checkpoint_status
-      WHERE type = ? AND status = ?
-      ORDER BY cycle ASC
-    `
+// export async function getFailedCheckpointStatuses(type: CheckpointStatusType): Promise<CheckpointStatus[]> {
+//   try {
+//     const sql = `
+//       SELECT * FROM checkpoint_status
+//       WHERE type = ? AND status = ?
+//       ORDER BY cycle ASC
+//     `
 
-    const results = await db.all(checkpointStatusDatabase, sql, [type, CheckpointSyncStatus.FAILED])
+//     const results = await db.all(checkpointStatusDatabase, sql, [type, CheckpointSyncStatus.FAILED])
 
-    return results.map((result) => {
-      // Add type assertion to fix TypeScript errors
-      const typedResult = result as {
-        cycle: number
-        type: string
-        status: string
-        timestamp: number
-        totalArchivers: number
-        matchedArchivers: number
-        failedRadixes: string | null
-        lastSyncAttempt: number | null
-        syncAttempts: number | null
-      }
+//     return results.map((result) => {
+//       // Add type assertion to fix TypeScript errors
+//       const typedResult = result as {
+//         cycle: number
+//         unifiedStatus: boolean
+//         cycleStatus: boolean
+//         receiptStatus: boolean
+//         originalTxStatus: boolean
+//         created_at: number
+//       }
 
-      return {
-        cycle: typedResult.cycle,
-        type: typedResult.type as CheckpointStatusType,
-        status: typedResult.status as CheckpointSyncStatus,
-        timestamp: typedResult.timestamp,
-        totalArchivers: typedResult.totalArchivers,
-        matchedArchivers: typedResult.matchedArchivers,
-        failedRadixes: typedResult.failedRadixes
-          ? DeSerializeFromJsonString(typedResult.failedRadixes)
-          : undefined,
-        lastSyncAttempt: typedResult.lastSyncAttempt ?? undefined,
-        syncAttempts: typedResult.syncAttempts ?? undefined,
-      }
-    })
-  } catch (err) {
-    Logger.mainLogger.error('Error getting failed checkpoint statuses:', err)
-    throw err
-  }
-}
+//       return {
+//         cycle: typedResult.cycle,
+//         unifiedStatus: typedResult.unifiedStatus,
+//         cycleStatus: typedResult.cycleStatus,
+//         receiptStatus: typedResult.receiptStatus,
+//         originalTxStatus: typedResult.originalTxStatus,
+//         created_at: typedResult.created_at,
+//       }
+//     })
+//   } catch (err) {
+//     Logger.mainLogger.error('Error getting failed checkpoint statuses:', err)
+//     throw err
+//   }
+// }
 
 /**
  * Gets the oldest pending or failed checkpoint status
@@ -260,7 +244,7 @@ export async function getOldestPendingOrFailedCheckpointStatus(): Promise<Checkp
   try {
     const sql = `
       SELECT * FROM checkpoint_status
-      WHERE status IN (?, ?)
+      WHERE unifiedStatus = ?
       ORDER BY cycle ASC
       LIMIT 1
     `
@@ -277,28 +261,20 @@ export async function getOldestPendingOrFailedCheckpointStatus(): Promise<Checkp
     // Add type assertion to fix TypeScript errors
     const typedResult = result as {
       cycle: number
-      type: string
-      status: string
-      timestamp: number
-      totalArchivers: number
-      matchedArchivers: number
-      failedRadixes: string | null
-      lastSyncAttempt: number | null
-      syncAttempts: number | null
+      unifiedStatus: boolean
+      cycleStatus: boolean
+      receiptStatus: boolean
+      originalTxStatus: boolean
+      created_at: number
     }
 
     return {
       cycle: typedResult.cycle,
-      type: typedResult.type as CheckpointStatusType,
-      status: typedResult.status as CheckpointSyncStatus,
-      timestamp: typedResult.timestamp,
-      totalArchivers: typedResult.totalArchivers,
-      matchedArchivers: typedResult.matchedArchivers,
-      failedRadixes: typedResult.failedRadixes
-        ? DeSerializeFromJsonString(typedResult.failedRadixes)
-        : undefined,
-      lastSyncAttempt: typedResult.lastSyncAttempt ?? undefined,
-      syncAttempts: typedResult.syncAttempts ?? undefined,
+      unifiedStatus: typedResult.unifiedStatus,
+      cycleStatus: typedResult.cycleStatus,
+      receiptStatus: typedResult.receiptStatus,
+      originalTxStatus: typedResult.originalTxStatus,
+      created_at: typedResult.created_at,
     }
   } catch (err) {
     Logger.mainLogger.error('Error getting oldest pending or failed checkpoint status:', err)
@@ -315,7 +291,7 @@ export async function getCheckpointSyncRange(): Promise<{ minCycle: number; maxC
     const sql = `
       SELECT MIN(cycle) as minCycle, MAX(cycle) as maxCycle
       FROM checkpoint_status
-      WHERE status IN (?, ?)
+      WHERE unifiedStatus in
     `
 
     const result = await db.get(checkpointStatusDatabase, sql, [
@@ -341,4 +317,25 @@ export async function getCheckpointSyncRange(): Promise<{ minCycle: number; maxC
     Logger.mainLogger.error('Error getting checkpoint sync range:', err)
     throw err
   }
+}
+
+export async function isBucketVerified(bucketID: number): Promise<boolean> {
+  const sql = `
+    SELECT 
+    CASE 
+      WHEN COUNT(*) = SUM(CASE WHEN status = ? THEN 1 ELSE 0 END)
+      THEN 'true'
+      ELSE 'false'
+    END AS all_completed
+    FROM checkpoint_status
+    WHERE cycle = ?
+    `
+
+  const result = await db.get(checkpointStatusDatabase, sql, [CheckpointSyncStatus.COMPLETED, bucketID])
+
+  if (!result) {
+    return false
+  }
+
+  return true
 }

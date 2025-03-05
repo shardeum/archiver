@@ -200,16 +200,17 @@ async function start(): Promise<void> {
   // Create the failed buckets directory
   createDirectories(config.failedBucketsDir)
 
-  // Initialize checkpoint V2 system if enabled
-  if (config.checkpointV2?.enabled) {
+  // Initialize checkpoint V2 system if enabled and checkpoint updates and storage are allowed
+  if (config.checkpoint.bucketConfig.allowCheckpointUpdates && 
+      config.checkpoint.bucketConfig.allowCheckpointStorage) {
     Logger.mainLogger.info('Initializing checkpoint V2 system')
     initCheckpointV2()
 
     // Sync missing checkpoints on startup if enabled
-    if (config.checkpointV2?.syncOnStartup) {
+    if (config.checkpoint.syncOnStartup) {
       setTimeout(async () => {
         try {
-          await syncMissingCheckpoints(config.checkpointV2.maxCyclesToSync)
+          await syncMissingCheckpoints(config.checkpoint.maxCyclesToSync)
         } catch (error) {
           Logger.mainLogger.error('Error syncing missing checkpoints on startup:', error)
         }
@@ -221,25 +222,31 @@ async function start(): Promise<void> {
     const startTime = Date.now()
 
     try {
-      // Initialize checkpoint system with null checks
-      if (cycleCheckpointManager && receiptCheckpointManager && originalTxCheckpointManager) {
-        await Promise.all([
-          cycleCheckpointManager.update(),
-          receiptCheckpointManager.update(),
-          originalTxCheckpointManager.update(),
-        ])
+      // Only update checkpoints if both updates and storage are allowed
+      if (config.checkpoint.bucketConfig.allowCheckpointUpdates && 
+          config.checkpoint.bucketConfig.allowCheckpointStorage) {
+
+        if (cycleCheckpointManager && receiptCheckpointManager && originalTxCheckpointManager) {
+          await Promise.all([
+            cycleCheckpointManager.update(),
+            receiptCheckpointManager.update(),
+            originalTxCheckpointManager.update()
+          ])
+        }
       }
     } catch (error) {
       Logger.mainLogger.error('Error updating checkpoints:', error)
     }
 
     const elapsedTime = Date.now() - startTime
-    const nextExecutionDelay = Math.max(0, config.checkpointUpdateInterval - elapsedTime)
+    const nextExecutionDelay = Math.max(0, config.checkpoint.updateInterval - elapsedTime)
 
     setTimeout(updateCheckpoints, nextExecutionDelay)
   }
 
-  if (config.checkpointBucketConfig.allowCheckpointUpdates) {
+  // Start the update loop only if checkpoint updates and storage are allowed
+  if (config.checkpoint.bucketConfig.allowCheckpointUpdates && 
+      config.checkpoint.bucketConfig.allowCheckpointStorage) {
     // Start the update loop
     updateCheckpoints()
   }  
@@ -342,7 +349,7 @@ async function syncAndStartServer(): Promise<void> {
       }
 
       // Check if the cycle difference is too large and checkpoint v2 is not enabled
-      if (!config.checkpointV2?.enabled && (latestNetworkCycle.counter - lastStoredCycleCount) > 10) {
+      if (!config.checkpoint.bucketConfig.allowCheckpointUpdates && !config.checkpoint.bucketConfig.allowCheckpointStorage && (latestNetworkCycle.counter - lastStoredCycleCount) > 10) {
         throw new Error('Cycle difference is more than 10 and checkpoint v2 is not enabled. Please enable checkpoint v2 to sync large cycle differences.')
       }
 
@@ -479,7 +486,7 @@ async function syncAndStartServer(): Promise<void> {
 
     // If the receipt data does not match, patch the data instead of throwing an error
     if (!receiptResult.success) {
-      if (!config.checkpointV2?.enabled) {
+      if (!config.checkpoint.bucketConfig.allowCheckpointUpdates && !config.checkpoint.bucketConfig.allowCheckpointStorage) {
         throw new Error(
           'Receipt cycle difference is more than 10 and checkpoint v2 is not enabled. Please enable checkpoint v2 to sync large differences.'
         )
@@ -569,7 +576,7 @@ async function syncAndStartServer(): Promise<void> {
 
     // If the original tx data does not match, patch the data instead of throwing an error
     if (!txResult.success) {
-      if (!config.checkpointV2?.enabled) {
+      if (!config.checkpoint.bucketConfig.allowCheckpointUpdates && !config.checkpoint.bucketConfig.allowCheckpointStorage) {
         throw new Error('Original tx cycle difference is more than 10 and checkpoint v2 is not enabled. Please enable checkpoint v2 to sync large differences.')
       }
 
@@ -660,7 +667,7 @@ async function syncAndStartServer(): Promise<void> {
     await syncGlobalAccount()
 
     // If checkpoint V2 is enabled, use it for syncing
-    if (config.checkpointV2.enabled) {
+    if (config.checkpoint.bucketConfig.allowCheckpointUpdates && config.checkpoint.bucketConfig.allowCheckpointStorage) {
       Logger.mainLogger.info('Using checkpoint V2 for data synchronization')
 
       // Import checkpoint status types
@@ -675,37 +682,14 @@ async function syncAndStartServer(): Promise<void> {
         await import('./dbstore/checkpointStatus').then(({ upsertCheckpointStatus }) => {
           upsertCheckpointStatus({
             cycle,
-            type: CheckpointStatusType.CYCLE,
-            status: cycle <= lastStoredCycleCount ? CheckpointSyncStatus.COMPLETED : CheckpointSyncStatus.PENDING,
-            timestamp: Date.now(),
-            totalArchivers: State.activeArchivers.length,
-            matchedArchivers: cycle <= lastStoredCycleCount ? State.activeArchivers.length : 0
+            unifiedStatus: cycle <= lastStoredCycleCount ? true : false,
+            cycleStatus: cycle <= lastStoredCycleCount ? true : false,
+            receiptStatus: cycle <= lastStoredCycleCount ? true : false,
+            originalTxStatus: cycle <= lastStoredCycleCount ? true : false,
+            created_at: Date.now(),
           })
         })
 
-        // Record receipt checkpoint status
-        await import('./dbstore/checkpointStatus').then(({ upsertCheckpointStatus }) => {
-          upsertCheckpointStatus({
-            cycle,
-            type: CheckpointStatusType.RECEIPT,
-            status: cycle <= lastStoredReceiptCycle ? CheckpointSyncStatus.COMPLETED : CheckpointSyncStatus.PENDING,
-            timestamp: Date.now(),
-            totalArchivers: State.activeArchivers.length,
-            matchedArchivers: cycle <= lastStoredReceiptCycle ? State.activeArchivers.length : 0
-          })
-        })
-
-        // Record original tx checkpoint status
-        await import('./dbstore/checkpointStatus').then(({ upsertCheckpointStatus }) => {
-          upsertCheckpointStatus({
-            cycle,
-            type: CheckpointStatusType.ORIGINAL_TX,
-            status: cycle <= lastStoredOriginalTxCycle ? CheckpointSyncStatus.COMPLETED : CheckpointSyncStatus.PENDING,
-            timestamp: Date.now(),
-            totalArchivers: State.activeArchivers.length,
-            matchedArchivers: cycle <= lastStoredOriginalTxCycle ? State.activeArchivers.length : 0
-          })
-        })
       }
 
       // Start the server first, then sync missing data in the background
@@ -716,11 +700,11 @@ async function syncAndStartServer(): Promise<void> {
         try {
           // Import and run the sync function
           const { syncMissingCheckpoints } = await import('./checkpoint/CheckpointV2')
-          await syncMissingCheckpoints(config.checkpointV2.maxCyclesToSync)
+          await syncMissingCheckpoints(config.checkpoint.maxCyclesToSync)
         } catch (error) {
           Logger.mainLogger.error('Error syncing missing checkpoints after server start:', error)
         }
-      }, 10 * 1000) // Wait 10 seconds after server start
+      }, config.checkpoint.syncInterval)
 
     } else {
       // Use the original sync method

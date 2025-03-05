@@ -5,11 +5,18 @@ import { config } from '../Config'
 import * as Crypto from '../Crypto'
 import * as State from '../State'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { CheckpointStatusType, CheckpointSyncStatus, updateCheckpointStatusField, upsertCheckpointStatus } from '../dbstore/checkpointStatus'
 
 export enum CheckpointType {
   Cycle = 0,
   OriginalTx = 1,
   Receipt = 2,
+}
+
+export const checkpointStatusToTypeMap = {
+  [CheckpointType.Cycle]: CheckpointStatusType.CYCLE,
+  [CheckpointType.Receipt]: CheckpointStatusType.RECEIPT,
+  [CheckpointType.OriginalTx]: CheckpointStatusType.ORIGINAL_TX,
 }
 
 // Represents a single piece of data in the system.
@@ -117,16 +124,16 @@ export class CheckpointBucketManager<T> {
     this.checkpointType = checkpointType
     this.bucketsToPersist = new Map<string, CheckpointBucket<T>>()
     // set to 5 minutes ago as we giveup on a bucket after 20 minutes
-    this.lastFailedBucketTime = Date.now() - config.checkpointBucketConfig.lastFailedBucketDuration
+    this.lastFailedBucketTime = Date.now() - config.checkpoint.bucketConfig.lastFailedBucketDuration
   }
 
   // Returns true for success if the last failed bucket time is older than 5 minutes
   hasLastFailedBucketExceededDuration(): boolean {
-    return Date.now() - this.lastFailedBucketTime > config.checkpointBucketConfig.lastFailedBucketDuration
+    return Date.now() - this.lastFailedBucketTime > config.checkpoint.bucketConfig.lastFailedBucketDuration
   }
 
   addData(data: CheckpointData<T>, bucketID: string): void {
-    if (!config.checkpointBucketConfig.allowCheckpointUpdates) {
+    if (!config.checkpoint.bucketConfig.allowCheckpointUpdates) {
       // Don't save data if checkpoint system updates are disabled 
       return
     }
@@ -140,7 +147,7 @@ export class CheckpointBucketManager<T> {
         startTime /= 1000 // Convert to seconds
       }
       startTime = Math.floor(startTime) // Ensure it's a full second
-      const endTime = startTime + config.checkpointBucketConfig.cycleAge
+      const endTime = startTime + config.checkpoint.bucketConfig.cycleAge
 
       bucket = new CheckpointBucket<T>(
         startTime,
@@ -210,6 +217,7 @@ export class CheckpointBucketManager<T> {
                 `Bucket ${bucket.bucketID} has updates to share. Writing to file and alerting.`
               )
             }
+            updateCheckpointStatusField(parseInt(bucket.bucketID,10), checkpointStatusToTypeMap[this.checkpointType], false)
             bucket.writeToFileAndAlert()
             this.lastFailedBucketTime = Date.now()
           } else {
@@ -220,6 +228,7 @@ export class CheckpointBucketManager<T> {
             }
             // Add the bucket to the bucketsToPersist map so we can handle writing without blocking the update
             this.bucketsToPersist.set(bucket.bucketID, bucket)
+            updateCheckpointStatusField(parseInt(bucket.bucketID,10), checkpointStatusToTypeMap[this.checkpointType], true)
           }
           toRemove.push(id)
         } else {
@@ -233,7 +242,7 @@ export class CheckpointBucketManager<T> {
         this.checkpointBuckets.delete(id)
       }
 
-      if (config.checkpointBucketConfig.allowCheckpointStorage) {
+      if (config.checkpoint.bucketConfig.allowCheckpointStorage) {
         // Call persistBucketsData to persist the buckets data to tables
         this.persistBucketsData()
       }
@@ -315,8 +324,8 @@ export class CheckpointBucket<T> {
     this.peerRadixDigests = new Map<string, RadixDigestTally>()
     this.validateData = validateData
     this.updateData = updateData
-    this.GiveUpAge = this.startTime + config.checkpointBucketConfig.GiveUpAge
-    this.BucketMatureAge = this.startTime + config.checkpointBucketConfig.BucketMatureAge
+    this.GiveUpAge = this.startTime + config.checkpoint.bucketConfig.GiveUpAge
+    this.BucketMatureAge = this.startTime + config.checkpoint.bucketConfig.BucketMatureAge
     this.checkpointType = checkpointType
 
     // FIX: Zero-pad the radix keys to exactly two hex chars
