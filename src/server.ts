@@ -410,7 +410,7 @@ async function syncAndStartServer(): Promise<void> {
     // Query for the cycle and receipt counts
     lastStoredReceiptCount = await ReceiptDB.queryReceiptCount()
     // lastStoredOriginalTxCount = await OriginalTxDB.queryOriginalTxDataCount()
-    lastStoredCycleCount = await CycleDB.queryCyleCount()
+    lastStoredCycleCount = await CycleDB.queryCycleCount()
     lastStoredCycleInfo = (await CycleDB.queryLatestCycleRecords(1))[0]
 
     // Check for any missing data and perform syncing if necessary
