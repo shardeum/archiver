@@ -224,7 +224,6 @@ async function syncAndStartServer(): Promise<void> {
 
   // Retrieve the count of cycles currently stored in the database
   let lastStoredCycleCount = await CycleDB.queryCycleCount()
-  let lastStoredOriginalTxCount = await OriginalTxDB.queryOriginalTxDataCount()
   // let lastStoredOriginalTxCount = await OriginalTxDB.queryOriginalTxDataCount()
   // Query the latest cycle record from the database
   let lastStoredCycleInfo = (await CycleDB.queryLatestCycleRecords(1))[0]
@@ -410,8 +409,6 @@ async function syncAndStartServer(): Promise<void> {
 
     // Query for the cycle and receipt counts
     lastStoredReceiptCount = await ReceiptDB.queryReceiptCount()
-    lastStoredOriginalTxCount = await OriginalTxDB.queryOriginalTxDataCount()
-    lastStoredCycleCount = await CycleDB.queryCycleCount()
     // lastStoredOriginalTxCount = await OriginalTxDB.queryOriginalTxDataCount()
     lastStoredCycleInfo = (await CycleDB.queryLatestCycleRecords(1))[0]
 
