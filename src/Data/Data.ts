@@ -1475,7 +1475,7 @@ export async function syncReceipts(): Promise<void> {
     if (res && res.receipts) {
       const downloadedReceipts = res.receipts as ReceiptDB.Receipt[]
       Logger.mainLogger.debug(`Downloaded receipts`, downloadedReceipts.length)
-      await storeReceiptData(downloadedReceipts)
+      await storeReceiptData(downloadedReceipts, '', true)
       if (downloadedReceipts.length < MAX_RECEIPTS_PER_REQUEST) {
         start += downloadedReceipts.length
         end = start + MAX_RECEIPTS_PER_REQUEST
@@ -1577,7 +1577,7 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
         if (res && res.receipts) {
           const downloadedReceipts = res.receipts as ReceiptDB.Receipt[]
           Logger.mainLogger.debug(`Downloaded receipts`, downloadedReceipts.length)
-          await storeReceiptData(downloadedReceipts)
+          await storeReceiptData(downloadedReceipts, '', true)
           savedReceiptsCountBetweenCycles += downloadedReceipts.length
           if (savedReceiptsCountBetweenCycles > receiptsCountToSyncBetweenCycles) {
             response = (await queryFromArchivers(
@@ -1919,7 +1919,7 @@ export const syncCyclesAndTxsData = async (
       if (res && res.receipts) {
         const downloadedReceipts = res.receipts as ReceiptDB.Receipt[]
         Logger.mainLogger.debug(`Downloaded receipts`, downloadedReceipts.length)
-        await storeReceiptData(downloadedReceipts)
+        await storeReceiptData(downloadedReceipts, '', true)
         if (downloadedReceipts.length < MAX_ORIGINAL_TXS_PER_REQUEST) {
           startReceipt += downloadedReceipts.length + 1
           endReceipt += downloadedReceipts.length + MAX_ORIGINAL_TXS_PER_REQUEST
