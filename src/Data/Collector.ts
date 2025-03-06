@@ -659,268 +659,273 @@ export const storeReceiptData = async (
   if (saveOnlyGossipData) return
   for (let receipt of receipts) {
     let txId: string 
-    if (receipt.globalModification) {
-      const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
-      txId = appliedReceipt.tx.txId
-    } else {
-      const { proposal } = receipt.signedReceipt as Receipt.SignedReceipt
-      txId = proposal.txid
-    }
-
-    const timestamp = receipt?.tx?.timestamp
-    if (!txId || !timestamp) continue
-    if (
-      (processedReceiptsMap.has(txId) && processedReceiptsMap.get(txId) === timestamp) ||
-      (receiptsInValidationMap.has(txId) && receiptsInValidationMap.get(txId) === timestamp)
-    ) {
-      if (config.VERBOSE) console.log('RECEIPT', 'Skip', txId, timestamp, senderInfo)
-      continue
-    }
-    if (config.VERBOSE) console.log('RECEIPT', 'Validate', txId, timestamp, senderInfo)
-    receiptsInValidationMap.set(txId, timestamp)
-    if (profilerInstance) profilerInstance.profileSectionStart('Validate_receipt')
-    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Validate_receipt')
-    if (!validateReceiptType(receipt)) {
-      Logger.mainLogger.error('Invalid receipt: Validation failed', txId, receipt.cycle, timestamp)
-      receiptsInValidationMap.delete(txId)
-      if (nestedCountersInstance)
-        nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_validation_failed')
+    try {
+      if (receipt.globalModification) {
+        const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
+        txId = appliedReceipt.tx.txId
+      } else {
+        const { proposal } = receipt.signedReceipt as Receipt.SignedReceipt
+        txId = proposal.txid
+      }
+  
+      const timestamp = receipt?.tx?.timestamp
+      if (!txId || !timestamp) continue
+      if (
+        (processedReceiptsMap.has(txId) && processedReceiptsMap.get(txId) === timestamp) ||
+        (receiptsInValidationMap.has(txId) && receiptsInValidationMap.get(txId) === timestamp)
+      ) {
+        if (config.VERBOSE) console.log('RECEIPT', 'Skip', txId, timestamp, senderInfo)
+        continue
+      }
+      if (config.VERBOSE) console.log('RECEIPT', 'Validate', txId, timestamp, senderInfo)
+      receiptsInValidationMap.set(txId, timestamp)
+      if (profilerInstance) profilerInstance.profileSectionStart('Validate_receipt')
+      if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Validate_receipt')
+      if (!validateReceiptType(receipt)) {
+        Logger.mainLogger.error('Invalid receipt: Validation failed', txId, receipt.cycle, timestamp)
+        receiptsInValidationMap.delete(txId)
+        if (nestedCountersInstance)
+          nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_validation_failed')
+        if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
+        continue
+      }
+  
+      if (verifyData) {
+        // if (config.usePOQo === false) {
+        // const existingReceipt = await Receipt.queryReceiptByReceiptId(txId)
+        // if (
+        //   existingReceipt &&
+        //   receipt.appliedReceipt &&
+        //   receipt.appliedReceipt.confirmOrChallenge &&
+        //   receipt.appliedReceipt.confirmOrChallenge.message === 'challenge'
+        // ) {
+        //   // If the existing receipt is confirmed, and the new receipt is challenged, then skip saving the new receipt
+        //   if (existingReceipt.appliedReceipt.confirmOrChallenge.message === 'confirm') {
+        //     Logger.mainLogger.error(
+        //       `Existing receipt is confirmed, but new receipt is challenged ${txId}, ${receipt.cycle}, ${timestamp}`
+        //     )
+        //     receiptsInValidationMap.delete(txId)
+        //     if (nestedCountersInstance)
+        //       nestedCountersInstance.countEvent(
+        //         'receipt',
+        //         'Existing_receipt_is_confirmed_but_new_receipt_is_challenged'
+        //       )
+        //     if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
+        //     continue
+        //   }
+        // }
+        // }
+  
+        if (config.verifyReceiptData) {
+          const { success } = await verifyReceiptData(receipt)
+          if (!success) {
+            Logger.mainLogger.error('Invalid receipt: Verification failed', txId, receipt.cycle, timestamp)
+            receiptsInValidationMap.delete(txId)
+            if (nestedCountersInstance)
+              nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_verification_failed')
+            if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
+            continue
+          }
+  
+          if (profilerInstance) profilerInstance.profileSectionStart('Verify_archiver_receipt')
+          if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Verify_archiver_receipt')
+          const start_time = process.hrtime()
+          // console.log('offloading receipt', txId, timestamp)
+          // const result = await offloadReceipt(txId, timestamp, requiredSignatures, receipt)
+          let result
+          try {
+            result = await verifyArchiverReceipt(receipt)
+          } catch (error) {
+            receiptsInValidationMap.delete(txId)
+            if (nestedCountersInstance)
+              nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_verification_failed')
+            if (profilerInstance) profilerInstance.profileSectionEnd('Verify_archiver_receipt')
+            continue
+          }
+          // console.log('offload receipt result', txId, timestamp, result)
+          const end_time = process.hrtime(start_time)
+          const time_taken = end_time[0] * 1000 + end_time[1] / 1000000
+          if (time_taken > 100) {
+            console.log(`Time taken for receipt verification in millisecond is: `, txId, timestamp, time_taken)
+          }
+          if (profilerInstance) profilerInstance.profileSectionEnd('Offload_receipt')
+          for (const message of result.failedReasons) {
+            Logger.mainLogger.error(message)
+          }
+          for (const message of result.nestedCounterMessages) {
+            if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', message)
+          }
+          if (result.success === false) {
+            receiptsInValidationMap.delete(txId)
+            if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
+            continue
+          }
+        }
+      }
       if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
-      continue
-    }
-
-    if (verifyData) {
-      // if (config.usePOQo === false) {
-      // const existingReceipt = await Receipt.queryReceiptByReceiptId(txId)
+      // await Receipt.insertReceipt({
+      //   ...receipts[i],
+      //   receiptId: tx.txId,
+      //   timestamp: tx.timestamp,
+      // })
+      const { afterStates, cycle, tx, appReceiptData, signedReceipt, globalModification } = receipt
+      const sortedVoteOffsets = globalModification
+        ? []
+        : (signedReceipt as Receipt.SignedReceipt).voteOffsets.sort()
+      const medianOffset = sortedVoteOffsets[Math.floor(sortedVoteOffsets.length / 2)] ?? 0
+      const applyTimestamp = tx.timestamp + medianOffset * 1000
+      if (config.VERBOSE) console.log('RECEIPT', 'Save', txId, timestamp, senderInfo)
+      processedReceiptsMap.set(txId, tx.timestamp)
+      receiptsInValidationMap.delete(txId)
+      if (missingReceiptsMap.has(txId)) missingReceiptsMap.delete(txId)
+      receipt.beforeStates = globalModification || config.storeReceiptBeforeStates ? receipt.beforeStates : [] // Store beforeStates for globalModification tx, or if config.storeReceiptBeforeStates is true
+      let executionShardKey: string
+      if (globalModification) {
+        const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
+        executionShardKey = appliedReceipt.tx.source
+      } else {
+        const appliedReceipt = receipt.signedReceipt as Receipt.SignedReceipt
+        executionShardKey = appliedReceipt.proposal.executionShardKey
+      }
+  
+      combineReceipts.push({
+        ...receipt,
+        receiptId: txId,
+        timestamp: tx.timestamp,
+        applyTimestamp,
+        executionShardKey,
+      })
+      if (config.dataLogWrite && ReceiptLogWriter)
+        ReceiptLogWriter.writeToLog(
+          `${StringUtils.safeStringify({
+            ...receipt,
+            receiptId: txId,
+            timestamp: tx.timestamp,
+            applyTimestamp,
+          })}\n`
+        )
+      txDataList.push({ txId, timestamp })
+      originalTxDataList.push({ txId, timestamp })
+      // If the receipt is a challenge, then skip updating its accounts data or transaction data
       // if (
-      //   existingReceipt &&
-      //   receipt.appliedReceipt &&
-      //   receipt.appliedReceipt.confirmOrChallenge &&
-      //   receipt.appliedReceipt.confirmOrChallenge.message === 'challenge'
-      // ) {
-      //   // If the existing receipt is confirmed, and the new receipt is challenged, then skip saving the new receipt
-      //   if (existingReceipt.appliedReceipt.confirmOrChallenge.message === 'confirm') {
-      //     Logger.mainLogger.error(
-      //       `Existing receipt is confirmed, but new receipt is challenged ${txId}, ${receipt.cycle}, ${timestamp}`
-      //     )
-      //     receiptsInValidationMap.delete(txId)
-      //     if (nestedCountersInstance)
-      //       nestedCountersInstance.countEvent(
-      //         'receipt',
-      //         'Existing_receipt_is_confirmed_but_new_receipt_is_challenged'
-      //       )
-      //     if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
-      //     continue
+      //   config.newPOQReceipt === true &&
+      //   appliedReceipt &&
+      //   appliedReceipt.confirmOrChallenge &&
+      //   appliedReceipt.confirmOrChallenge.message === 'challenge'
+      // )
+      //   continue
+      for (const account of afterStates) {
+        const accObj: Account.AccountsCopy = {
+          accountId: account.accountId,
+          data: account.data,
+          timestamp: account.timestamp,
+          hash: account.hash,
+          cycleNumber: cycle,
+          isGlobal: account.isGlobal || false,
+        }
+        if (account.timestamp !== account.data['timestamp'])
+          Logger.mainLogger.error('Mismatched account timestamp', txId, account.accountId)
+        if (account.hash !== account.data['hash'])
+          Logger.mainLogger.error('Mismatched account hash', txId, account.accountId)
+  
+        const accountExist = await Account.queryAccountByAccountId(account.accountId)
+        if (accountExist) {
+          if (accObj.timestamp > accountExist.timestamp) await Account.updateAccount(accObj)
+        } else {
+          // await Account.insertAccount(accObj)
+          combineAccounts.push(accObj)
+        }
+  
+        //check global network account updates
+        if (accObj.accountId === config.globalNetworkAccount) {
+          setGlobalNetworkAccount(accObj)
+        }
+        if (accObj.isGlobal) {
+          globalAccountsMap.set(accObj.accountId, {
+            hash: accObj.hash,
+            timestamp: accObj.timestamp,
+          })
+        }
+      }
+      // if (receipt) {
+      //   const accObj: Account.AccountsCopy = {
+      //     accountId: receipt.accountId,
+      //     data: receipt.data,
+      //     timestamp: receipt.timestamp,
+      //     hash: receipt.stateId,
+      //     cycleNumber: cycle,
+      //   }
+      //   const accountExist = await Account.queryAccountByAccountId(
+      //     receipt.accountId
+      //   )
+      //   if (accountExist) {
+      //     if (accObj.timestamp > accountExist.timestamp)
+      //       await Account.updateAccount(accObj.accountId, accObj)
+      //   } else {
+      //     // await Account.insertAccount(accObj)
+      //     combineAccounts.push(accObj)
       //   }
       // }
-      // }
-
-      if (config.verifyReceiptData) {
-        const { success } = await verifyReceiptData(receipt)
-        if (!success) {
-          Logger.mainLogger.error('Invalid receipt: Verification failed', txId, receipt.cycle, timestamp)
-          receiptsInValidationMap.delete(txId)
-          if (nestedCountersInstance)
-            nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_verification_failed')
-          if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
-          continue
-        }
-
-        if (profilerInstance) profilerInstance.profileSectionStart('Verify_archiver_receipt')
-        if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Verify_archiver_receipt')
-        const start_time = process.hrtime()
-        // console.log('offloading receipt', txId, timestamp)
-        // const result = await offloadReceipt(txId, timestamp, requiredSignatures, receipt)
-        let result
-        try {
-          result = await verifyArchiverReceipt(receipt)
-        } catch (error) {
-          receiptsInValidationMap.delete(txId)
-          if (nestedCountersInstance)
-            nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_verification_failed')
-          if (profilerInstance) profilerInstance.profileSectionEnd('Verify_archiver_receipt')
-          continue
-        }
-        // console.log('offload receipt result', txId, timestamp, result)
-        const end_time = process.hrtime(start_time)
-        const time_taken = end_time[0] * 1000 + end_time[1] / 1000000
-        if (time_taken > 100) {
-          console.log(`Time taken for receipt verification in millisecond is: `, txId, timestamp, time_taken)
-        }
-        if (profilerInstance) profilerInstance.profileSectionEnd('Offload_receipt')
-        for (const message of result.failedReasons) {
-          Logger.mainLogger.error(message)
-        }
-        for (const message of result.nestedCounterMessages) {
-          if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', message)
-        }
-        if (result.success === false) {
-          receiptsInValidationMap.delete(txId)
-          if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
-          continue
-        }
+  
+      const originalTxData: OriginalTxsData.OriginalTxData = {
+        txId: txId,
+        timestamp: tx.timestamp,
+        cycle: cycle,
+        originalTxData: tx.originalTxData,
       }
-    }
-    if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
-    // await Receipt.insertReceipt({
-    //   ...receipts[i],
-    //   receiptId: tx.txId,
-    //   timestamp: tx.timestamp,
-    // })
-    const { afterStates, cycle, tx, appReceiptData, signedReceipt, globalModification } = receipt
-    const sortedVoteOffsets = globalModification
-      ? []
-      : (signedReceipt as Receipt.SignedReceipt).voteOffsets.sort()
-    const medianOffset = sortedVoteOffsets[Math.floor(sortedVoteOffsets.length / 2)] ?? 0
-    const applyTimestamp = tx.timestamp + medianOffset * 1000
-    if (config.VERBOSE) console.log('RECEIPT', 'Save', txId, timestamp, senderInfo)
-    processedReceiptsMap.set(txId, tx.timestamp)
-    receiptsInValidationMap.delete(txId)
-    if (missingReceiptsMap.has(txId)) missingReceiptsMap.delete(txId)
-    receipt.beforeStates = globalModification || config.storeReceiptBeforeStates ? receipt.beforeStates : [] // Store beforeStates for globalModification tx, or if config.storeReceiptBeforeStates is true
-    let executionShardKey: string
-    if (globalModification) {
-      const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
-      executionShardKey = appliedReceipt.tx.source
-    } else {
-      const appliedReceipt = receipt.signedReceipt as Receipt.SignedReceipt
-      executionShardKey = appliedReceipt.proposal.executionShardKey
-    }
-
-    combineReceipts.push({
-      ...receipt,
-      receiptId: txId,
-      timestamp: tx.timestamp,
-      applyTimestamp,
-      executionShardKey,
-    })
-    if (config.dataLogWrite && ReceiptLogWriter)
-      ReceiptLogWriter.writeToLog(
-        `${StringUtils.safeStringify({
-          ...receipt,
-          receiptId: txId,
-          timestamp: tx.timestamp,
-          applyTimestamp,
-        })}\n`
-      )
-    txDataList.push({ txId, timestamp })
-    originalTxDataList.push({ txId, timestamp })
-    // If the receipt is a challenge, then skip updating its accounts data or transaction data
-    // if (
-    //   config.newPOQReceipt === true &&
-    //   appliedReceipt &&
-    //   appliedReceipt.confirmOrChallenge &&
-    //   appliedReceipt.confirmOrChallenge.message === 'challenge'
-    // )
-    //   continue
-    for (const account of afterStates) {
-      const accObj: Account.AccountsCopy = {
-        accountId: account.accountId,
-        data: account.data,
-        timestamp: account.timestamp,
-        hash: account.hash,
+      if (config.dataLogWrite && OriginalTxDataLogWriter) {
+        OriginalTxDataLogWriter.writeToLog(`${StringUtils.safeStringify(originalTxData)}\n`)
+      }
+  
+      const txObj: Transaction.Transaction = {
+        txId: txId,
+        appReceiptId: appReceiptData ? appReceiptData.accountId : txId, // Set txId if appReceiptData lacks appReceiptId
+        timestamp: tx.timestamp,
         cycleNumber: cycle,
-        isGlobal: account.isGlobal || false,
+        data: appReceiptData ? appReceiptData.data : {},
+        originalTxData: tx.originalTxData,
       }
-      if (account.timestamp !== account.data['timestamp'])
-        Logger.mainLogger.error('Mismatched account timestamp', txId, account.accountId)
-      if (account.hash !== account.data['hash'])
-        Logger.mainLogger.error('Mismatched account hash', txId, account.accountId)
-
-      const accountExist = await Account.queryAccountByAccountId(account.accountId)
-      if (accountExist) {
-        if (accObj.timestamp > accountExist.timestamp) await Account.updateAccount(accObj)
-      } else {
-        // await Account.insertAccount(accObj)
-        combineAccounts.push(accObj)
+  
+      const processedTx: ProcessedTransaction.ProcessedTransaction = {
+        txId: txId,
+        cycle: cycle,
+        txTimestamp: tx.timestamp,
+        applyTimestamp,
       }
-
-      //check global network account updates
-      if (accObj.accountId === config.globalNetworkAccount) {
-        setGlobalNetworkAccount(accObj)
+  
+      // await Transaction.insertTransaction(txObj)
+      combineOriginalTxsData.push(originalTxData)
+      combineTransactions.push(txObj)
+      combineProcessedTxs.push(processedTx)
+      // Receipts size can be big, better to save per 100
+      if (combineReceipts.length >= 100) {
+        await Receipt.bulkInsertReceipts(combineReceipts)
+        if (State.isActive) sendDataToAdjacentArchivers(DataType.RECEIPT, txDataList)
+        combineReceipts = []
+        txDataList = []
       }
-      if (accObj.isGlobal) {
-        globalAccountsMap.set(accObj.accountId, {
-          hash: accObj.hash,
-          timestamp: accObj.timestamp,
-        })
+  
+      if (combineOriginalTxsData.length >= bucketSize) {
+        await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
+        combineOriginalTxsData = []
+        originalTxDataList = []
       }
-    }
-    // if (receipt) {
-    //   const accObj: Account.AccountsCopy = {
-    //     accountId: receipt.accountId,
-    //     data: receipt.data,
-    //     timestamp: receipt.timestamp,
-    //     hash: receipt.stateId,
-    //     cycleNumber: cycle,
-    //   }
-    //   const accountExist = await Account.queryAccountByAccountId(
-    //     receipt.accountId
-    //   )
-    //   if (accountExist) {
-    //     if (accObj.timestamp > accountExist.timestamp)
-    //       await Account.updateAccount(accObj.accountId, accObj)
-    //   } else {
-    //     // await Account.insertAccount(accObj)
-    //     combineAccounts.push(accObj)
-    //   }
-    // }
-
-    const originalTxData: OriginalTxsData.OriginalTxData = {
-      txId: txId,
-      timestamp: tx.timestamp,
-      cycle: cycle,
-      originalTxData: tx.originalTxData,
-    }
-    if (config.dataLogWrite && OriginalTxDataLogWriter) {
-      OriginalTxDataLogWriter.writeToLog(`${StringUtils.safeStringify(originalTxData)}\n`)
-    }
-
-    const txObj: Transaction.Transaction = {
-      txId: txId,
-      appReceiptId: appReceiptData ? appReceiptData.accountId : txId, // Set txId if appReceiptData lacks appReceiptId
-      timestamp: tx.timestamp,
-      cycleNumber: cycle,
-      data: appReceiptData ? appReceiptData.data : {},
-      originalTxData: tx.originalTxData,
-    }
-
-    const processedTx: ProcessedTransaction.ProcessedTransaction = {
-      txId: txId,
-      cycle: cycle,
-      txTimestamp: tx.timestamp,
-      applyTimestamp,
-    }
-
-    // await Transaction.insertTransaction(txObj)
-    combineOriginalTxsData.push(originalTxData)
-    combineTransactions.push(txObj)
-    combineProcessedTxs.push(processedTx)
-    // Receipts size can be big, better to save per 100
-    if (combineReceipts.length >= 100) {
-      await Receipt.bulkInsertReceipts(combineReceipts)
-      if (State.isActive) sendDataToAdjacentArchivers(DataType.RECEIPT, txDataList)
-      combineReceipts = []
-      txDataList = []
-    }
-
-    if (combineOriginalTxsData.length >= bucketSize) {
-      await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
-      combineOriginalTxsData = []
-      originalTxDataList = []
-    }
-
-    if (combineAccounts.length >= bucketSize) {
-      await Account.bulkInsertAccounts(combineAccounts)
-      combineAccounts = []
-    }
-    if (combineTransactions.length >= bucketSize) {
-      await Transaction.bulkInsertTransactions(combineTransactions)
-      combineTransactions = []
-    }
-    if (combineProcessedTxs.length >= bucketSize) {
-      await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs)
-      combineProcessedTxs = []
+  
+      if (combineAccounts.length >= bucketSize) {
+        await Account.bulkInsertAccounts(combineAccounts)
+        combineAccounts = []
+      }
+      if (combineTransactions.length >= bucketSize) {
+        await Transaction.bulkInsertTransactions(combineTransactions)
+        combineTransactions = []
+      }
+      if (combineProcessedTxs.length >= bucketSize) {
+        await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs)
+        combineProcessedTxs = []
+      }
+    } catch(e) {
+      Logger.mainLogger.error('storeReceiptData: something went wrong while processing receipt:', txId, 'cycle:', receipt.cycle, 'err:', e)
+      if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'storeReceiptData_unknown_error')
     }
   }
   // Receipts size can be big, better to save per 100
