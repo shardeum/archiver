@@ -95,33 +95,38 @@ function fetchAuthorizedSigners(
     string,
     { index: number; sign: Crypto.core.Signature | P2PTypes.P2PTypes.Signature }
   >()
-  for (const [index, sign] of signaturePack.entries()) {
-    const { owner: nodePubKey } = sign
+  try {
+    for (const [index, sign] of signaturePack.entries()) {
+      const { owner: nodePubKey } = sign
 
-    // Get the node id from the public key
-    const node = nodeMap.get(nodePubKey.toLowerCase())
+      // Get the node id from the public key
+      const node = nodeMap.get(nodePubKey.toLowerCase())
 
-    // If the node is not found in the active nodes list, log an error and continue
-    if (node == null) {
-      Logger.mainLogger.error(
-        `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the active nodesList of cycle ${cycle}`
-      )
-      if (nestedCountersInstance)
-        nestedCountersInstance.countEvent('receipt', 'sign_owner_not_in_active_nodesList')
-      continue
+      // If the node is not found in the active nodes list, log an error and continue
+      if (node == null) {
+        Logger.mainLogger.error(
+          `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the active nodesList of cycle ${cycle}`
+        )
+        if (nestedCountersInstance)
+          nestedCountersInstance.countEvent('receipt', 'sign_owner_not_in_active_nodesList')
+        continue
+      }
+
+      // Check if the node is in the execution group
+      if (!cycleShardData.parititionShardDataMap.get(homePartition).coveredBy[node.id]) {
+        Logger.mainLogger.error(
+          `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the execution group of the tx`
+        )
+        if (nestedCountersInstance)
+          nestedCountersInstance.countEvent('receipt', 'node_not_in_execution_group_of_tx')
+        continue
+      }
+
+      acceptableSigners.set(nodePubKey.toLowerCase(), { index, sign })
     }
-
-    // Check if the node is in the execution group
-    if (!cycleShardData.parititionShardDataMap.get(homePartition).coveredBy[node.id]) {
-      Logger.mainLogger.error(
-        `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the execution group of the tx`
-      )
-      if (nestedCountersInstance)
-        nestedCountersInstance.countEvent('receipt', 'node_not_in_execution_group_of_tx')
-      continue
-    }
-
-    acceptableSigners.set(nodePubKey.toLowerCase(), { index, sign })
+  } catch (error) {
+    Logger.mainLogger.error(`Error in fetchAuthorizedSigners: ${error.message}`)
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'fetchAuthorizedSigners_error')
   }
   return acceptableSigners
 }
@@ -145,108 +150,125 @@ function fetchAuthorizedSigners(
 const verifyGlobalTxreceipt = async (
   receipt: Receipt.Receipt | Receipt.ArchiverReceipt
 ): Promise<{ success: boolean }> => {
-  const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
-  const { signs, tx } = appliedReceipt
   const result = { success: false }
+  try {
+    const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
+    const { signs, tx } = appliedReceipt
 
-  const { timestamp, originalTxData } = receipt.tx
-  const txId = appliedReceipt.tx.txId
-  // verify tx id
-  const generatedTxId = generateTxId((originalTxData as any)?.tx)
+    const { timestamp, originalTxData } = receipt.tx
+    const txId = appliedReceipt.tx.txId
+    // verify tx id
+    const generatedTxId = generateTxId((originalTxData as any)?.tx)
 
-  if (generatedTxId != txId) {
-    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
-    Logger.mainLogger.error(
-      `VerifyGlobalTxreceipt : Transaction ID mismatch detected. Incoming txId: ${txId}, Generated txId: ${generatedTxId}`
-    )
-    return result
-  }
-
-  const { cycle } = receipt
-  const executionShardKey = tx.source // while finding the home partition/node on the setGlobal side, the source string is used
-  const cycleShardData = shardValuesByCycle.get(cycle)
-  const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
-  // Refer to https://github.com/shardeum/shardus-core/blob/7d8877b7e1a5b18140f898a64b932182d8a35298/src/p2p/GlobalAccounts.ts#L397
-  let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
-
-  /**
-   * Workaround: Early cycles may lack enough nodes for receipts to pass verification.
-   * Relaxing the signature requirement for the first x cycles
-   * could prevent unnecessary rejections. Needs tuning for larger networks.
-   **/
-  if (cycleShardData.nodes.length < votingGroupCount && cycleShardData.cycleNumber <= config.formingNetworkCycleThreshold) {
-    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'votingGroupCount_lesser_than_nodes_length_forming_phase')
-    Logger.mainLogger.log('verifyGlobalTxreceipt: votingGroupCount_lesser_than_nodes_length', votingGroupCount, cycleShardData.nodes.length)
-    votingGroupCount = cycleShardData.nodes.length
-  }
-
-  let isReceiptMajority = signs.length / votingGroupCount >= config.requiredMajorityVotesPercentage
-  if (!isReceiptMajority) {
-    Logger.mainLogger.error(
-      `Invalid receipt globalModification signs count is less than ${config.requiredMajorityVotesPercentage}% of the votingGroupCount, ${signs.length}, ${votingGroupCount}`
-    )
-    if (nestedCountersInstance)
-      nestedCountersInstance.countEvent(
-        'receipt',
-        `Invalid_receipt_globalModification_signs_count_less_than_${config.requiredMajorityVotesPercentage}%`
+    if (generatedTxId != txId) {
+      if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
+      Logger.mainLogger.error(
+        `VerifyGlobalTxreceipt : Transaction ID mismatch detected. Incoming txId: ${txId}, Generated txId: ${generatedTxId}`
       )
-    return result
-  }
+      return result
+    }
 
-  const acceptableSigners = fetchAuthorizedSigners(
-    signs,
-    cycleShardData,
-    homePartition,
-    txId,
-    timestamp,
-    cycle
-  ) as Map<string, { index: number; sign: P2PTypes.P2PTypes.Signature }>
-  isReceiptMajority = acceptableSigners.size / votingGroupCount >= config.requiredMajorityVotesPercentage
-  if (!isReceiptMajority) {
-    Logger.mainLogger.error(
-      `Invalid receipt globalModification valid signs count is less than votingGroupCount ${acceptableSigners.size}, ${votingGroupCount}`
-    )
-    if (nestedCountersInstance)
-      nestedCountersInstance.countEvent(
-        'receipt',
-        'Invalid_receipt_globalModification_valid_signs_count_less_than_votingGroupCount'
-      )
-    return result
-  }
-  const requiredSignatures = Math.floor(votingGroupCount * config.requiredMajorityVotesPercentage)
+    const { cycle } = receipt
+    const executionShardKey = tx.source // while finding the home partition/node on the setGlobal side, the source string is used
+    const cycleShardData = shardValuesByCycle.get(cycle)
+    const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
+    // Refer to https://github.com/shardeum/shardus-core/blob/7d8877b7e1a5b18140f898a64b932182d8a35298/src/p2p/GlobalAccounts.ts#L397
+    let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
 
-  const goodSignatures = new Map()
-  for (const [nodePubKey, signature] of acceptableSigners) {
-    if (Crypto.verify({ ...tx, sign: signature.sign })) {
-      goodSignatures.set(nodePubKey, signature)
-      // Break the loop if the required number of good signatures are found
-      if (goodSignatures.size >= requiredSignatures) break
-    } else {
+    /**
+     * Workaround: Early cycles may lack enough nodes for receipts to pass verification.
+     * Relaxing the signature requirement for the first x cycles
+     * could prevent unnecessary rejections. Needs tuning for larger networks.
+     **/
+    if (
+      cycleShardData.nodes.length < votingGroupCount &&
+      cycleShardData.cycleNumber <= config.formingNetworkCycleThreshold
+    ) {
       if (nestedCountersInstance)
         nestedCountersInstance.countEvent(
           'receipt',
-          'VerifyGlobalTxReceipt_Found_invalid_signature_in_receipt_signedReceipt'
+          'votingGroupCount_lesser_than_nodes_length_forming_phase'
+        )
+      Logger.mainLogger.log(
+        'verifyGlobalTxreceipt: votingGroupCount_lesser_than_nodes_length',
+        votingGroupCount,
+        cycleShardData.nodes.length
+      )
+      votingGroupCount = cycleShardData.nodes.length
+    }
+
+    let isReceiptMajority = signs.length / votingGroupCount >= config.requiredMajorityVotesPercentage
+    if (!isReceiptMajority) {
+      Logger.mainLogger.error(
+        `Invalid receipt globalModification signs count is less than ${config.requiredMajorityVotesPercentage}% of the votingGroupCount, ${signs.length}, ${votingGroupCount}`
+      )
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent(
+          'receipt',
+          `Invalid_receipt_globalModification_signs_count_less_than_${config.requiredMajorityVotesPercentage}%`
+        )
+      return result
+    }
+
+    const acceptableSigners = fetchAuthorizedSigners(
+      signs,
+      cycleShardData,
+      homePartition,
+      txId,
+      timestamp,
+      cycle
+    ) as Map<string, { index: number; sign: P2PTypes.P2PTypes.Signature }>
+    isReceiptMajority = acceptableSigners.size / votingGroupCount >= config.requiredMajorityVotesPercentage
+    if (!isReceiptMajority) {
+      Logger.mainLogger.error(
+        `Invalid receipt globalModification valid signs count is less than votingGroupCount ${acceptableSigners.size}, ${votingGroupCount}`
+      )
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent(
+          'receipt',
+          'Invalid_receipt_globalModification_valid_signs_count_less_than_votingGroupCount'
+        )
+      return result
+    }
+    const requiredSignatures = Math.floor(votingGroupCount * config.requiredMajorityVotesPercentage)
+
+    const goodSignatures = new Map()
+    for (const [nodePubKey, signature] of acceptableSigners) {
+      if (Crypto.verify({ ...tx, sign: signature.sign })) {
+        goodSignatures.set(nodePubKey, signature)
+        // Break the loop if the required number of good signatures are found
+        if (goodSignatures.size >= requiredSignatures) break
+      } else {
+        if (nestedCountersInstance)
+          nestedCountersInstance.countEvent(
+            'receipt',
+            'VerifyGlobalTxReceipt_Found_invalid_signature_in_receipt_signedReceipt'
+          )
+        Logger.mainLogger.error(
+          `VerifyGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txId}, ${nodePubKey}, ${signature.index}`
+        )
+      }
+    }
+
+    if (goodSignatures.size < requiredSignatures) {
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent(
+          'receipt',
+          'VerifyGlobalTxReceipt_Invalid_receipt_signedReceipt_valid_signatures_count_less_than_requiredSignatures'
         )
       Logger.mainLogger.error(
-        `VerifyGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txId}, ${nodePubKey}, ${signature.index}`
+        `VerifyGlobalTxReceipt : Invalid receipt signedReceipt valid signatures count is less than requiredSignatures ${txId}, ${goodSignatures.size}, ${requiredSignatures}`
       )
+
+      return result
     }
-  }
 
-  if (goodSignatures.size < requiredSignatures) {
-    if (nestedCountersInstance)
-      nestedCountersInstance.countEvent(
-        'receipt',
-        'VerifyGlobalTxReceipt_Invalid_receipt_signedReceipt_valid_signatures_count_less_than_requiredSignatures'
-      )
-    Logger.mainLogger.error(
-      `VerifyGlobalTxReceipt : Invalid receipt signedReceipt valid signatures count is less than requiredSignatures ${txId}, ${goodSignatures.size}, ${requiredSignatures}`
-    )
-
+    return { success: true }
+  } catch (error) {
+    Logger.mainLogger.error(`Error in verifyGlobalTxreceipt: ${error.message}`)
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'verifyGlobalTxreceipt_error')
     return result
   }
-
-  return { success: true }
 }
 
 /**
@@ -270,107 +292,126 @@ const verifyNonGlobalTxReceipt = async (
   receipt: Receipt.Receipt | Receipt.ArchiverReceipt
 ): Promise<{ success: boolean }> => {
   const result = { success: false }
-  const { cycle } = receipt
-  const { txId: txid, timestamp, originalTxData } = receipt.tx
-  const cycleShardData = shardValuesByCycle.get(cycle)
-  const { signaturePack, proposal, voteOffsets } = receipt.signedReceipt as Receipt.SignedReceipt
-  // verify tx id
-  const generatedTxId = generateTxId((originalTxData as any)?.tx)
-  if (generatedTxId != proposal.txid) {
-    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
-    Logger.mainLogger.error(
-      `VerifyNonGlobalTxReceipt : Transaction ID mismatch detected. Incoming txId: ${txid}, Generated txId: ${generatedTxId}`
-    )
-    return result
-  }
-
-  // shardKey extraction
-  const { executionShardKey } = proposal
-  // Determine the home partition index of the primary account (executionShardKey)
-  const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
-
-  let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
-
-  /**
-   * Workaround: Early cycles may lack enough nodes for receipts to pass verification.
-   * Relaxing the signature requirement for the first x cycles
-   * could prevent unnecessary rejections. Needs tuning for larger networks.
-   **/
-  if (cycleShardData.nodes.length < votingGroupCount && cycleShardData.cycleNumber <= config.formingNetworkCycleThreshold) {
-    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'votingGroupCount_lesser_than_nodes_length_forming_phase')
-    Logger.mainLogger.log('verifyNonGlobalTxReceipt : votingGroupCount_lesser_than_nodes_length_forming_phase', votingGroupCount, cycleShardData.nodes.length)
-    votingGroupCount = cycleShardData.nodes.length
-  }
-
-  let isReceiptMajority = signaturePack.length / votingGroupCount >= config.requiredMajorityVotesPercentage
-  if (!isReceiptMajority) {
-    Logger.mainLogger.error(
-      `VerifyNonGlobalTxReceipt : Invalid receipt globalModification signs count is less than ${config.requiredMajorityVotesPercentage}% of the votingGroupCount, ${signaturePack.length}, ${votingGroupCount}`
-    )
-    if (nestedCountersInstance)
-      nestedCountersInstance.countEvent(
-        'receipt',
-        `VerifyNonGlobalTxReceipt_Invalid_receipt_globalModification_signs_count_less_than_${config.requiredMajorityVotesPercentage}%`
+  try {
+    const { cycle } = receipt
+    const { txId: txid, timestamp, originalTxData } = receipt.tx
+    const cycleShardData = shardValuesByCycle.get(cycle)
+    const { signaturePack, proposal, voteOffsets } = receipt.signedReceipt as Receipt.SignedReceipt
+    // verify tx id
+    const generatedTxId = generateTxId((originalTxData as any)?.tx)
+    if (generatedTxId != proposal.txid) {
+      if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'txId_mismatch')
+      Logger.mainLogger.error(
+        `VerifyNonGlobalTxReceipt : Transaction ID mismatch detected. Incoming txId: ${txid}, Generated txId: ${generatedTxId}`
       )
-    return result
-  }
+      return result
+    }
 
-  const voteHash = calculateVoteHash(proposal)
-  const acceptableSigners = fetchAuthorizedSigners(
-    signaturePack,
-    cycleShardData,
-    homePartition,
-    txid,
-    timestamp,
-    cycle
-  ) as Map<string, { index: number; sign: Crypto.core.Signature}>
-  isReceiptMajority = acceptableSigners.size / votingGroupCount >= config.requiredMajorityVotesPercentage
-  if (!isReceiptMajority) {
-    Logger.mainLogger.error(
-      `VerifyNonGlobalTxReceipt : Invalid receipt valid signs count is less than votingGroupCount ${acceptableSigners.size}, ${votingGroupCount}`
-    )
-    if (nestedCountersInstance)
-      nestedCountersInstance.countEvent(
-        'receipt',
-        'VerifyNonGlobalTxReceipt_Invalid_receipt_valid_signs_count_less_than_votingGroupCount'
-      )
-    return result
-  }
+    // shardKey extraction
+    const { executionShardKey } = proposal
+    // Determine the home partition index of the primary account (executionShardKey)
+    const { homePartition } = ShardFunction.addressToPartition(cycleShardData.shardGlobals, executionShardKey)
 
-  const requiredSignatures = Math.floor(votingGroupCount * config.requiredMajorityVotesPercentage)
+    let votingGroupCount = cycleShardData.shardGlobals.nodesPerConsenusGroup
 
-  // Using a map to store the good signatures to avoid duplicates
-  const goodSignatures = new Map()
-  for (const [nodePublicKey, signature] of acceptableSigners) {
-    if (Crypto.verify({ txid, voteHash, sign: signature.sign, voteTime: voteOffsets.at(signature.index) })) {
-      goodSignatures.set(nodePublicKey, signature)
-      // Break the loop if the required number of good signatures are found
-      if (goodSignatures.size >= requiredSignatures) break
-    } else {
+    /**
+     * Workaround: Early cycles may lack enough nodes for receipts to pass verification.
+     * Relaxing the signature requirement for the first x cycles
+     * could prevent unnecessary rejections. Needs tuning for larger networks.
+     **/
+    if (
+      cycleShardData.nodes.length < votingGroupCount &&
+      cycleShardData.cycleNumber <= config.formingNetworkCycleThreshold
+    ) {
       if (nestedCountersInstance)
         nestedCountersInstance.countEvent(
           'receipt',
-          'VerifyNonGlobalTxReceipt_Found_invalid_signature_in_receipt_signedReceipt'
+          'votingGroupCount_lesser_than_nodes_length_forming_phase'
+        )
+      Logger.mainLogger.log(
+        'verifyNonGlobalTxReceipt : votingGroupCount_lesser_than_nodes_length_forming_phase',
+        votingGroupCount,
+        cycleShardData.nodes.length
+      )
+      votingGroupCount = cycleShardData.nodes.length
+    }
+
+    let isReceiptMajority = signaturePack.length / votingGroupCount >= config.requiredMajorityVotesPercentage
+    if (!isReceiptMajority) {
+      Logger.mainLogger.error(
+        `VerifyNonGlobalTxReceipt : Invalid receipt globalModification signs count is less than ${config.requiredMajorityVotesPercentage}% of the votingGroupCount, ${signaturePack.length}, ${votingGroupCount}`
+      )
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent(
+          'receipt',
+          `VerifyNonGlobalTxReceipt_Invalid_receipt_globalModification_signs_count_less_than_${config.requiredMajorityVotesPercentage}%`
+        )
+      return result
+    }
+
+    const voteHash = calculateVoteHash(proposal)
+    const acceptableSigners = fetchAuthorizedSigners(
+      signaturePack,
+      cycleShardData,
+      homePartition,
+      txid,
+      timestamp,
+      cycle
+    ) as Map<string, { index: number; sign: Crypto.core.Signature }>
+    isReceiptMajority = acceptableSigners.size / votingGroupCount >= config.requiredMajorityVotesPercentage
+    if (!isReceiptMajority) {
+      Logger.mainLogger.error(
+        `VerifyNonGlobalTxReceipt : Invalid receipt valid signs count is less than votingGroupCount ${acceptableSigners.size}, ${votingGroupCount}`
+      )
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent(
+          'receipt',
+          'VerifyNonGlobalTxReceipt_Invalid_receipt_valid_signs_count_less_than_votingGroupCount'
+        )
+      return result
+    }
+
+    const requiredSignatures = Math.floor(votingGroupCount * config.requiredMajorityVotesPercentage)
+
+    // Using a map to store the good signatures to avoid duplicates
+    const goodSignatures = new Map()
+    for (const [nodePublicKey, signature] of acceptableSigners) {
+      if (
+        Crypto.verify({ txid, voteHash, sign: signature.sign, voteTime: voteOffsets.at(signature.index) })
+      ) {
+        goodSignatures.set(nodePublicKey, signature)
+        // Break the loop if the required number of good signatures are found
+        if (goodSignatures.size >= requiredSignatures) break
+      } else {
+        if (nestedCountersInstance)
+          nestedCountersInstance.countEvent(
+            'receipt',
+            'VerifyNonGlobalTxReceipt_Found_invalid_signature_in_receipt_signedReceipt'
+          )
+        Logger.mainLogger.error(
+          `VerifyNonGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txid}, ${nodePublicKey}, ${signature.index} | voteHash: ${voteHash} | voteTime: ${voteOffsets.at(signature.index)}`
+        )
+      }
+    }
+    if (goodSignatures.size < requiredSignatures) {
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent(
+          'receipt',
+          'VerifyNonGlobalTxReceipt_Invalid_receipt_signedReceipt_valid_signatures_count_less_than_requiredSignatures'
         )
       Logger.mainLogger.error(
-        `VerifyNonGlobalTxReceipt : Found invalid signature in receipt signedReceipt ${txid}, ${nodePublicKey}, ${signature.index} | voteHash: ${voteHash} | voteTime: ${voteOffsets.at(signature.index)}`
+        `VerifyNonGlobalTxReceipt : Invalid receipt signedReceipt valid signatures count is less than requiredSignatures ${txid}, ${goodSignatures.size}, ${requiredSignatures}`
       )
-    }
-  }
-  if (goodSignatures.size < requiredSignatures) {
-    if (nestedCountersInstance)
-      nestedCountersInstance.countEvent(
-        'receipt',
-        'VerifyNonGlobalTxReceipt_Invalid_receipt_signedReceipt_valid_signatures_count_less_than_requiredSignatures'
-      )
-    Logger.mainLogger.error(
-      `VerifyNonGlobalTxReceipt : Invalid receipt signedReceipt valid signatures count is less than requiredSignatures ${txid}, ${goodSignatures.size}, ${requiredSignatures}`
-    )
 
+      return result
+    }
+
+    return { success: true }
+  } catch (error) {
+    Logger.mainLogger.error(`Error in verifyNonGlobalTxReceipt: ${error.message}`)
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'verifyNonGlobalTxReceipt_error')
     return result
   }
-
-  return { success: true }
 }
 
 
@@ -432,63 +473,68 @@ export const verifyReceiptData = async (
   success: boolean
 }> => {
   const result = { success: false }
-  // Check the signed nodes are part of the execution group nodes of the tx
-  const { cycle, globalModification } = receipt
+  try {
+    // Check the signed nodes are part of the execution group nodes of the tx
+    const { cycle, globalModification } = receipt
 
-  const { txId, timestamp } = receipt.tx
+    const { txId, timestamp } = receipt.tx
 
-  if (config.VERBOSE) {
-    const currentTimestamp = Date.now()
-    // Console log the timetaken between the receipt timestamp and the current time ( both in ms and s)
-    console.log(
-      `Time taken between receipt timestamp and current time: ${txId}`,
-      `${currentTimestamp - timestamp} ms`,
-      `${(currentTimestamp - timestamp) / 1000} s`
-    )
-  }
-  const currentCycle = getCurrentCycleCounter()
-  if (currentCycle - cycle > 2) {
-    Logger.mainLogger.error(
-      `Found receipt with cycle older than 2 cycles ${txId}, ${cycle}, ${timestamp}, ${currentCycle}`
-    )
-  }
-  const cycleShardData = shardValuesByCycle.get(cycle)
-  if (!cycleShardData) {
-    Logger.mainLogger.error('Cycle shard data not found')
-    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Cycle_shard_data_not_found')
-    return result
-  }
-
-  let globalReceiptValidationErrors
-  if (globalModification) {
-    try {
-      // Validate if receipt is a global modification receipt using AJV
-      globalReceiptValidationErrors = verifyPayload(AJVSchemaEnum.GlobalTxReceipt, receipt?.signedReceipt)
-      // If the receipt is a global modification receipt, validate the receipt
-      if (!globalReceiptValidationErrors) {
-        return verifyGlobalTxreceipt(receipt)
-      } else {
-        Logger.mainLogger.error('VerifyReceiptData : globalReceiptValidationErrors have occured')
-        if (nestedCountersInstance)
-          nestedCountersInstance.countEvent('receipt', 'globalReceiptValidationErrors')
-      }
-      return result
-    } catch (error) {
-      globalReceiptValidationErrors = true
-      if (nestedCountersInstance)
-        nestedCountersInstance.countEvent(
-          'receipt',
-          `Failed to validate receipt schema txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
-        )
-      Logger.mainLogger.error(
-        `Failed to validate receipt schema txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
+    if (config.VERBOSE) {
+      const currentTimestamp = Date.now()
+      // Console log the timetaken between the receipt timestamp and the current time ( both in ms and s)
+      console.log(
+        `Time taken between receipt timestamp and current time: ${txId}`,
+        `${currentTimestamp - timestamp} ms`,
+        `${(currentTimestamp - timestamp) / 1000} s`
       )
+    }
+    const currentCycle = getCurrentCycleCounter()
+    if (currentCycle - cycle > 2) {
+      Logger.mainLogger.error(
+        `Found receipt with cycle older than 2 cycles ${txId}, ${cycle}, ${timestamp}, ${currentCycle}`
+      )
+    }
+    const cycleShardData = shardValuesByCycle.get(cycle)
+    if (!cycleShardData) {
+      Logger.mainLogger.error('Cycle shard data not found')
+      if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Cycle_shard_data_not_found')
       return result
     }
-  }
 
-  // If the receipt is a non global transaction receipt, validate the receipt
-  return verifyNonGlobalTxReceipt(receipt)
+    let globalReceiptValidationErrors
+    if (globalModification) {
+      try {
+        // Validate if receipt is a global modification receipt using AJV
+        globalReceiptValidationErrors = verifyPayload(AJVSchemaEnum.GlobalTxReceipt, receipt?.signedReceipt)
+        // If the receipt is a global modification receipt, validate the receipt
+        if (!globalReceiptValidationErrors) {
+          return verifyGlobalTxreceipt(receipt)
+        } else {
+          Logger.mainLogger.error('VerifyReceiptData : globalReceiptValidationErrors have occured')
+          if (nestedCountersInstance)
+            nestedCountersInstance.countEvent('receipt', 'globalReceiptValidationErrors')
+        }
+        return result
+      } catch (error) {
+        globalReceiptValidationErrors = true
+        if (nestedCountersInstance)
+          nestedCountersInstance.countEvent(
+            'receipt',
+            `Failed to validate receipt schema txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
+          )
+        Logger.mainLogger.error(
+          `Failed to validate receipt schema txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
+        )
+        return result
+      }
+    }
+    // If the receipt is a non global transaction receipt, validate the receipt
+    return verifyNonGlobalTxReceipt(receipt)
+  } catch (error) {
+    Logger.mainLogger.error(`Error in verifyReceiptData: ${error.message}`)
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'verifyReceiptData_error')
+    return result
+  }
 }
 
 /**
@@ -579,43 +625,47 @@ export const verifyArchiverReceipt = async (
   const existingReceipt = await Receipt.queryReceiptByReceiptId(txId)
   const failedReasons = []
   const nestedCounterMessages = []
-  if (config.verifyAppReceiptData) {
-    // if (profilerInstance) profilerInstance.profileSectionStart('Verify_app_receipt_data')
-    // if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Verify_app_receipt_data')
-    const { valid, needToSave } = await verifyAppReceiptData(
-      receipt,
-      existingReceipt,
-      failedReasons,
-      nestedCounterMessages
-    )
-    // if (profilerInstance) profilerInstance.profileSectionEnd('Verify_app_receipt_data')
-    if (!valid) {
-      failedReasons.push(
-        `Invalid receipt: App Receipt Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`
+  try {
+    if (config.verifyAppReceiptData) {
+      const { valid, needToSave } = await verifyAppReceiptData(
+        receipt,
+        existingReceipt,
+        failedReasons,
+        nestedCounterMessages
       )
-      nestedCounterMessages.push('Invalid_receipt_app_receipt_verification_failed')
-      return { success: false, failedReasons, nestedCounterMessages }
+      if (!valid) {
+        failedReasons.push(
+          `Invalid receipt: App Receipt Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`
+        )
+        nestedCounterMessages.push('Invalid_receipt_app_receipt_verification_failed')
+        return { success: false, failedReasons, nestedCounterMessages }
+      }
+      if (!needToSave) {
+        failedReasons.push(`Valid receipt: but no need to save ${txId}, ${receipt.cycle}, ${timestamp}`)
+        nestedCounterMessages.push('Valid_receipt_but_no_need_to_save')
+        return { success: false, failedReasons, nestedCounterMessages }
+      }
     }
-    if (!needToSave) {
-      failedReasons.push(`Valid receipt: but no need to save ${txId}, ${receipt.cycle}, ${timestamp}`)
-      nestedCounterMessages.push('Valid_receipt_but_no_need_to_save')
-      return { success: false, failedReasons, nestedCounterMessages }
+    if (config.verifyAccountData) {
+      const result = verifyAccountHash(receipt, failedReasons, nestedCounterMessages)
+      if (!result) {
+        failedReasons.push(
+          `Invalid receipt: Account Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`
+        )
+        nestedCounterMessages.push('Invalid_receipt_account_verification_failed')
+        return { success: false, failedReasons, nestedCounterMessages }
+      }
+    }
+    return { success: true, failedReasons, nestedCounterMessages }
+  } catch (error) {
+    Logger.mainLogger.error(`Error in verifyArchiverReceipt: ${error.message}`)
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'verifyArchiverReceipt_error')
+    return {
+      success: false,
+      failedReasons: [`Error in verifyArchiverReceipt: ${error.message}`],
+      nestedCounterMessages,
     }
   }
-  if (config.verifyAccountData) {
-    // if (profilerInstance) profilerInstance.profileSectionStart('Verify_receipt_account_data')
-    // if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Verify_receipt_account_data')
-    const result = verifyAccountHash(receipt, failedReasons, nestedCounterMessages)
-    // if (profilerInstance) profilerInstance.profileSectionEnd('Verify_receipt_account_data')
-    if (!result) {
-      failedReasons.push(
-        `Invalid receipt: Account Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`
-      )
-      nestedCounterMessages.push('Invalid_receipt_account_verification_failed')
-      return { success: false, failedReasons, nestedCounterMessages }
-    }
-  }
-  return { success: true, failedReasons, nestedCounterMessages }
 }
 
 /**
@@ -658,7 +708,7 @@ export const storeReceiptData = async (
   let originalTxDataList: TxData[] = [] // this is kind of duplicate of 'txDataList' but have created to avoid confusion
   if (saveOnlyGossipData) return
   for (let receipt of receipts) {
-    let txId: string 
+    let txId: string
     try {
       if (receipt.globalModification) {
         const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
@@ -667,7 +717,7 @@ export const storeReceiptData = async (
         const { proposal } = receipt.signedReceipt as Receipt.SignedReceipt
         txId = proposal.txid
       }
-  
+
       const timestamp = receipt?.tx?.timestamp
       if (!txId || !timestamp) continue
       if (
@@ -689,7 +739,7 @@ export const storeReceiptData = async (
         if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
         continue
       }
-  
+
       if (verifyData) {
         // if (config.usePOQo === false) {
         // const existingReceipt = await Receipt.queryReceiptByReceiptId(txId)
@@ -715,7 +765,7 @@ export const storeReceiptData = async (
         //   }
         // }
         // }
-  
+
         if (config.verifyReceiptData) {
           const { success } = await verifyReceiptData(receipt)
           if (!success) {
@@ -726,7 +776,7 @@ export const storeReceiptData = async (
             if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
             continue
           }
-  
+
           if (profilerInstance) profilerInstance.profileSectionStart('Verify_archiver_receipt')
           if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Verify_archiver_receipt')
           const start_time = process.hrtime()
@@ -746,7 +796,12 @@ export const storeReceiptData = async (
           const end_time = process.hrtime(start_time)
           const time_taken = end_time[0] * 1000 + end_time[1] / 1000000
           if (time_taken > 100) {
-            console.log(`Time taken for receipt verification in millisecond is: `, txId, timestamp, time_taken)
+            console.log(
+              `Time taken for receipt verification in millisecond is: `,
+              txId,
+              timestamp,
+              time_taken
+            )
           }
           if (profilerInstance) profilerInstance.profileSectionEnd('Offload_receipt')
           for (const message of result.failedReasons) {
@@ -787,7 +842,7 @@ export const storeReceiptData = async (
         const appliedReceipt = receipt.signedReceipt as Receipt.SignedReceipt
         executionShardKey = appliedReceipt.proposal.executionShardKey
       }
-  
+
       combineReceipts.push({
         ...receipt,
         receiptId: txId,
@@ -827,7 +882,7 @@ export const storeReceiptData = async (
           Logger.mainLogger.error('Mismatched account timestamp', txId, account.accountId)
         if (account.hash !== account.data['hash'])
           Logger.mainLogger.error('Mismatched account hash', txId, account.accountId)
-  
+
         const accountExist = await Account.queryAccountByAccountId(account.accountId)
         if (accountExist) {
           if (accObj.timestamp > accountExist.timestamp) await Account.updateAccount(accObj)
@@ -835,7 +890,7 @@ export const storeReceiptData = async (
           // await Account.insertAccount(accObj)
           combineAccounts.push(accObj)
         }
-  
+
         //check global network account updates
         if (accObj.accountId === config.globalNetworkAccount) {
           setGlobalNetworkAccount(accObj)
@@ -866,7 +921,7 @@ export const storeReceiptData = async (
       //     combineAccounts.push(accObj)
       //   }
       // }
-  
+
       const originalTxData: OriginalTxsData.OriginalTxData = {
         txId: txId,
         timestamp: tx.timestamp,
@@ -876,7 +931,7 @@ export const storeReceiptData = async (
       if (config.dataLogWrite && OriginalTxDataLogWriter) {
         OriginalTxDataLogWriter.writeToLog(`${StringUtils.safeStringify(originalTxData)}\n`)
       }
-  
+
       const txObj: Transaction.Transaction = {
         txId: txId,
         appReceiptId: appReceiptData ? appReceiptData.accountId : txId, // Set txId if appReceiptData lacks appReceiptId
@@ -885,14 +940,14 @@ export const storeReceiptData = async (
         data: appReceiptData ? appReceiptData.data : {},
         originalTxData: tx.originalTxData,
       }
-  
+
       const processedTx: ProcessedTransaction.ProcessedTransaction = {
         txId: txId,
         cycle: cycle,
         txTimestamp: tx.timestamp,
         applyTimestamp,
       }
-  
+
       // await Transaction.insertTransaction(txObj)
       combineOriginalTxsData.push(originalTxData)
       combineTransactions.push(txObj)
@@ -904,13 +959,13 @@ export const storeReceiptData = async (
         combineReceipts = []
         txDataList = []
       }
-  
+
       if (combineOriginalTxsData.length >= bucketSize) {
         await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
         combineOriginalTxsData = []
         originalTxDataList = []
       }
-  
+
       if (combineAccounts.length >= bucketSize) {
         await Account.bulkInsertAccounts(combineAccounts)
         combineAccounts = []
@@ -923,9 +978,17 @@ export const storeReceiptData = async (
         await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs)
         combineProcessedTxs = []
       }
-    } catch(e) {
-      Logger.mainLogger.error('storeReceiptData: something went wrong while processing receipt:', txId, 'cycle:', receipt.cycle, 'err:', e)
-      if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'storeReceiptData_unknown_error')
+    } catch (e) {
+      Logger.mainLogger.error(
+        'storeReceiptData: something went wrong while processing receipt:',
+        txId,
+        'cycle:',
+        receipt.cycle,
+        'err:',
+        e
+      )
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent('receipt', 'storeReceiptData_unknown_error')
     }
   }
   // Receipts size can be big, better to save per 100
