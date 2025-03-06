@@ -261,11 +261,12 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
               sender.nodeInfo.port,
               newData.responses.ORIGINAL_TX_DATA.length
             )
-          storeOriginalTxData(
-            newData.responses.ORIGINAL_TX_DATA,
-            sender.nodeInfo.ip + ':' + sender.nodeInfo.port,
-            config.saveOnlyGossipData
-          )
+          // gracefully ignoring since it is now coupled with the receipt flow
+          // storeOriginalTxData(
+          //   newData.responses.ORIGINAL_TX_DATA,
+          //   sender.nodeInfo.ip + ':' + sender.nodeInfo.port,
+          //   config.saveOnlyGossipData
+          // )
         }
         if (newData.responses && newData.responses.RECEIPT) {
           if (config.VERBOSE)
@@ -1823,56 +1824,65 @@ export const syncCyclesAndTxsData = async (
   if (!response || response.totalCycles < 0 || response.totalReceipts < 0) {
     return
   }
-  const { totalCycles, totalReceipts, totalOriginalTxs } = response
+  const { totalCycles, totalReceipts } = response
   Logger.mainLogger.debug('totalCycles', totalCycles, 'lastStoredCycleCount', lastStoredCycleCount)
   Logger.mainLogger.debug('totalReceipts', totalReceipts, 'lastStoredReceiptCount', lastStoredReceiptCount)
-  Logger.mainLogger.debug(
-    'totalOriginalTxs',
-    totalOriginalTxs,
-    'lastStoredOriginalTxCount',
-    lastStoredOriginalTxCount
-  )
+  // Logger.mainLogger.debug(
+  //   'totalOriginalTxs',
+  //   totalOriginalTxs,
+  //   'lastStoredOriginalTxCount',
+  //   lastStoredOriginalTxCount
+  // )
   if (
     totalCycles === lastStoredCycleCount &&
-    totalReceipts === lastStoredReceiptCount &&
-    totalOriginalTxs === lastStoredOriginalTxCount
+    totalReceipts === lastStoredReceiptCount
+    // && totalOriginalTxs === lastStoredOriginalTxCount
   ) {
     Logger.mainLogger.debug('The archiver has synced the lastest cycle ,receipts and originalTxs data!')
     return
   }
   let totalReceiptsToSync = totalReceipts
-  let totalOriginalTxsToSync = totalOriginalTxs
+  // let totalOriginalTxsToSync = totalOriginalTxs
   let totalCyclesToSync = totalCycles
   let completeForReceipt = false
-  let completeForOriginalTx = false
+  // let completeForOriginalTx = false
   let completeForCycle = false
   let startReceipt = lastStoredReceiptCount
-  let startOriginalTx = lastStoredOriginalTxCount
+  // let startOriginalTx = lastStoredOriginalTxCount
   let startCycle = lastStoredCycleCount
   let endReceipt = startReceipt + MAX_RECEIPTS_PER_REQUEST
-  let endOriginalTx = startOriginalTx + MAX_ORIGINAL_TXS_PER_REQUEST
+  // let endOriginalTx = startOriginalTx + MAX_ORIGINAL_TXS_PER_REQUEST
   let endCycle = startCycle + MAX_CYCLES_PER_REQUEST
 
   if (totalCycles === lastStoredCycleCount) completeForCycle = true
   if (totalReceipts === lastStoredReceiptCount) completeForReceipt = true
-  if (totalOriginalTxs === lastStoredOriginalTxCount) completeForOriginalTx = true
+  // if (totalOriginalTxs === lastStoredOriginalTxCount) completeForOriginalTx = true
 
-  while (!completeForReceipt || !completeForCycle || !completeForOriginalTx) {
+  while (
+    !completeForReceipt ||
+    !completeForCycle
+    //  || !completeForOriginalTx
+  ) {
     if (
       endReceipt >= totalReceiptsToSync ||
-      endCycle >= totalCyclesToSync ||
-      endOriginalTx >= totalOriginalTxsToSync
+      endCycle >= totalCyclesToSync
+      // || endOriginalTx >= totalOriginalTxsToSync
     ) {
       response = await getTotalDataFromArchivers()
-      if (response && response.totalReceipts && response.totalCycles && response.totalOriginalTxs) {
+      if (
+        response &&
+        response.totalReceipts &&
+        response.totalCycles
+        // && response.totalOriginalTxs
+      ) {
         if (response.totalReceipts !== totalReceiptsToSync) {
           completeForReceipt = false
           totalReceiptsToSync = response.totalReceipts
         }
-        if (response.totalOriginalTxs !== totalOriginalTxsToSync) {
-          completeForOriginalTx = false
-          totalOriginalTxsToSync = response.totalOriginalTxs
-        }
+        // if (response.totalOriginalTxs !== totalOriginalTxsToSync) {
+        //   completeForOriginalTx = false
+        //   totalOriginalTxsToSync = response.totalOriginalTxs
+        // }
         if (response.totalCycles !== totalCyclesToSync) {
           completeForCycle = false
           totalCyclesToSync = response.totalCycles
@@ -1880,17 +1890,17 @@ export const syncCyclesAndTxsData = async (
         if (totalReceiptsToSync < startReceipt) {
           completeForReceipt = true
         }
-        if (totalOriginalTxsToSync < startOriginalTx) {
-          completeForOriginalTx = true
-        }
+        // if (totalOriginalTxsToSync < startOriginalTx) {
+        //   completeForOriginalTx = true
+        // }
         if (totalCyclesToSync < startCycle) {
           completeForCycle = true
         }
         Logger.mainLogger.debug(
           'totalReceiptsToSync',
           totalReceiptsToSync,
-          'totalOriginalTxsToSync',
-          totalOriginalTxsToSync,
+          // 'totalOriginalTxsToSync',
+          // totalOriginalTxsToSync,
           'totalCyclesToSync',
           totalCyclesToSync
         )
@@ -1921,31 +1931,31 @@ export const syncCyclesAndTxsData = async (
       startReceipt = endReceipt + 1
       endReceipt += MAX_ORIGINAL_TXS_PER_REQUEST
     }
-    if (!completeForOriginalTx) {
-      Logger.mainLogger.debug(`Downloading Original-Txs from ${startOriginalTx} to ${endOriginalTx}`)
-      const res = (await queryFromArchivers(
-        RequestDataType.ORIGINALTX,
-        {
-          start: startOriginalTx,
-          end: endOriginalTx,
-        },
-        QUERY_TIMEOUT_MAX
-      )) as ArchiverOriginalTxResponse
-      if (res && res.originalTxs) {
-        const downloadedOriginalTxs = res.originalTxs as OriginalTxDB.OriginalTxData[]
-        Logger.mainLogger.debug(`Downloaded Original-Txs: `, downloadedOriginalTxs.length)
-        await storeOriginalTxData(downloadedOriginalTxs)
-        if (downloadedOriginalTxs.length < MAX_ORIGINAL_TXS_PER_REQUEST) {
-          startOriginalTx += downloadedOriginalTxs.length + 1
-          endOriginalTx += downloadedOriginalTxs.length + MAX_ORIGINAL_TXS_PER_REQUEST
-          continue
-        }
-      } else {
-        Logger.mainLogger.debug('Invalid Original-Tx download response')
-      }
-      startOriginalTx = endOriginalTx + 1
-      endOriginalTx += MAX_ORIGINAL_TXS_PER_REQUEST
-    }
+    // if (!completeForOriginalTx) {
+    //   Logger.mainLogger.debug(`Downloading Original-Txs from ${startOriginalTx} to ${endOriginalTx}`)
+    //   const res = (await queryFromArchivers(
+    //     RequestDataType.ORIGINALTX,
+    //     {
+    //       start: startOriginalTx,
+    //       end: endOriginalTx,
+    //     },
+    //     QUERY_TIMEOUT_MAX
+    //   )) as ArchiverOriginalTxResponse
+    //   if (res && res.originalTxs) {
+    //     const downloadedOriginalTxs = res.originalTxs as OriginalTxDB.OriginalTxData[]
+    //     Logger.mainLogger.debug(`Downloaded Original-Txs: `, downloadedOriginalTxs.length)
+    //     await storeOriginalTxData(downloadedOriginalTxs)
+    //     if (downloadedOriginalTxs.length < MAX_ORIGINAL_TXS_PER_REQUEST) {
+    //       startOriginalTx += downloadedOriginalTxs.length + 1
+    //       endOriginalTx += downloadedOriginalTxs.length + MAX_ORIGINAL_TXS_PER_REQUEST
+    //       continue
+    //     }
+    //   } else {
+    //     Logger.mainLogger.debug('Invalid Original-Tx download response')
+    //   }
+    //   startOriginalTx = endOriginalTx + 1
+    //   endOriginalTx += MAX_ORIGINAL_TXS_PER_REQUEST
+    // }
     if (!completeForCycle) {
       Logger.mainLogger.debug(`Downloading cycles from ${startCycle} to ${endCycle}`)
       const res = (await queryFromArchivers(
@@ -1990,7 +2000,7 @@ export const syncCyclesAndTxsDataBetweenCycles = async (
   )
   await syncCyclesBetweenCycles(lastStoredCycle, cycleToSyncTo)
   await syncReceiptsByCycle(lastStoredCycle, cycleToSyncTo)
-  await syncOriginalTxsByCycle(lastStoredCycle, cycleToSyncTo)
+  // await syncOriginalTxsByCycle(lastStoredCycle, cycleToSyncTo)
 }
 
 // // simple method to validate old data; it's not good when there are multiple archivers, the receipts saving order may not be the same
