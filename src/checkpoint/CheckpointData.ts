@@ -217,10 +217,15 @@ export class CheckpointBucketManager<T> {
                 `Bucket ${bucket.bucketID} has updates to share. Writing to file and alerting.`
               )
             }
+            /*
+                If the bucket is older than the last cycle to sync, then we need to update the checkpoint status to true
+                because the data cannot be verified using Checkpoint bucket system. So, we assume that the data is correct and 
+                fetched from the verified source (Archivers).
+            */
             updateCheckpointStatusField(
               parseInt(bucket.bucketID, 10),
               checkpointStatusToTypeMap[this.checkpointType],
-              false
+              State.lastCycleToSync > parseInt(bucket.bucketID, 10) ? true : false
             )
             bucket.writeToFileAndAlert()
             this.lastFailedBucketTime = Date.now()

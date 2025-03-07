@@ -273,6 +273,8 @@ async function syncAndStartServer(): Promise<void> {
   const cycleDuration = await Data.getCycleDuration()
   const oldestFailedCheckpointStatus = await getOldestPendingOrFailedCheckpointStatus()
   const firstUnifiedCheckpointCycle = oldestFailedCheckpointStatus?.cycle || 0
+  // Set the syncing flag to true to know we are patching the data
+  State.setSyncing(true)
 
   // Retrieve the count of receipts currently stored in the database
   let lastStoredReceiptCount = await ReceiptDB.queryReceiptCount()
@@ -285,7 +287,7 @@ async function syncAndStartServer(): Promise<void> {
 
   // Get the latest cycle from archivers to know how far we need to sync
   let latestNetworkCycle = await Cycles.getNewestCycleFromArchivers()
-
+  State.setLastCycleToSync(latestNetworkCycle?.counter || oldestFailedCheckpointStatus?.cycle || 0)
   let lastStoredReceiptCycle = 0
 
   interface TotalDataResponse {
@@ -649,11 +651,17 @@ async function syncAndStartServer(): Promise<void> {
     await startServer()
   }
 
+
+  // Sync the missing data during the cycle of sending active request
+  let latestCycle = await Cycles.getNewestCycleFromArchivers()
+  const beforeCycle = Cycles.getCurrentCycleCounter()
+  await Data.syncCyclesAndTxsDataBetweenCycles(beforeCycle - 1, latestCycle.counter + 1)
+
   if (!config.sendActiveMessage) {
+    State.setSyncing(false)
     await Data.subscribeNodeForDataTransfer()
     return
   }
-  const beforeCycle = Cycles.getCurrentCycleCounter()
   // Sending active message to the network
   let isActive = false
   while (!isActive) {
@@ -667,10 +675,8 @@ async function syncAndStartServer(): Promise<void> {
   }
   Data.subscribeNodeForDataTransfer()
 
-  // Sync the missing data during the cycle of sending active request
-  const latestCycle = await Cycles.getNewestCycleFromArchivers()
-  await Data.syncCyclesAndTxsDataBetweenCycles(beforeCycle - 1, latestCycle.counter + 1)
-  scheduleMultiSigKeysSyncFromNetConfig();
+  State.setSyncing(false)
+  scheduleMultiSigKeysSyncFromNetConfig()
 }
 
 // Define all endpoints, all requests, and start REST server

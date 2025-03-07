@@ -4,10 +4,12 @@ import * as db from './sqlite3storage'
 import { receiptDatabase } from '.'
 import * as Logger from '../Logger'
 import { config } from '../Config'
-import { DeSerializeFromJsonString , SerializeToJsonString} from '../utils/serialization'
+import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
 import { AccountsCopy } from '../dbstore/accounts'
 import { ReceiptCheckpointData, calculateBucketID, receiptCheckpointManager } from '../checkpoint/ReceiptData'
 import { bulkUpdateCheckpointStatusField, CheckpointStatusType } from './checkpointStatus'
+import * as State from '../State'
+
 // const superjson =  require('superjson')
 export type Proposal = {
   applied: boolean
@@ -146,7 +148,7 @@ export async function insertReceipt(receipt: Receipt, storeCheckpoints: boolean 
     // Execute the query directly
     await db.run(receiptDatabase, sql, values)
 
-    if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+    if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
       await bulkUpdateCheckpointStatusField(CheckpointStatusType.RECEIPT, true, undefined, undefined, [receipt.cycle])
     }
 
@@ -205,8 +207,9 @@ export async function bulkInsertReceipts(receipts: Receipt[], storeCheckpoints: 
     // Execute the query in a single call
     await db.run(receiptDatabase, sql, values)
 
-    if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
-      await bulkUpdateCheckpointStatusField(CheckpointStatusType.RECEIPT, true, undefined, undefined, receipts.map((receipt) => receipt.cycle))
+    if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+      const receiptsToUpdate = receipts.map((receipt) => receipt.cycle)
+      await bulkUpdateCheckpointStatusField(CheckpointStatusType.RECEIPT, State.isSyncing, undefined, undefined, receiptsToUpdate)
     }
 
     if (config.VERBOSE) {

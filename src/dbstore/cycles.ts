@@ -33,6 +33,7 @@ export async function insertCycle(cycle: Cycle, storeCheckpoints: boolean = true
       const bucketID = calculateBucketID(cycle)
       const checkpointData = new CycleCheckpointData(cycle)
       cycleCheckpointManager.addData(checkpointData, bucketID)
+      await bulkUpdateCheckpointStatusField(CheckpointStatusType.CYCLE, true, undefined, undefined, [cycle.counter])
     }
     
     if (config.VERBOSE) {
@@ -58,7 +59,7 @@ export async function bulkInsertCycles(cycles: Cycle[], storeCheckpoints: boolea
       // Create checkpoints for all cycles
       for (const cycle of cycles) {
         const checkpointData = new CycleCheckpointData(cycle)
-      const bucketID = calculateBucketID(cycle)
+        const bucketID = calculateBucketID(cycle)
         cycleCheckpointManager.addData(checkpointData, bucketID)
       }
     }
@@ -81,8 +82,11 @@ export async function bulkInsertCycles(cycles: Cycle[], storeCheckpoints: boolea
     // Execute the single query for all cycles
     await db.run(cycleDatabase, sql, values)
 
-    if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
-      await bulkUpdateCheckpointStatusField(CheckpointStatusType.CYCLE, true, undefined, undefined, cycles.map((cycle) => cycle.counter))
+    if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+      const cyclesToUpdate = cycles.map((cycle) => cycle.counter)
+      await bulkUpdateCheckpointStatusField(CheckpointStatusType.CYCLE, true, undefined, undefined, cyclesToUpdate)
+      await bulkUpdateCheckpointStatusField(CheckpointStatusType.RECEIPT, true, undefined, undefined, cyclesToUpdate)
+      await bulkUpdateCheckpointStatusField(CheckpointStatusType.ORIGINAL_TX, true, undefined, undefined, cyclesToUpdate)
     }
 
     if (config.VERBOSE) {
