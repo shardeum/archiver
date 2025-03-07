@@ -6,7 +6,7 @@ import { config } from '../Config'
 import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
 import { OriginalTxCheckpointData, calculateBucketID, originalTxCheckpointManager } from '../checkpoint/OriginalTxsData'
 import { CheckpointStatusType, bulkUpdateCheckpointStatusField } from './checkpointStatus'
-
+import * as State from '../State'
 export interface OriginalTxData {
   txId: string
   timestamp: number
@@ -56,7 +56,7 @@ export async function insertOriginalTxData(originalTxData: OriginalTxData, store
     // Execute the query directly (single-row insert)
     await db.run(originalTxDataDatabase, sql, values)
 
-    if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+    if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
       await bulkUpdateCheckpointStatusField(CheckpointStatusType.ORIGINAL_TX, true, undefined, undefined, [originalTxData.cycle])
     }
 
@@ -102,8 +102,9 @@ export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[
     // Execute the single query for all originalTxsData
     await db.run(originalTxDataDatabase, sql, values);
 
-    if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
-      await bulkUpdateCheckpointStatusField(CheckpointStatusType.ORIGINAL_TX, true, undefined, undefined, originalTxsData.map((tx) => tx.cycle))
+    if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+      const originalTxsDataToUpdate = originalTxsData.map((tx) => tx.cycle)
+      await bulkUpdateCheckpointStatusField(CheckpointStatusType.ORIGINAL_TX, State.isSyncing, undefined, undefined, originalTxsDataToUpdate)
     }
 
     if (config.VERBOSE) {
