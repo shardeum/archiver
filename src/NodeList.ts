@@ -21,6 +21,7 @@ export interface ConsensusNodeInfo {
   id?: string
   externalIp?: string
   externalPort?: number
+  foundationNode?: boolean
 }
 
 export interface ConsensusNodeListResponse {

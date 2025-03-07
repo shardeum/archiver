@@ -256,6 +256,7 @@ function updateNodeList(cycle: P2PTypes.CycleCreatorTypes.CycleData): void {
     port: jc.externalPort,
     publicKey: jc.publicKey,
     id: jc.id,
+    ...(jc.foundationNode !== undefined && { foundationNode: jc.foundationNode }),
   }))
 
   const refreshedConsensorInfos = refreshedConsensors.map((jc) => ({
@@ -267,7 +268,7 @@ function updateNodeList(cycle: P2PTypes.CycleCreatorTypes.CycleData): void {
 
   NodeList.addNodes(NodeList.NodeStatus.SYNCING, consensorInfos)
 
-  NodeList.setStatus(NodeList.NodeStatus.ACTIVE, activatedPublicKeys)
+  NodeList.setStatus(NodeList.NodeStatus.ACTIVE, activatedPublicKeys);
 
   NodeList.refreshNodes(NodeList.NodeStatus.ACTIVE, refreshedConsensorInfos)
 

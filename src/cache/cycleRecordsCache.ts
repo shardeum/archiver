@@ -4,7 +4,7 @@ import { queryLatestCycleRecords } from '../dbstore/cycles'
 import * as Crypto from '../Crypto'
 import { ArchiverCycleResponse } from '../Data/Cycles'
 
-let cachedCycleRecords: P2P.CycleCreatorTypes.CycleData[] = []
+export let cachedCycleRecords: P2P.CycleCreatorTypes.CycleData[] = []
 const signedCacheCycleRecords: Map<number, ArchiverCycleResponse> = new Map()
 let lastCacheUpdateFromDBRunning = false
 
