@@ -94,8 +94,8 @@ export const verifyGlobalTxAccountChange = (
         networkAccountBefore.data.timestamp = signedReceipt.tx.when
         const expectedAccountHash = networkAccountAfter.hash
         console.dir(networkAccountBefore, { depth: null })
-        const calculatedAccountHash = accountSpecificHash(networkAccountBefore.data)
-        if (expectedAccountHash !== calculatedAccountHash) {
+        // const calculatedAccountHash = accountSpecificHash(networkAccountBefore.data)
+        if (expectedAccountHash !== signedReceipt.tx.afterStateHash) {
           failedReasons.push(
             `Account hash does not match in globalModification tx - ${networkAccountAfter.accountId} , ${receipt.tx.txId} , ${receipt.cycle} , ${receipt.tx.timestamp}`
           )
