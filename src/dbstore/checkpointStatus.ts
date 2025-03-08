@@ -99,11 +99,33 @@ export async function updateCheckpointStatusField(
       ; (newStatus as Record<string, any>)[fieldToUpdate] = value
 
     // Calculate the unified status
-    newStatus.unifiedStatus = newStatus.cycleStatus && newStatus.receiptStatus && newStatus.originalTxStatus
-
-    // Use the existing upsert function to save the changes
-    await upsertCheckpointStatus(newStatus)
-
+    if (currentStatus) {
+      let sql = `UPDATE checkpoint_status SET ${fieldToUpdate} = ? WHERE cycle = ?`
+      await db.run(checkpointStatusDatabase, sql, [
+        value,
+        newStatus.cycle,
+      ])
+      const status = await getCheckpointStatus(newStatus.cycle)
+      sql = `UPDATE checkpoint_status SET unifiedStatus = ? WHERE cycle = ?`
+      await db.run(checkpointStatusDatabase, sql, [
+        status?.cycleStatus && status?.receiptStatus && status?.originalTxStatus,
+        newStatus.cycle,
+      ])
+    } else {
+      const sql = `
+      INSERT INTO checkpoint_status 
+      (cycle, unifiedStatus, cycleStatus, receiptStatus, originalTxStatus, created_at) 
+      VALUES (?, ?, ?, ?, ?, ?)
+    `
+      await db.run(checkpointStatusDatabase, sql, [
+        newStatus.cycle,
+        newStatus.unifiedStatus,
+        newStatus.cycleStatus,
+        newStatus.receiptStatus,
+        newStatus.originalTxStatus,
+        newStatus.created_at,
+      ])
+    }
     if (config.VERBOSE) {
       Logger.mainLogger.debug(`Updated checkpoint status for cycle ${cycle}, ${statusField} to ${value}`)
     }
