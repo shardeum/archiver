@@ -354,10 +354,7 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
   }
 }
 
-export function collectCycleData(
-  cycleData: any[],
-  senderInfo: string
-): void {
+export function collectCycleData(cycleData: P2PTypes.CycleCreatorTypes.CycleData[], senderInfo: string): void {
   // check if the sender is in the nodelists
   if (NodeList.activeListByIdSorted.length > 0) {
     const [ip, port] = senderInfo.split(':')
