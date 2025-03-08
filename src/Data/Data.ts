@@ -140,6 +140,8 @@ interface JoinStatus {
   isJoined: boolean
 }
 
+export type subscriptionCycleData = Omit<P2PTypes.CycleCreatorTypes.CycleData, 'certificate'> & { certificates: P2PTypes.CycleCreatorTypes.CycleCert[]}
+
 export function createDataRequest<T extends P2PTypes.SnapshotTypes.ValidTypes>(
   type: P2PTypes.SnapshotTypes.TypeName<T>,
   lastData: P2PTypes.SnapshotTypes.TypeIndex<T>,
@@ -287,7 +289,7 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
           )
         }
         if (newData.responses && newData.responses.CYCLE) {
-          collectCycleData(newData.responses.CYCLE, sender.nodeInfo.ip + ':' + sender.nodeInfo.port)
+          collectCycleData(newData.responses.CYCLE, sender.nodeInfo.ip + ':' + sender.nodeInfo.port, 'data-sender')
         }
         if (newData.responses && newData.responses.ACCOUNT) {
           if (getCurrentCycleCounter() > GENESIS_ACCOUNTS_CYCLE_RANGE.endCycle) {
@@ -354,7 +356,11 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
   }
 }
 
-export function collectCycleData(cycleData: P2PTypes.CycleCreatorTypes.CycleData[], senderInfo: string): void {
+export function collectCycleData(
+  cycleData: subscriptionCycleData[] | P2PTypes.CycleCreatorTypes.CycleData[],
+  senderInfo: string,
+  source: string
+): void {
   // check if the sender is in the nodelists
   if (NodeList.activeListByIdSorted.length > 0) {
     const [ip, port] = senderInfo.split(':')
@@ -367,16 +373,24 @@ export function collectCycleData(cycleData: P2PTypes.CycleCreatorTypes.CycleData
     if (receivedCycleTracker[cycle.counter]?.saved === true)
       break
 
+    // since we can trust archivers and archiver only gossip after they have verified the cycleData
+    // we can just call processCycles here
+    if (source === 'archiver') {
+      processCycles([cycle as P2PTypes.CycleCreatorTypes.CycleData])
+      continue
+    }
+
+    let receivedCertSigners = []
     if (NodeList.activeListByIdSorted.length > 0) {
       const certSigners = receivedCycleTracker[cycle.counter]?.[cycle.marker]?.['certSigners'] ?? new Set();
       // need to get the hash(marker) of the cycle as it was in q3/q4 when the certs were made and compared
-      const cycleCopy = getRecordWithoutChanges(cycle)
-      const validateCertsResult = validateCerts(cycle.certificates, certSigners, Cycles.computeCycleMarker(cycleCopy))
+      const cycleCopy = getRecordWithoutPostQ3Changes(cycle)
+      const validateCertsResult = validateCerts((cycle as subscriptionCycleData).certificates, certSigners, Cycles.computeCycleMarker(cycleCopy))
       if (validateCertsResult === false) break
     }
 
-    const receivedCertSigners = cycle.certificates.map(cert => cert.sign.owner)
-    delete cycle.certificates
+    receivedCertSigners = (cycle as subscriptionCycleData).certificates.map(cert => cert.sign.owner)
+    delete (cycle as subscriptionCycleData).certificates
 
     if (receivedCycleTracker[cycle.counter]) {
       if (receivedCycleTracker[cycle.counter][cycle.marker]) {
@@ -452,10 +466,8 @@ export function collectCycleData(cycleData: P2PTypes.CycleCreatorTypes.CycleData
           .map(([, value]) => value);
 
         // If there is more than one marker for this cycle, output the cycle log
-        // eslint-disable-next-line security/detect-object-injection
         if (markers.length > 1) logCycle = true
 
-        // eslint-disable-next-line security/detect-object-injection
         for (const marker of markers) {
           Logger.mainLogger.debug(
             'Cycle',
@@ -464,9 +476,7 @@ export function collectCycleData(cycleData: P2PTypes.CycleCreatorTypes.CycleData
             /* eslint-disable security/detect-object-injection */
             logCycle ? StringUtils.safeStringify([...receivedCycleTracker[counter][marker]['certSigners']]) : '',
             logCycle ? receivedCycleTracker[counter][marker] : ''
-            /* eslint-enable security/detect-object-injection */
           )
-          // eslint-disable-next-line security/detect-object-injection
         }
         if (logCycle) Logger.mainLogger.debug(`Cycle ${counter} has ${markers.length} different markers!`)
         Logger.mainLogger.debug(`Received ${totalTimes} times for cycle counter ${counter}`)
@@ -777,10 +787,10 @@ export async function subscribeNodeFromThisSubset(nodeList: NodeList.ConsensusNo
   }
   if (subscribedNodesFromThisSubset.length > numberOfNodesToSubsribe) {
     // If there is more than one subscribed node from this subset, unsubscribe the extra ones
-    // for (const publicKey of subscribedNodesFromThisSubset.splice(numberOfNodesToSubsribe)) {
-    //   Logger.mainLogger.debug('Unsubscribing extra node from this subset', publicKey)
-    //   unsubscribeDataSender(publicKey)
-    // }
+    for (const publicKey of subscribedNodesFromThisSubset.splice(numberOfNodesToSubsribe)) {
+      Logger.mainLogger.debug('Unsubscribing extra node from this subset', publicKey)
+      unsubscribeDataSender(publicKey)
+    }
   }
   if (config.VERBOSE)
     Logger.mainLogger.debug('Subscribed nodes from this subset', subscribedNodesFromThisSubset)
@@ -2266,17 +2276,19 @@ async function downloadOldCycles(
   }
 }
 
+// We want to check that all of the provided certs are actually valid. This means we need to check that
+// they all have the same marker, and that that marker is the same as the one of the original record.
+// We also want all of the signer to actually be active node. And of course, the certs must pass sign
+// verification. If we have already verified a cert in the past, we can skip it. It is possble for a 
+// malicious node to use valid certs from a honest record to get this function to return true. However,
+// it will also have to make sure the inpMarker is the same as the markers as it is in the certs. If it
+// does this, then the validateCycleData() function that gets called later will fail
 function validateCerts(certs: P2PTypes.CycleCreatorTypes.CycleCert[], certSigners: Set<string>, inpMarker: string) {
-  //console.log('inside validateCerts')
-  //console.log('certs:', certs)
-  // look into sign malleability
   for (const cert of certs) {
-    if (certSigners.has(cert.sign.owner)) continue
     const cleanCert: P2PTypes.CycleCreatorTypes.CycleCert = {
       marker: cert.marker,
       sign: cert.sign,
     }
-    // this has to be disabled until nodelist hashes are set in Q3 in core
     if (cleanCert.marker !== inpMarker) {
       Logger.mainLogger.warn('validateCerts: cleanCert.marker did not match inpMarker')
       return false
@@ -2285,6 +2297,7 @@ function validateCerts(certs: P2PTypes.CycleCreatorTypes.CycleCert[], certSigner
       Logger.mainLogger.warn('validateCerts: bad owner')
       return false
     }
+    if (certSigners.has(cert.sign.owner)) continue
     if (!Crypto.verify(cleanCert)) {
       Logger.mainLogger.warn('validateCerts: bad sig')
       return false
@@ -2315,7 +2328,12 @@ export function scoreCert(pubKey: string, prevMarker: P2PTypes.CycleCreatorTypes
   }
 }
 
-function getRecordWithoutChanges(cycle: P2PTypes.CycleCreatorTypes.CycleRecord) {
+// this function is needed since the cycle record is changed after Q3/Q4. Thus, the cycle certs will contain
+// the marker of the cycle as it existed in Q3/Q4. However, the cycle that we ceived at the start of the
+// function has been changed, so its marker has also been changed. If we try to check this new mark against
+// the markers inside the certs, the validation will obviously fail. So we want to revert those changes on a
+// deep copy so that we can get the original record
+function getRecordWithoutPostQ3Changes(cycle: P2PTypes.CycleCreatorTypes.CycleRecord) {
   const cycleCopy = StringUtils.safeJsonParse(StringUtils.safeStringify(cycle))
   delete cycleCopy.marker
   delete cycleCopy.certificates

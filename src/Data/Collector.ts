@@ -1382,7 +1382,8 @@ export const processGossipData = (gossipdata: GossipData): void => {
   if (dataType === DataType.CYCLE) {
     collectCycleData(
       data as P2PTypes.CycleCreatorTypes.CycleData[],
-      senderArchiver?.ip + ':' + senderArchiver?.port
+      senderArchiver?.ip + ':' + senderArchiver?.port,
+      'archiver'
     )
   }
 }
