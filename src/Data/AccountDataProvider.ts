@@ -13,7 +13,7 @@ interface WrappedData {
   accountId: string
   /** hash of the data blob */
   stateId: string
-  /** data blob opaqe */
+  /** data blob opaque */
   data: unknown
   /** Timestamp */
   timestamp: number
@@ -177,7 +177,7 @@ export const validateGlobalAccountReportRequest = (
 }
 /**
  *
- * This function is contructed to provide data in similar way as the `getAccountDataByRangeSmart` function in the validator
+ * This function is constructed to provide data in similar way as the `getAccountDataByRangeSmart` function in the validator
  * @param payload
  * @returns GetAccountDataByRangeSmart
  */
