@@ -14,3 +14,5 @@ GET `/is-healthy` currently the same as `/is-alive` but will be expanded.
 ## Contributing
 
 Contributions are very welcome! Everyone interacting in our codebases, issue trackers, and any other form of communication, including chat rooms and mailing lists, is expected to follow our [code of conduct](./CODE_OF_CONDUCT.md) so we can all enjoy the effort we put into this project.
+
+enjoy
