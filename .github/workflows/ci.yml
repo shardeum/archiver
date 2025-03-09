@@ -12,7 +12,7 @@ on:
     branches:
       - dev
       - main
-      - mainnet-*
+      - mainnet-launch
   issue_comment:
     inputs:
       workflowBranch:
