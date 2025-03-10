@@ -464,18 +464,41 @@ export async function getCheckpointSyncRange(): Promise<{ minCycle: number; maxC
   }
 }
 
-export async function isBucketVerified(bucketID: number): Promise<boolean> {
-  const sql = `
-    SELECT unifiedStatus
-    FROM checkpoint_status
-    WHERE cycle = ?
-    `
-
-  const result = await db.get(checkpointStatusDatabase, sql, [bucketID])
-
-  if (!result) {
-    return false
+export async function isBucketVerified(bucketID: number, endBucketID?: number): Promise<boolean> {
+  if (endBucketID !== undefined && endBucketID < bucketID) {
+    return false // Invalid range
   }
 
-  return true
+  if (endBucketID !== undefined) {
+    // Check a range of buckets
+    const sql = `
+      SELECT cycle, unifiedStatus
+      FROM checkpoint_status
+      WHERE cycle >= ? AND cycle <= ?
+    `
+
+    const results = await db.all(checkpointStatusDatabase, sql, [bucketID, endBucketID])
+
+    // If no results or fewer results than expected, return false
+    if (!results || results.length === 0 || results.length < (endBucketID - bucketID + 1)) {
+      return false
+    }
+
+    // Check if all buckets in the range have unifiedStatus = true/1
+    return results.every((row: any) => row.unifiedStatus === true || row.unifiedStatus === 1)
+  } else {
+    // Check a single bucket
+    const sql = `
+      SELECT unifiedStatus
+      FROM checkpoint_status
+      WHERE cycle = ?
+    `
+    const result = await db.get(checkpointStatusDatabase, sql, [bucketID]) as { unifiedStatus: number | boolean }
+
+    if (!result) {
+      return false
+    }
+
+    return result.unifiedStatus === true || result.unifiedStatus === 1
+  }
 }
