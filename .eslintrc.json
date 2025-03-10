@@ -4,13 +4,13 @@
   "env": {
     "node": true
   },
-  "plugins": ["@typescript-eslint", "security", "xss"],
+  "plugins": ["@typescript-eslint", "security", "xss", "no-unsanitized"],
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/eslint-recommended",
     "plugin:@typescript-eslint/recommended",
     "plugin:security/recommended",
-    "plugin:no-unsanitized/DOM",
+    "plugin:no-unsanitized/recommended-legacy",
     "prettier"
   ],
   "ignorePatterns": [

@@ -13,6 +13,9 @@ module.exports = {
         tsconfig: "test/tsconfig.json"
       }]
     },
+    transformIgnorePatterns: [
+      "node_modules/(?!(ethereumjs-util|@ethereumjs|ethereum-cryptography)/.*)"
+    ],
     moduleDirectories: ["node_modules", "src"],
     globals: {
       'ts-jest': {
