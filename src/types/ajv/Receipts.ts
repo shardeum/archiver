@@ -15,7 +15,8 @@ const schemaProposal = {
         beforeStateHashes: { type: 'array', items: { type: 'string' } },
         afterStateHashes: { type: 'array', items: { type: 'string' } },
         appReceiptDataHash: { type: 'string' },
-        txid: { type: 'string' }
+        txid: { type: 'string' },
+        executionShardKey : { type: 'string' }
     },
     required: ['applied', 'cant_preApply', 'accountIDs', 'beforeStateHashes', 'afterStateHashes', 'appReceiptDataHash', 'txid'],
     additionalProperties: false
@@ -65,9 +66,10 @@ const schemaGlobalTxReceipt = {
                 addressHash: { type: 'string' },
                 value: {},
                 when: { type: 'integer' },
-                source: { type: 'string' }
+                source: { type: 'string' },
+                txId: { type: 'string' }
             },
-            required: ['address', 'addressHash', 'value', 'when', 'source'],
+            required: ['address', 'addressHash', 'value', 'when', 'source', 'txId'],
             additionalProperties: false
         },
         txGroupCycle: { type: 'integer', minimum: 0 }
@@ -88,15 +90,19 @@ const schemaAppReceiptData = {
 };
 
 const schemaTx = {
-    type: 'object',
-    properties: {
-        originalTxData: { type: 'object', additionalProperties: true },
-        txId: { type: 'string' },
-        timestamp: { type: 'integer', minimum: 0 }
+  type: 'object',
+  properties: {
+    originalTxData: {
+      type: 'object',
+      items: { $ref: AJVSchemaEnum.OriginalTxData }, // receipt is now coupled with OriginalTxData during validation
+      additionalProperties: true, // TODO[1892] : should we remove or set this to false or leave it as it is
     },
-    required: ['originalTxData', 'txId', 'timestamp'],
-    additionalProperties: false
-};
+    txId: { type: 'string' },
+    timestamp: { type: 'integer', minimum: 0 },
+  },
+  required: ['originalTxData', 'txId', 'timestamp'],
+  additionalProperties: false,
+}
 
 // Define the main ArchiverReceipt schema
 const schemaArchiverReceipt = {
@@ -108,10 +114,9 @@ const schemaArchiverReceipt = {
         afterStates: { type: 'array', items: { $ref: AJVSchemaEnum.AccountsCopy } }, // Using imported schema
         beforeStates: { type: 'array', items: { $ref: AJVSchemaEnum.AccountsCopy } }, // Using imported schema
         appReceiptData: schemaAppReceiptData,
-        executionShardKey: { type: 'string' },
         globalModification: { type: 'boolean' }
     },
-    required: ['tx', 'cycle', 'signedReceipt', 'appReceiptData', 'executionShardKey', 'globalModification'],
+    required: ['tx', 'cycle', 'signedReceipt', 'appReceiptData', 'globalModification'],
     additionalProperties: false
 };
 

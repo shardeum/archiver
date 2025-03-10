@@ -251,7 +251,6 @@ describe('verifyGlobalTxAccountChange', () => {
         stateId: '344fd275ba5fa8460a8164168725bd61f2b27dbf7f0a6e38434b3e9f35f39258',
         timestamp: 1730101530472,
       },
-      executionShardKey: 'fromacc',
       globalModification: true,
     }
     failedReasons = []

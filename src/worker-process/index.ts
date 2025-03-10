@@ -29,7 +29,8 @@ export const initWorkerProcess = async (): Promise<void> => {
         }
         try {
           // console.log(`Worker process ${process.pid} is verifying receipt`, receipt.tx.txId, receipt.tx.timestamp)
-          verificationResult = await verifyArchiverReceipt(receipt, data.requiredSignatures)
+          // this code is not being used anymore, worker threads need to be enabled. Ignore for now.
+          verificationResult = await verifyArchiverReceipt(receipt)
         } catch (error) {
           console.error(`Error in Worker ${process.pid} while verifying receipt`, error)
           verificationResult.failedReasons.push('Error in Worker while verifying receipt')
