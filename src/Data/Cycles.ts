@@ -15,6 +15,7 @@ import {
   nodesPerConsensusGroup,
   nodesPerEdge,
   subscribeConsensorsByConsensusRadius,
+  subscriptionCycleData,
   unsubscribeDataSender,
 } from './Data'
 import * as Utils from '../Utils'
@@ -162,7 +163,7 @@ export function validateCycle(
   return next.previous === prevMarker
 }
 
-export const validateCycleData = (cycleRecord: P2PTypes.CycleCreatorTypes.CycleData): boolean => {
+export const validateCycleData = (cycleRecord: P2PTypes.CycleCreatorTypes.CycleData | subscriptionCycleData): boolean => {
   const err = Utils.validateTypes(cycleRecord, {
     activated: 'a',
     activatedPublicKeys: 'a',
@@ -256,6 +257,7 @@ function updateNodeList(cycle: P2PTypes.CycleCreatorTypes.CycleData): void {
     port: jc.externalPort,
     publicKey: jc.publicKey,
     id: jc.id,
+    ...(jc.foundationNode !== undefined && { foundationNode: jc.foundationNode }),
   }))
 
   const refreshedConsensorInfos = refreshedConsensors.map((jc) => ({

@@ -41,6 +41,8 @@ import { AccountsCopy } from '../dbstore/accounts'
 import { getJson } from '../P2P'
 import { robustQuery } from '../Utils'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { cachedCycleRecords } from '../cache/cycleRecordsCache'
+import { XOR } from '../utils/general'
 
 export const socketClients: Map<string, SocketIOClientStatic['Socket']> = new Map()
 export let combineAccountsData = {
@@ -137,6 +139,8 @@ interface IncomingTimes {
 interface JoinStatus {
   isJoined: boolean
 }
+
+export type subscriptionCycleData = Omit<P2PTypes.CycleCreatorTypes.CycleData, 'certificate'> & { certificates: P2PTypes.CycleCreatorTypes.CycleCert[]}
 
 export function createDataRequest<T extends P2PTypes.SnapshotTypes.ValidTypes>(
   type: P2PTypes.SnapshotTypes.TypeName<T>,
@@ -285,7 +289,7 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
           )
         }
         if (newData.responses && newData.responses.CYCLE) {
-          collectCycleData(newData.responses.CYCLE, sender.nodeInfo.ip + ':' + sender.nodeInfo.port)
+          collectCycleData(newData.responses.CYCLE, sender.nodeInfo.ip + ':' + sender.nodeInfo.port, 'data-sender')
         }
         if (newData.responses && newData.responses.ACCOUNT) {
           if (getCurrentCycleCounter() > GENESIS_ACCOUNTS_CYCLE_RANGE.endCycle) {
@@ -353,104 +357,128 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
 }
 
 export function collectCycleData(
-  cycleData: P2PTypes.CycleCreatorTypes.CycleData[],
-  senderInfo: string
+  cycleData: subscriptionCycleData[] | P2PTypes.CycleCreatorTypes.CycleData[],
+  senderInfo: string,
+  source: string
 ): void {
-  for (const cycle of cycleData) {
-    // Logger.mainLogger.debug('Cycle received', cycle.counter, senderInfo)
-    let cycleToSave = []
+  // check if the sender is in the nodelists
+  if (NodeList.activeListByIdSorted.length > 0) {
+    const [ip, port] = senderInfo.split(':')
+    const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
+    const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
+    if (!isInActiveNodes && !isInActiveArchivers) return
+  }
 
-    if (NodeList.activeListByIdSorted.length > 0) {
-      const [ip, port] = senderInfo.split(':')
-      const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
-      const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
-      if (!isInActiveNodes && !isInActiveArchivers) break
+  for (const cycle of cycleData) {
+    if (receivedCycleTracker[cycle.counter]?.saved === true)
+      break
+
+    // since we can trust archivers and archiver only gossip after they have verified the cycleData
+    // we can just call processCycles here
+    if (source === 'archiver') {
+      processCycles([cycle as P2PTypes.CycleCreatorTypes.CycleData])
+      continue
     }
+
+    let receivedCertSigners = []
+    if (NodeList.activeListByIdSorted.length > 0) {
+      const certSigners = receivedCycleTracker[cycle.counter]?.[cycle.marker]?.['certSigners'] ?? new Set();
+      // need to get the hash(marker) of the cycle as it was in q3/q4 when the certs were made and compared
+      const cycleCopy = getRecordWithoutPostQ3Changes(cycle)
+      const validateCertsResult = validateCerts((cycle as subscriptionCycleData).certificates, certSigners, Cycles.computeCycleMarker(cycleCopy))
+      if (validateCertsResult === false) break
+    }
+
+    receivedCertSigners = (cycle as subscriptionCycleData).certificates.map(cert => cert.sign.owner)
+    delete (cycle as subscriptionCycleData).certificates
 
     if (receivedCycleTracker[cycle.counter]) {
       if (receivedCycleTracker[cycle.counter][cycle.marker]) {
-        if (!receivedCycleTracker[cycle.counter][cycle.marker]['senderNodes'].includes(senderInfo)) {
-          receivedCycleTracker[cycle.counter][cycle.marker]['receivedTimes']++
-          receivedCycleTracker[cycle.counter][cycle.marker]['senderNodes'].push(senderInfo)
-        }
+        for (const signer of receivedCertSigners)
+          receivedCycleTracker[cycle.counter][cycle.marker]['certSigners'].add(signer)
       } else {
         if (!validateCycleData(cycle)) continue
         receivedCycleTracker[cycle.counter][cycle.marker] = {
           cycleInfo: cycle,
-          receivedTimes: 1,
-          saved: false,
-          senderNodes: [senderInfo],
+          certSigners: new Set(receivedCertSigners)
         }
         if (config.VERBOSE) Logger.mainLogger.debug('Different Cycle Record received', cycle.counter)
       }
+      receivedCycleTracker[cycle.counter]['received']++
     } else {
       if (!validateCycleData(cycle)) continue
       receivedCycleTracker[cycle.counter] = {
         [cycle.marker]: {
           cycleInfo: cycle,
-          receivedTimes: 1,
-          saved: false,
-          senderNodes: [senderInfo],
+          certSigners: new Set(receivedCertSigners),
         },
+        received: 1,
+        saved: false,
       }
     }
     if (config.VERBOSE)
       Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
     
-    let minCycleConfirmations =
-      Math.min(Math.ceil(NodeList.getActiveNodeCount() / currentConsensusRadius), 5) ||
-      (cycle.counter <= 15 ? 1 : 3);
-
-    // we can boost confirmation, but only if we are capped at 5 already:
-    if (minCycleConfirmations === 5 && config.minCycleConfirmationsToSave > 5) {
-      minCycleConfirmations = config.minCycleConfirmationsToSave
+    if (NodeList.activeListByIdSorted.length === 0) {
+      processCycles([receivedCycleTracker[cycle.counter][cycle.marker].cycleInfo])
+      continue
     }
 
-    for (const value of Object.values(receivedCycleTracker[cycle.counter])) {
-      if (value['saved']) {
-        // If there is a saved cycle, clear the cycleToSave of this counter; This is to prevent saving the another cycle of the same counter
-        for (let i = 0; i < cycleToSave.length; i++) {
-          // eslint-disable-next-line security/detect-object-injection
-          receivedCycleTracker[cycle.counter][cycleToSave[i].marker]['saved'] = false
+    const requiredSenders = dataSenders.size ? Math.ceil(dataSenders.size/2) : 1
+
+    if (receivedCycleTracker[cycle.counter]['received'] >= requiredSenders) {
+      let bestScore = 0
+      let bestMarker = ''
+
+      const prevMarker = cachedCycleRecords[0].marker
+
+      // find the marker with largest sum of its top 3 cert scores
+      const markers = Object.entries(receivedCycleTracker[cycle.counter])
+        .filter(([key]) => key !== 'saved' && key !== 'received')
+        .map(([, value]) => value);
+    
+      for (const marker of markers) {
+        const scores = []
+        for (const signer of marker['certSigners']) {
+          scores.push(scoreCert(signer as string, prevMarker))
         }
-        cycleToSave = []
-        break
+        // get sum of top 3 scores: sort scores in desc order, then slice off first 3 elements, and add them
+        const sum = scores.sort((a, b) => b - a).slice(0, 3).reduce((sum, score) => sum += score, 0)
+        if (sum > bestScore) {
+          bestScore = sum
+          bestMarker = marker['cycleInfo'].marker
+        }
       }
-      if (value['receivedTimes'] >= minCycleConfirmations) {
-        cycleToSave.push(receivedCycleTracker[cycle.counter][cycle.marker].cycleInfo)
-        value['saved'] = true
-      }
-    }
 
-    if (cycleToSave.length > 0) {
-      processCycles(cycleToSave)
+      processCycles([receivedCycleTracker[cycle.counter][bestMarker].cycleInfo])
+      receivedCycleTracker[cycle.counter]['saved'] = true
     }
   }
   if (Object.keys(receivedCycleTracker).length > maxCyclesInCycleTracker) {
     for (const counter of Object.keys(receivedCycleTracker)) {
       // Clear cycles that are older than last maxCyclesInCycleTracker cycles
       if (parseInt(counter) < getCurrentCycleCounter() - maxCyclesInCycleTracker) {
-        let totalTimes = 0
+        let totalTimes = receivedCycleTracker[counter]['received']
         let logCycle = false
+
+        const markers = Object.entries(receivedCycleTracker[counter])
+          .filter(([key]) => key !== 'saved' && key !== 'received')
+          .map(([, value]) => value);
+
         // If there is more than one marker for this cycle, output the cycle log
-        // eslint-disable-next-line security/detect-object-injection
-        if (Object.keys(receivedCycleTracker[counter]).length > 1) logCycle = true
-        // eslint-disable-next-line security/detect-object-injection
-        for (const key of Object.keys(receivedCycleTracker[counter])) {
+        if (markers.length > 1) logCycle = true
+
+        for (const marker of markers) {
           Logger.mainLogger.debug(
             'Cycle',
             counter,
-            key, // marker
+            marker,
             /* eslint-disable security/detect-object-injection */
-            receivedCycleTracker[counter][key]['receivedTimes'],
-            logCycle ? StringUtils.safeStringify(receivedCycleTracker[counter][key]['senderNodes']) : '',
-            logCycle ? receivedCycleTracker[counter][key] : ''
-            /* eslint-enable security/detect-object-injection */
+            logCycle ? StringUtils.safeStringify([...receivedCycleTracker[counter][marker]['certSigners']]) : '',
+            logCycle ? receivedCycleTracker[counter][marker] : ''
           )
-          // eslint-disable-next-line security/detect-object-injection
-          totalTimes += receivedCycleTracker[counter][key]['receivedTimes']
         }
-        if (logCycle) Logger.mainLogger.debug(`Cycle ${counter} has different markers!`)
+        if (logCycle) Logger.mainLogger.debug(`Cycle ${counter} has ${markers.length} different markers!`)
         Logger.mainLogger.debug(`Received ${totalTimes} times for cycle counter ${counter}`)
         // eslint-disable-next-line security/detect-object-injection
         delete receivedCycleTracker[counter]
@@ -2246,4 +2274,72 @@ async function downloadOldCycles(
     await storeCycleData(combineCycles)
     endCycle = startCycle - 1
   }
+}
+
+// We want to check that all of the provided certs are actually valid. This means we need to check that
+// they all have the same marker, and that that marker is the same as the one of the original record.
+// We also want all of the signer to actually be active node. And of course, the certs must pass sign
+// verification. If we have already verified a cert in the past, we can skip it. It is possble for a 
+// malicious node to use valid certs from a honest record to get this function to return true. However,
+// it will also have to make sure the inpMarker is the same as the markers as it is in the certs. If it
+// does this, then the validateCycleData() function that gets called later will fail
+function validateCerts(certs: P2PTypes.CycleCreatorTypes.CycleCert[], certSigners: Set<string>, inpMarker: string) {
+  for (const cert of certs) {
+    const cleanCert: P2PTypes.CycleCreatorTypes.CycleCert = {
+      marker: cert.marker,
+      sign: cert.sign,
+    }
+    if (cleanCert.marker !== inpMarker) {
+      Logger.mainLogger.warn('validateCerts: cleanCert.marker did not match inpMarker')
+      return false
+    }
+    if (NodeList.activeListByIdSorted.some(node => node.publicKey === cleanCert.sign.owner) === false) {
+      Logger.mainLogger.warn('validateCerts: bad owner')
+      return false
+    }
+    if (certSigners.has(cert.sign.owner)) continue
+    if (!Crypto.verify(cleanCert)) {
+      Logger.mainLogger.warn('validateCerts: bad sig')
+      return false
+    }
+  }
+  return true
+}
+
+export function scoreCert(pubKey: string, prevMarker: P2PTypes.CycleCreatorTypes.CycleMarker): number {
+  try {
+    const node = NodeList.byPublicKey.get(pubKey)
+    const id = node.id // get node id from cert pub key
+    const obj = { id }
+    const hid = Crypto.hashObj(obj) // Omar - use hash of id so the cert is not made by nodes that are near based on node id
+
+    const out = XOR(prevMarker, hid)
+
+    // will also nerf if foundationNode is undefined, which is will be for already active nodes when we
+    // first turn on the addFoundationNodeAttribute flag under the current implementation
+    if (config.nerfNonFoundationCertScores && !node.foundationNode) {
+      return out & 0x0FFFFFFF
+    }
+
+    return out
+  } catch (err) {
+    Logger.mainLogger.error('scoreCert ERR:', err)
+    return 0
+  }
+}
+
+// this function is needed since the cycle record is changed after Q3/Q4. Thus, the cycle certs will contain
+// the marker of the cycle as it existed in Q3/Q4. However, the cycle that we ceived at the start of the
+// function has been changed, so its marker has also been changed. If we try to check this new mark against
+// the markers inside the certs, the validation will obviously fail. So we want to revert those changes on a
+// deep copy so that we can get the original record
+function getRecordWithoutPostQ3Changes(cycle: P2PTypes.CycleCreatorTypes.CycleRecord) {
+  const cycleCopy = StringUtils.safeJsonParse(StringUtils.safeStringify(cycle))
+  delete cycleCopy.marker
+  delete cycleCopy.certificates
+  cycleCopy.nodeListHash = ''
+  cycleCopy.archiverListHash = ''
+  cycleCopy.standbyNodeListHash = ''
+  cycleCopy.joinedConsensors.forEach((jc) => jc.syncingTimestamp = 0)
+  return cycleCopy
 }
