@@ -660,7 +660,7 @@ async function syncFromNetworkConfig(): Promise<any> {
   }
 }
 
-async function getConsensusRadius(): Promise<number> {
+export async function getConsensusRadius(): Promise<number> {
   // If there is no node, return existing currentConsensusRadius
   if (NodeList.isEmpty()) return currentConsensusRadius
 

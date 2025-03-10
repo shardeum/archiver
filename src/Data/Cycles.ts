@@ -12,6 +12,7 @@ import * as ServiceQueue from '../ServiceQueue'
 import {
   clearDataSenders,
   dataSenders,
+  getConsensusRadius,
   nodesPerConsensusGroup,
   nodesPerEdge,
   subscribeConsensorsByConsensusRadius,
@@ -33,8 +34,6 @@ import { addCyclesToCache } from '../cache/cycleRecordsCache'
 import { queryLatestCycleRecords } from '../dbstore/cycles'
 import { updateGlobalNetworkAccount } from '../GlobalAccount'
 import { syncTxList } from '../sync-v2'
-import { CheckpointStatusType } from '../dbstore/checkpointStatus'
-import { bulkUpdateCheckpointStatusField } from '../dbstore/checkpointStatus'
 
 export interface ArchiverCycleResponse {
   cycleInfo: P2PTypes.CycleCreatorTypes.CycleData[]
@@ -75,6 +74,11 @@ export async function processCycles(cycles: P2PTypes.CycleCreatorTypes.CycleData
       // Update NodeList from cycle info
       updateNodeList(cycle)
       updateNetworkTxsList(cycle)
+      // Consensus radius is required for the initial data sync which was not happening earlier
+      if (State.isSyncing && nodesPerConsensusGroup < 3) {
+        if (config.VERBOSE) Logger.mainLogger.debug("processCycles: Updating consensus radius")
+        await getConsensusRadius()
+      }
       updateShardValues(cycle)
       changeNetworkMode(cycle.mode)
       getAdjacentLeftAndRightArchivers()

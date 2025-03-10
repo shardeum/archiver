@@ -340,7 +340,12 @@ async function syncAndStartServer(): Promise<void> {
               10000 // 10 seconds
             )) as ArchiverCycleResponse
 
-            if (response && response.cycleInfo && response.cycleInfo.length > 0) {
+            if (
+              response &&
+              response.cycleInfo &&
+              response.cycleInfo.length > 0 &&
+              response.cycleInfo.length === currentEnd - currentStart + 1
+            ) {
               // Sort cycles in ascending order
               const cycles = response.cycleInfo
 
@@ -350,12 +355,12 @@ async function syncAndStartServer(): Promise<void> {
               // Update our progress
               currentStart = currentEnd
               currentEnd = Math.min(currentStart + BATCH_SIZE, endCycle)
-              success = true;
+              success = true
             } else {
               // Reduce batch size on failure
               const newBatchSize = Math.max(1, Math.floor(BATCH_SIZE / 2))
               currentEnd = Math.min(currentStart + newBatchSize, endCycle)
-              retryCount++;
+              retryCount++
             }
           } catch (error) {
             Logger.mainLogger.error(`Error patching cycles from ${currentStart} to ${currentEnd}:`, error)

@@ -1532,12 +1532,20 @@ export const queryFromArchivers = async (
   let bucketID: number | undefined;
   const params = queryParameters as any;
   let checkpointStatusType: CheckpointStatusType | undefined;
+  let bucketRange: { start: number; end: number } | undefined;
 
   // Extract bucket ID based on the request type and parameters
   switch (type) {
     case RequestDataType.CYCLE:
       // For cycle info, use start or end as bucket ID
-      if (params.start !== undefined) {
+      if (params.start !== undefined && params.end !== undefined) {
+        // If both start and end are provided, we'll check the entire range
+        bucketRange = {
+          start: params.start,
+          end: params.end
+        };
+        bucketID = params.start; // Default to start for single bucket check fallback
+      } else if (params.start !== undefined) {
         bucketID = params.start;
       } else if (params.end !== undefined) {
         bucketID = params.end;
@@ -1553,7 +1561,14 @@ export const queryFromArchivers = async (
     case RequestDataType.ACCOUNT:
     case RequestDataType.TRANSACTION:
       // For other data types, check if startCycle or endCycle is specified
-      if (params.startCycle !== undefined) {
+      if (params.startCycle !== undefined && params.endCycle !== undefined) {
+        // If both startCycle and endCycle are provided, we'll check the entire range
+        bucketRange = {
+          start: params.startCycle,
+          end: params.endCycle
+        };
+        bucketID = params.startCycle; // Default to startCycle for single bucket check fallback
+      } else if (params.startCycle !== undefined) {
         bucketID = params.startCycle;
       } else if (params.endCycle !== undefined) {
         bucketID = params.endCycle;
@@ -1592,35 +1607,84 @@ export const queryFromArchivers = async (
   const randomArchivers = Utils.getRandomItemFromArr(State.otherArchivers, 0, maxNumberofArchiversToRetry)
   let retry = 0
 
-  // If checkpoint is enabled and we have a bucket ID, try to find an archiver with verified data first
-  if (config.checkpoint.bucketConfig.allowCheckpointUpdates && bucketID !== undefined && randomArchivers.length > 0) {
-    for (const archiver of randomArchivers) {
-      if (!archiver) continue;
-      try {
-        // Check if this archiver has verified the bucket
-
-        const data = {
-          bucketID: bucketID.toString(),
-          sender: config.ARCHIVER_PUBLIC_KEY,
+  // This logic is not optimized, we should only check the bucket verification once and then use the verified archiver to get the data
+  // If checkpoint is enabled and we have a bucket range or bucket ID, try to find an archiver with verified data first
+  if (config.checkpoint.bucketConfig.allowCheckpointUpdates && randomArchivers.length > 0) {
+    if (bucketRange !== undefined) {
+      // Check verification for the entire range of buckets
+      for (const archiver of randomArchivers) {
+        if (!archiver) continue;
+        
+        let allBucketsVerified = true;
+        
+        // Check each bucket in the range
+        for (let currentBucket = bucketRange.start; currentBucket <= bucketRange.end; currentBucket++) {
+          try {
+            const verificationData = {
+              bucketID: currentBucket.toString(),
+              sender: config.ARCHIVER_PUBLIC_KEY,
+            }
+            const signedBucketVerificationDataToSend = Crypto.sign(verificationData)
+            const verificationResponse: { success?: boolean, isVerified?: boolean } = await P2P.postJson(
+              `http://${archiver.ip}:${archiver.port}/bucket-verification`,
+              signedBucketVerificationDataToSend,
+              timeoutInSecond
+            )
+            
+            if (!(verificationResponse?.success && verificationResponse?.isVerified)) {
+              allBucketsVerified = false;
+              break; // If any bucket is not verified, move to the next archiver
+            }
+          } catch (error) {
+            Logger.mainLogger.error(`Error checking bucket verification for bucket ${currentBucket} on archiver ${archiver.ip}:${archiver.port}:`, error);
+            allBucketsVerified = false;
+            break;
+          }
         }
-        const signedBucketVerificationDataToSend = Crypto.sign(data)
-        const verificationResponse: { success?: boolean, isVerified?: boolean } = await P2P.postJson(
-          `http://${archiver.ip}:${archiver.port}/bucket-verification`,
-          signedBucketVerificationDataToSend,
-          timeoutInSecond
-        )
-        const isVerifiedBucket = verificationResponse?.success && verificationResponse?.isVerified
-        if (isVerifiedBucket) {
-          // Try to get data from this archiver since it has verified data
-          const response = await P2P.postJson(
-            `http://${archiver.ip}:${archiver.port}${url}`,
-            signedDataToSend,
+        
+        if (allBucketsVerified) {
+          // All buckets in the range are verified, use this archiver
+          try {
+            const response = await P2P.postJson(
+              `http://${archiver.ip}:${archiver.port}${url}`,
+              signedDataToSend,
+              timeoutInSecond
+            )
+            if (response) return response;
+          } catch (error) {
+            Logger.mainLogger.error(`Error querying data from verified archiver ${archiver.ip}:${archiver.port}:`, error);
+          }
+        }
+      }
+    } else if (bucketID !== undefined) {
+      // Original single bucket verification logic
+      for (const archiver of randomArchivers) {
+        if (!archiver) continue;
+        try {
+          // Check if this archiver has verified the bucket
+          const data = {
+            bucketID: bucketID.toString(),
+            sender: config.ARCHIVER_PUBLIC_KEY,
+          }
+          const signedBucketVerificationDataToSend = Crypto.sign(data)
+          const verificationResponse: { success?: boolean, isVerified?: boolean } = await P2P.postJson(
+            `http://${archiver.ip}:${archiver.port}/bucket-verification`,
+            signedBucketVerificationDataToSend,
             timeoutInSecond
           )
-          if (response) return response;
+          const isVerifiedBucket = verificationResponse?.success && verificationResponse?.isVerified
+          if (isVerifiedBucket) {
+            // Try to get data from this archiver since it has verified data
+            const response = await P2P.postJson(
+              `http://${archiver.ip}:${archiver.port}${url}`,
+              signedDataToSend,
+              timeoutInSecond
+            )
+            if (response) return response;
+          }
+        } catch (error) {
+          Logger.mainLogger.error(`Error checking bucket verification for archiver ${archiver.ip}:${archiver.port}:`, error);
         }
-      } catch (error) {
-        Logger.mainLogger.error(`Error checking bucket verification for archiver ${archiver.ip}:${archiver.port}:`, error);
       }
     }
   }
