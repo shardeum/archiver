@@ -384,9 +384,9 @@ describe('verifyGlobalTxAccountChange', () => {
 
       expect(result).toBe(false)
       expect(failedReasons).toContain(
-        `No network account found in accounts ${mockReceipt.tx.txId} , ${mockReceipt.cycle} , ${mockReceipt.tx.timestamp}`
+        `Network account Before or After states not found ${mockReceipt.tx.txId} , ${mockReceipt.cycle} , ${mockReceipt.tx.timestamp}`
       )
-      expect(nestedCounterMessages).toContain('No network account found in accounts')
+      expect(nestedCounterMessages).toContain('Network account Before or After states not found')
     }
   })
   //new
