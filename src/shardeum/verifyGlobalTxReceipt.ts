@@ -32,6 +32,23 @@ export enum InternalTXType {
   TransferFromSecureAccount = 13,
 }
 
+/**
+ * Verifies the account hash in a global transaction receipt
+ *
+ * This function validates that the account hashes in a receipt match the calculated
+ * hashes of the account data. It checks:
+ * 1. If the receipt passes schema validation
+ * 2. If the receipt is a GlobalTxReceipt, it delegates to verifyGlobalTxAccountChange
+ * 3. Otherwise, it verifies:
+ *    - Account IDs, before and after state hashes have matching lengths
+ *    - Each account in afterStates has a matching ID from the receipt
+ *    - The calculated hash of each account matches the expected hash in the receipt
+ *
+ * @param receipt - The transaction receipt to verify
+ * @param failedReasons - Array to collect failure reasons if verification fails
+ * @param nestedCounterMessages - Array to collect counter messages for metrics
+ * @returns boolean - True if verification passes, false otherwise
+ */
 export const verifyGlobalTxAccountChange = (
   receipt: ArchiverReceipt | Receipt,
   failedReasons = [],
@@ -70,6 +87,7 @@ export const verifyGlobalTxAccountChange = (
         }
       }
       for (const account of receipt.afterStates) {
+        // TODO : can be optimized by using only one find operation instead of for loop since we have only afterState for globalModification tx
         if (account.accountId !== signedReceipt.tx.address) {
           failedReasons.push(
             `Unexpected account found in accounts ${receipt.tx.txId} , ${receipt.cycle} , ${receipt.tx.timestamp}`
@@ -85,21 +103,22 @@ export const verifyGlobalTxAccountChange = (
         )
         if (!networkAccountBefore || !networkAccountAfter) {
           failedReasons.push(
-            `No network account found in accounts ${receipt.tx.txId} , ${receipt.cycle} , ${receipt.tx.timestamp}`
+            `Network account Before or After states not found ${receipt.tx.txId} , ${receipt.cycle} , ${receipt.tx.timestamp}`
           )
-          nestedCounterMessages.push(`No network account found in accounts`)
+          nestedCounterMessages.push(`Network account Before or After states not found`)
           return false
         }
-        networkAccountBefore.data.listOfChanges?.push(internalTx.change)
-        networkAccountBefore.data.timestamp = signedReceipt.tx.when
+
+        // Get the hash from afterState array entry i.e the network account after state hash
         const expectedAccountHash = networkAccountAfter.hash
-        console.dir(networkAccountBefore, { depth: null })
-        // const calculatedAccountHash = accountSpecificHash(networkAccountBefore.data)
+
+        // Compare the hash from the network account with the afterStateHash in the signed receipt
+        // If they don't match, the transaction receipt is invalid
         if (expectedAccountHash !== signedReceipt.tx.afterStateHash) {
           failedReasons.push(
-            `Account hash does not match in globalModification tx - ${networkAccountAfter.accountId} , ${receipt.tx.txId} , ${receipt.cycle} , ${receipt.tx.timestamp}`
+            `Account afterStateHash does not match in globalModification tx - ${networkAccountAfter.accountId} , ${receipt.tx.txId} , ${receipt.cycle} , ${receipt.tx.timestamp}`
           )
-          nestedCounterMessages.push(`Account hash does not match in globalModification tx`)
+          nestedCounterMessages.push(`Account afterStateHash does not match in globalModification tx`)
           return false
         }
       }
