@@ -67,9 +67,10 @@ const schemaGlobalTxReceipt = {
                 value: {},
                 when: { type: 'integer' },
                 source: { type: 'string' },
-                txId: { type: 'string' }
+                txId: { type: 'string' },
+                afterStateHash: { type: 'string' }
             },
-            required: ['address', 'addressHash', 'value', 'when', 'source', 'txId'],
+            required: ['address', 'addressHash', 'value', 'when', 'source', 'txId', 'afterStateHash'],
             additionalProperties: false
         },
         txGroupCycle: { type: 'integer', minimum: 0 }
