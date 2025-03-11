@@ -4,7 +4,9 @@ import { originalTxDataDatabase } from '.'
 import * as Logger from '../Logger'
 import { config } from '../Config'
 import { DeSerializeFromJsonString, SerializeToJsonString } from '../utils/serialization'
-
+import { OriginalTxCheckpointData, calculateBucketID, originalTxCheckpointManager } from '../checkpoint/OriginalTxsData'
+import { CheckpointStatusType, bulkUpdateCheckpointStatusField } from './checkpointStatus'
+import * as State from '../State'
 export interface OriginalTxData {
   txId: string
   timestamp: number
@@ -27,29 +29,39 @@ type DbOriginalTxDataCount = OriginalTxDataCount & {
   'COUNT(*)': number
 }
 
-export async function insertOriginalTxData(originalTxData: OriginalTxData): Promise<void> {
+export async function insertOriginalTxData(originalTxData: OriginalTxData, storeCheckpoints: boolean = true): Promise<void> {
 
   try {
+    if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+      // Create checkpoint for originalTxData
+      const checkpointData = new OriginalTxCheckpointData(originalTxData)
+      const bucketID = calculateBucketID(originalTxData)
+      originalTxCheckpointManager.addData(checkpointData, bucketID)
+    }
 
     // Define the table columns based on schema
-    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData'];
+    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData']
 
     // Construct the SQL query with placeholders
-    const placeholders = `(${columns.map(() => '?').join(', ')})`;
-    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES ${placeholders}`;
+    const placeholders = `(${columns.map(() => '?').join(', ')})`
+    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Map the `originalTxData` object to match the columns
     const values = columns.map((column) =>
       typeof originalTxData[column] === 'object'
         ? SerializeToJsonString(originalTxData[column]) // Serialize objects to JSON
         : originalTxData[column]
-    );
+    )
 
     // Execute the query directly (single-row insert)
-    await db.run(originalTxDataDatabase, sql, values);
+    await db.run(originalTxDataDatabase, sql, values)
+
+    if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+      await bulkUpdateCheckpointStatusField(CheckpointStatusType.ORIGINAL_TX, true, undefined, undefined, [originalTxData.cycle])
+    }
 
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted OriginalTxData', originalTxData.txId);
+      Logger.mainLogger.debug('Successfully inserted OriginalTxData', originalTxData.txId)
     }
   } catch (err) {
     Logger.mainLogger.error(err);
@@ -61,16 +73,22 @@ export async function insertOriginalTxData(originalTxData: OriginalTxData): Prom
 }
 
 
-export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[]): Promise<void> {
+export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[], storeCheckpoints: boolean = true): Promise<void> {
 
   try {
-    
-    // Define the table columns
-    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData'];
+    if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+      // Create checkpoints for all originalTxs
+      for (const originalTx of originalTxsData) {
+        const checkpointData = new OriginalTxCheckpointData(originalTx)
+        const bucketID = calculateBucketID(originalTx)
+        originalTxCheckpointManager.addData(checkpointData, bucketID)
+      }
+    }
 
-    // Construct the SQL query for bulk insertion with all placeholders
-    const placeholders = originalTxsData.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
-    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES ${placeholders}`;
+    // Then do the database operation
+    const columns = ['txId', 'timestamp', 'cycle', 'originalTxData']
+    const placeholders = originalTxsData.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ')
+    const sql = `INSERT OR REPLACE INTO originalTxsData (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Flatten the `originalTxsData` array into a single list of values
     const values = originalTxsData.flatMap((txData) =>
@@ -83,6 +101,11 @@ export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[
 
     // Execute the single query for all originalTxsData
     await db.run(originalTxDataDatabase, sql, values);
+
+    if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
+      const originalTxsDataToUpdate = originalTxsData.map((tx) => tx.cycle)
+      await bulkUpdateCheckpointStatusField(CheckpointStatusType.ORIGINAL_TX, State.isSyncing, undefined, undefined, originalTxsDataToUpdate)
+    }
 
     if (config.VERBOSE) {
       Logger.mainLogger.debug('Successfully inserted OriginalTxsData', originalTxsData.length);
@@ -106,7 +129,7 @@ export async function queryOriginalTxDataCount(startCycle?: number, endCycle?: n
     }
     originalTxsData = await db.get(originalTxDataDatabase, sql, values)
   } catch (e) {
-    console.log(e)
+    Logger.mainLogger.error(e)
   }
   if (config.VERBOSE) {
     Logger.mainLogger.debug('OriginalTxData count', originalTxsData)
@@ -141,7 +164,7 @@ export async function queryOriginalTxsData(
       // if (originalTxData.sign) originalTxData.sign = DeSerializeFromJsonString(originalTxData.sign)
     })
   } catch (e) {
-    console.log(e)
+    Logger.mainLogger.error(e)
   }
   if (config.VERBOSE) {
     Logger.mainLogger.debug('OriginalTxData originalTxsData', originalTxsData)

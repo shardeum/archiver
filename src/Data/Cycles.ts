@@ -12,6 +12,7 @@ import * as ServiceQueue from '../ServiceQueue'
 import {
   clearDataSenders,
   dataSenders,
+  getConsensusRadius,
   nodesPerConsensusGroup,
   nodesPerEdge,
   subscribeConsensorsByConsensusRadius,
@@ -73,6 +74,11 @@ export async function processCycles(cycles: P2PTypes.CycleCreatorTypes.CycleData
       // Update NodeList from cycle info
       updateNodeList(cycle)
       updateNetworkTxsList(cycle)
+      // Consensus radius is required for the initial data sync which was not happening earlier
+      if (State.isSyncing && nodesPerConsensusGroup < 3) {
+        if (config.VERBOSE) Logger.mainLogger.debug("processCycles: Updating consensus radius")
+        await getConsensusRadius()
+      }
       updateShardValues(cycle)
       changeNetworkMode(cycle.mode)
       getAdjacentLeftAndRightArchivers()
@@ -82,11 +88,11 @@ export async function processCycles(cycles: P2PTypes.CycleCreatorTypes.CycleData
       await storeCycleData([cycle])
 
       Logger.mainLogger.debug(`Processed cycle ${cycle.counter}`)
-
       if (State.isActive) {
         sendDataToAdjacentArchivers(DataType.CYCLE, [cycle])
         // Check the archivers reputaion in every new cycle & record the status
         recordArchiversReputation()
+        State.updateOtherArchivers()
       }
       await updateGlobalNetworkAccount(cycle.counter)
 
@@ -413,20 +419,18 @@ export async function getNewestCycleFromConsensors(
 }
 
 export async function getNewestCycleFromArchivers(): Promise<P2PTypes.CycleCreatorTypes.CycleData> {
-  const activeArchivers = Utils.getRandomItemFromArr(State.activeArchivers, 0, 5)
-
+  const activeArchivers = Utils.getRandomItemFromArr(State.otherArchivers, 0, 5)
   const data = {
     count: 1,
     sender: config.ARCHIVER_PUBLIC_KEY,
   }
-  Crypto.sign(data)
 
   const queryFn = async (
     node: NodeList.ConsensusNodeInfo
   ): Promise<P2PTypes.CycleCreatorTypes.CycleData[]> => {
     const response = (await postJson(
       `http://${node.ip}:${node.port}/cycleinfo`,
-      data
+      Crypto.sign(data)
     )) as ArchiverCycleResponse
     return response.cycleInfo
   }

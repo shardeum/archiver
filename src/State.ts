@@ -39,6 +39,8 @@ export let activeArchiversByPublicKeySorted: ArchiverNodeInfo[] = []
 export let otherArchivers: ArchiverNodeInfo[] = []
 export let isFirst = false
 export let isActive = false
+export let isSyncing = false
+export let lastCycleToSync = 0
 export const archiversReputation: Map<string, string> = new Map()
 
 export async function initFromConfig(
@@ -206,6 +208,15 @@ export function resetActiveArchivers(archivers: ArchiverNodeInfo[]): void {
   getAdjacentLeftAndRightArchivers()
 }
 
+/**
+ * Synchronizes the otherArchivers list to only include archivers that are present in activeArchivers,
+ * excluding the current archiver (itself).
+ */
+export function updateOtherArchivers(): void {
+  // Filter out any archiver that is not in activeArchivers and is not the current archiver
+  otherArchivers = activeArchivers.filter((a) => a.publicKey !== config.ARCHIVER_PUBLIC_KEY)
+}
+
 export async function compareCycleRecordWithOtherArchivers(
   archivers: ArchiverNodeInfo[],
   ourCycleRecord: P2PTypes.CycleCreatorTypes.CycleRecord
@@ -273,4 +284,12 @@ export function setActive(): void {
 export function getRandomArchiver(): ArchiverNodeInfo {
   const randomArchiver = Utils.getRandomItemFromArr(otherArchivers)[0]
   return randomArchiver
+}
+
+export function setSyncing(syncing: boolean): void {
+  isSyncing = syncing
+}
+
+export function setLastCycleToSync(cycle: number): void {
+  lastCycleToSync = cycle
 }
