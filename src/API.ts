@@ -1493,10 +1493,6 @@ export const validateRequestData = (
       Logger.mainLogger.error('Data sender publicKey and sign owner key does not match')
       return { success: false, error: 'Data sender publicKey and sign owner key does not match' }
     }
-    if (!Crypto.verify(data)) {
-      Logger.mainLogger.error('Invalid signature', data)
-      return { success: false, error: 'Invalid signature' }
-    }
     if (!skipArchiverCheck && config.limitToArchiversOnly) {
       // Check if the sender is in the allowed archivers list
       const isAllowedArchiver = allowedArchiversManager.isArchiverAllowed(data.sender)
@@ -1518,6 +1514,10 @@ export const validateRequestData = (
             : 'Data request sender is not an authorized archiver'
         }
       }
+    }
+    if (!Crypto.verify(data)) {
+      Logger.mainLogger.error('Invalid signature', data)
+      return { success: false, error: 'Invalid signature' }
     }
     return { success: true }
   } catch (e) {
