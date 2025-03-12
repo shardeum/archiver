@@ -1,6 +1,6 @@
 {
   "name": "@shardeum-foundation/archiver",
-  "version": "3.6.0-prerelease.3",
+  "version": "3.6.0-prerelease.4",
   "engines": {
     "node": "18.19.1"
   },
