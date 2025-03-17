@@ -2,12 +2,11 @@ import * as State from './State'
 import * as Crypto from './Crypto'
 import * as Data from './Data/Data'
 import * as NodeList from './NodeList'
-import 'node-fetch'
-import fetch from 'node-fetch'
 import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import { RequestInit, Response } from 'node-fetch'
 import { SignedObject } from '@shardeum-foundation/lib-crypto-utils'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import {customFetch} from './utils/customHttpFunctions'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { version } = require('../package.json')
 
@@ -81,7 +80,7 @@ export async function postJson(
   timeoutInSecond = 5
 ): Promise<(object & { success?: boolean }) | null> {
   try {
-    const res = await fetch(url, {
+    const res = await customFetch(url, {
       method: 'post',
       body: StringUtils.safeStringify(body),
       headers: { 'Content-Type': 'application/json' },
@@ -138,7 +137,7 @@ export async function getJson(url: string, timeoutInSecond = 5): Promise<object 
 }
 
 export async function get(url: string, timeoutInSecond = 20, opts?: RequestInit): Promise<Response> {
-  return fetch(url, {
+  return customFetch(url, {
     method: 'get',
     timeout: timeoutInSecond * 1000,
     ...opts,

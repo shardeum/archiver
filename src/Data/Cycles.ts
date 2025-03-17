@@ -34,6 +34,7 @@ import { addCyclesToCache } from '../cache/cycleRecordsCache'
 import { queryLatestCycleRecords } from '../dbstore/cycles'
 import { updateGlobalNetworkAccount } from '../GlobalAccount'
 import { syncTxList } from '../sync-v2'
+import { customFetch } from '../utils/customHttpFunctions';
 
 export interface ArchiverCycleResponse {
   cycleInfo: P2PTypes.CycleCreatorTypes.CycleData[]
@@ -442,7 +443,7 @@ export async function recordArchiversReputation(): Promise<void> {
   const activeArchivers = [...State.activeArchivers]
 
   const promises = activeArchivers.map((archiver) =>
-    fetch(`http://${archiver.ip}:${archiver.port}/cycleinfo/1`, {
+    customFetch(`http://${archiver.ip}:${archiver.port}/cycleinfo/1`, {
       method: 'get',
       headers: { 'Content-Type': 'application/json' },
       timeout: 5000,
