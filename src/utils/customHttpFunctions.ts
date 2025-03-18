@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosProgressEvent, AxiosRequestConfig, CancelTokenSource } from 'axios'
 import { config } from '../Config'
 import fetch, { RequestInfo, RequestInit, Response } from 'node-fetch'
+import { Utils } from '@shardeum-foundation/lib-types'
 
 /**
  * A custom fetch function with a max response body size limit.
@@ -61,7 +62,7 @@ export function customAxios(maxBytes?: number, axiosConfig: AxiosRequestConfig =
           dataSize = response.data.length
         } else if (typeof response.data === 'object') {
           // For JSON responses
-          dataSize = JSON.stringify(response.data).length
+          dataSize = Utils.safeStringify(response.data).length
         }
 
         if (dataSize > downloadLimit) {
