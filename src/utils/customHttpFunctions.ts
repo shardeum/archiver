@@ -32,7 +32,7 @@ export async function customFetch(
  * @returns Custom axios instance
  */
 
-export function customAxios(maxBytes = 10 * 1024, axiosConfig: AxiosRequestConfig = {}): AxiosInstance {
+export function customAxios(maxBytes?: number, axiosConfig: AxiosRequestConfig = {}): AxiosInstance {
     // Use the provided maxBytes or fall back to config.maxResponseSize
     const downloadLimit = maxBytes ?? config.maxResponseSize;
 
