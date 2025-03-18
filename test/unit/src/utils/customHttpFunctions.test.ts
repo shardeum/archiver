@@ -1,4 +1,4 @@
-import {customFetch} from '../../../../src/utils/customHttpFunctions'
+import {customAxios, customFetch} from '../../../../src/utils/customHttpFunctions'
 import * as http from "node:http";
 
 jest.mock('../../../../src/Config', () => ({
@@ -105,12 +105,30 @@ describe('customGot and customFetch', () => {
 
         test('should reject a response exceeding the size limit', async () => {
             const response = await customFetch(`${serverUrl}/large-data`);
-            await expect(response.buffer()).rejects.toThrow()
+            await expect(response.buffer()).rejects.toThrow(/content size at http:\/\/localhost:\d+\/large-data over limit: 10240/)
         }, 10000) // Timeout after 10 seconds
 
         test('should reject a chunked response that exceeds the size limit', async () => {
             let response = await customFetch(`${serverUrl}/chunked-data`);
-            await expect(response.buffer()).rejects.toThrow()
+            await expect(response.buffer()).rejects.toThrow(/content size at http:\/\/localhost:\d+\/chunked-data over limit: 10240/)
         }, 10000) // Timeout after 10 seconds
+    })
+
+    describe('customAxios', () => {
+        test('should successfully fetch a response under the size limit', async () => {
+            const response = await customAxios().get(`${serverUrl}/small-data`)
+            expect(response.status).toBe(200)
+            expect(response.data.length).toBeGreaterThan(5 * 1024 - 100)
+        }, 10000)
+
+        test('should reject a response exceeding the size limit', async () => {
+            const response = customAxios().get(`${serverUrl}/large-data`);
+            await expect(response).rejects.toThrow('Response size exceeds limit of 10240 bytes')
+        }, 10000)
+
+        test('should reject a chunked response that exceeds the size limit', async () => {
+            let response = customAxios().get(`${serverUrl}/chunked-data`);
+            await expect(response).rejects.toThrow('Response size exceeds limit of 10240 bytes')
+        }, 10000)
     })
 })
