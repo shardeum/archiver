@@ -165,15 +165,13 @@ class Statistics extends EventEmitter {
 
   // Returns the current average of all elements in the given WatcherRing, CounterRing, or TimerRing
   getAverage(name: string): number {
-    const ringHolder =
-      this.counters[name] || this.watchers[name] || this.timers[name] || this.manualStats[name] // eslint-disable-line security/detect-object-injection
+    const ringHolder = this.counters[name] || this.watchers[name] || this.timers[name] || this.manualStats[name] // eslint-disable-line security/detect-object-injection
     if (!ringHolder.ring) throw new Error(`Ring holder '${name}' is undefined.`)
     return ringHolder.ring.average()
   }
 
   getMultiStatReport(name: string): { min: number; max: number; avg: number; allVals: number[] } {
-    const ringHolder =
-      this.counters[name] || this.watchers[name] || this.timers[name] || this.manualStats[name] // eslint-disable-line security/detect-object-injection
+    const ringHolder = this.counters[name] || this.watchers[name] || this.timers[name] || this.manualStats[name] // eslint-disable-line security/detect-object-injection
     if (!ringHolder.ring) throw new Error(`Ring holder '${name}' is undefined.`)
 
     return ringHolder.ring.multiStats()

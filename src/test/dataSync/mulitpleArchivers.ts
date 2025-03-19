@@ -47,9 +47,7 @@ export async function checkDataSyncBetweenArchivers(ip, numberOfArchivers): Prom
     if (totalAccountsIsMatched) console.log('TotalAccounts is matched!')
 
     const expectedTotalTransactions = dataInfos.totalTransactions[0]
-    const totalTransactionsIsMatched = dataInfos.totalTransactions.every(
-      (cycle) => cycle === expectedTotalTransactions
-    )
+    const totalTransactionsIsMatched = dataInfos.totalTransactions.every((cycle) => cycle === expectedTotalTransactions)
     if (totalTransactionsIsMatched) console.log('TotalTransactions is matched!')
 
     const expectedTotalReceipts = dataInfos.totalReceipts[0]

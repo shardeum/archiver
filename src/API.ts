@@ -28,12 +28,7 @@ import { getGlobalNetworkAccount } from './GlobalAccount'
 import { cycleRecordWithShutDownMode } from './Data/Cycles'
 import { isDebugMiddleware } from './DebugMode'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
-import {
-  receivedReceiptCount,
-  verifiedReceiptCount,
-  successReceiptCount,
-  failureReceiptCount,
-} from './primary-process'
+import { receivedReceiptCount, verifiedReceiptCount, successReceiptCount, failureReceiptCount } from './primary-process'
 import * as ServiceQueue from './ServiceQueue'
 import ticketRoutes from './routes/tickets'
 import { Cycle } from './dbstore/types'
@@ -161,10 +156,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const firstDataSender: Data.DataSender = {
         nodeInfo: firstNode,
         types: [P2PTypes.SnapshotTypes.TypeNames.CYCLE, P2PTypes.SnapshotTypes.TypeNames.STATE_METADATA],
-        contactTimeout: Data.createContactTimeout(
-          firstNode.publicKey,
-          'This timeout is created for the first node'
-        ),
+        contactTimeout: Data.createContactTimeout(firstNode.publicKey, 'This timeout is created for the first node'),
       }
       Data.addDataSender(firstDataSender)
       let res: P2P.FirstNodeResponse
@@ -288,14 +280,14 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const config = allowedArchiversManager.getCurrentConfig()
       if (!config) {
         return reply.status(500).send({
-          error: 'Internal server error'
+          error: 'Internal server error',
         })
       }
       return reply.send(config)
     } catch (error) {
       Logger.mainLogger.error('Error serving allowed-archivers:', error)
       return reply.status(500).send({
-        error: 'Internal server error'
+        error: 'Internal server error',
       })
     }
   })
@@ -386,10 +378,12 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
         return
       }
     } else {
-      reply.send(Crypto.sign({
-        success: false,
-        error: 'not specified which cycle to show',
-      }))
+      reply.send(
+        Crypto.sign({
+          success: false,
+          error: 'not specified which cycle to show',
+        })
+      )
       return
     }
     const res = Crypto.sign({
@@ -465,28 +459,34 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       originalTxs = await OriginalTxDB.queryLatestOriginalTxs(count)
     } else if (txId) {
       if (txId.length !== TXID_LENGTH) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Invalid txId ${txId}`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Invalid txId ${txId}`,
+          })
+        )
         return
       }
       const originalTx = await OriginalTxDB.queryOriginalTxDataByTxId(txId)
       if (originalTx) originalTxs.push(originalTx)
     } else if (txIdList) {
       if (txIdList.length > MAX_ORIGINAL_TXS_PER_REQUEST) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Exceed maximum limit of ${MAX_ORIGINAL_TXS_PER_REQUEST} original transactions`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Exceed maximum limit of ${MAX_ORIGINAL_TXS_PER_REQUEST} original transactions`,
+          })
+        )
         return
       }
       for (const [txId, txTimestamp] of txIdList) {
         if (typeof txId !== 'string' || txId.length !== TXID_LENGTH || typeof txTimestamp !== 'number') {
-          reply.send(Crypto.sign({
-            success: false,
-            error: `Invalid txId ${txId} in the List`,
-          }))
+          reply.send(
+            Crypto.sign({
+              success: false,
+              error: `Invalid txId ${txId} in the List`,
+            })
+          )
           return
         }
 
@@ -497,18 +497,22 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const from = start
       const to = end ? end : from
       if (!(from >= 0 && to >= from) || Number.isNaN(from) || Number.isNaN(to)) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Invalid start and end counters`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Invalid start and end counters`,
+          })
+        )
         return
       }
       const count = to - from
       if (count > MAX_ORIGINAL_TXS_PER_REQUEST) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Exceed maximum limit of ${MAX_ORIGINAL_TXS_PER_REQUEST} original transactions`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Exceed maximum limit of ${MAX_ORIGINAL_TXS_PER_REQUEST} original transactions`,
+          })
+        )
         return
       }
       originalTxs = await OriginalTxDB.queryOriginalTxsData(from, count + 1)
@@ -516,18 +520,22 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const from = startCycle
       const to = endCycle ? endCycle : from
       if (!(from >= 0 && to >= from) || Number.isNaN(from) || Number.isNaN(to)) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Invalid startCycle and endCycle counters`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Invalid startCycle and endCycle counters`,
+          })
+        )
         return
       }
       const count = to - from
       if (count > MAX_BETWEEN_CYCLES_PER_REQUEST) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Exceed maximum limit of ${MAX_BETWEEN_CYCLES_PER_REQUEST} cycles`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Exceed maximum limit of ${MAX_BETWEEN_CYCLES_PER_REQUEST} cycles`,
+          })
+        )
         return
       }
       if (type === 'tally') {
@@ -587,28 +595,34 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       receipts = await ReceiptDB.queryLatestReceipts(count)
     } else if (txId) {
       if (txId.length !== TXID_LENGTH) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Invalid txId ${txId}`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Invalid txId ${txId}`,
+          })
+        )
         return
       }
       const receipt = await ReceiptDB.queryReceiptByReceiptId(txId)
       if (receipt) receipts.push(receipt)
     } else if (txIdList) {
       if (txIdList.length > MAX_RECEIPTS_PER_REQUEST) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Exceed maximum limit of ${MAX_RECEIPTS_PER_REQUEST} receipts`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Exceed maximum limit of ${MAX_RECEIPTS_PER_REQUEST} receipts`,
+          })
+        )
         return
       }
       for (const [txId, txTimestamp] of txIdList) {
         if (typeof txId !== 'string' || txId.length !== TXID_LENGTH || typeof txTimestamp !== 'number') {
-          reply.send(Crypto.sign({
-            success: false,
-            error: `Invalid txId ${txId} in the List`,
-          }))
+          reply.send(
+            Crypto.sign({
+              success: false,
+              error: `Invalid txId ${txId} in the List`,
+            })
+          )
           return
         }
         const receipt = await ReceiptDB.queryReceiptByReceiptId(txId, txTimestamp)
@@ -618,18 +632,22 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const from = start
       const to = end ? end : from
       if (!(from >= 0 && to >= from) || Number.isNaN(from) || Number.isNaN(to)) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Invalid start and end counters`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Invalid start and end counters`,
+          })
+        )
         return
       }
       const count = to - from
       if (count > MAX_RECEIPTS_PER_REQUEST) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Exceed maximum limit of ${MAX_RECEIPTS_PER_REQUEST} receipts`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Exceed maximum limit of ${MAX_RECEIPTS_PER_REQUEST} receipts`,
+          })
+        )
         return
       }
       receipts = await ReceiptDB.queryReceipts(from, count + 1)
@@ -637,18 +655,22 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const from = startCycle
       const to = endCycle ? endCycle : from
       if (!(from >= 0 && to >= from) || Number.isNaN(from) || Number.isNaN(to)) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Invalid startCycle and endCycle counters`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Invalid startCycle and endCycle counters`,
+          })
+        )
         return
       }
       const count = to - from
       if (count > MAX_BETWEEN_CYCLES_PER_REQUEST) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Exceed maximum limit of ${MAX_BETWEEN_CYCLES_PER_REQUEST} cycles`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Exceed maximum limit of ${MAX_BETWEEN_CYCLES_PER_REQUEST} cycles`,
+          })
+        )
         return
       }
       if (type === 'tally') {
@@ -723,18 +745,22 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const from = start
       const to = end ? end : from
       if (!(from >= 0 && to >= from) || Number.isNaN(from) || Number.isNaN(to)) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Invalid start and end counters`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Invalid start and end counters`,
+          })
+        )
         return
       }
       const count = to - from
       if (count > MAX_ACCOUNTS_PER_REQUEST) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Exceed maximum limit of ${MAX_ACCOUNTS_PER_REQUEST} accounts`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Exceed maximum limit of ${MAX_ACCOUNTS_PER_REQUEST} accounts`,
+          })
+        )
         return
       }
       accounts = await AccountDB.queryAccounts(from, count + 1)
@@ -743,18 +769,22 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const from = startCycle
       const to = endCycle ? endCycle : from
       if (!(from >= 0 && to >= from) || Number.isNaN(from) || Number.isNaN(to)) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Invalid startCycle and endCycle counters`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Invalid startCycle and endCycle counters`,
+          })
+        )
         return
       }
       const count = to - from
       if (count > MAX_BETWEEN_CYCLES_PER_REQUEST) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Exceed maximum limit of ${MAX_BETWEEN_CYCLES_PER_REQUEST} cycles to query accounts Count`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Exceed maximum limit of ${MAX_BETWEEN_CYCLES_PER_REQUEST} cycles to query accounts Count`,
+          })
+        )
         return
       }
       totalAccounts = await AccountDB.queryAccountCountBetweenCycles(from, to)
@@ -775,10 +805,12 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       accounts = await AccountDB.queryAccountByAccountId(accountId)
       res = { accounts }
     } else {
-      reply.send(Crypto.sign({
-        success: false,
-        error: 'not specified which account to show',
-      }))
+      reply.send(
+        Crypto.sign({
+          success: false,
+          error: 'not specified which account to show',
+        })
+      )
       return
     }
     reply.send(Crypto.sign(res))
@@ -834,18 +866,22 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const from = start
       const to = end ? end : from
       if (!(from >= 0 && to >= from) || Number.isNaN(from) || Number.isNaN(to)) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Invalid start and end counters`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Invalid start and end counters`,
+          })
+        )
         return
       }
       const count = to - from
       if (count > MAX_ACCOUNTS_PER_REQUEST) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Exceed maximum limit of ${MAX_ACCOUNTS_PER_REQUEST} transactions`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Exceed maximum limit of ${MAX_ACCOUNTS_PER_REQUEST} transactions`,
+          })
+        )
         return
       }
       transactions = await TransactionDB.queryTransactions(from, count + 1)
@@ -854,18 +890,22 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const from = startCycle
       const to = endCycle ? endCycle : from
       if (!(from >= 0 && to >= from) || Number.isNaN(from) || Number.isNaN(to)) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Invalid startCycle and endCycle counters`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Invalid startCycle and endCycle counters`,
+          })
+        )
         return
       }
       const count = to - from
       if (count > MAX_BETWEEN_CYCLES_PER_REQUEST) {
-        reply.send(Crypto.sign({
-          success: false,
-          error: `Exceed maximum limit of ${MAX_BETWEEN_CYCLES_PER_REQUEST} cycles to query transactions Count`,
-        }))
+        reply.send(
+          Crypto.sign({
+            success: false,
+            error: `Exceed maximum limit of ${MAX_BETWEEN_CYCLES_PER_REQUEST} cycles to query transactions Count`,
+          })
+        )
         return
       }
       totalTransactions = await TransactionDB.queryTransactionCountBetweenCycles(from, to)
@@ -916,12 +956,15 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     const totalOriginalTxs = await OriginalTxDB.queryOriginalTxDataCount()
 
     // Get the last five minutes bucket status for each checkpoint manager
-    const cycleLastFiveMinutesGiveUpBucketStatus =
-      getCheckpointManager(CheckpointType.Cycle)?.hasLastFailedBucketExceededDuration()
-    const originalTxLastFiveMinutesGiveUpBucketStatus =
-      getCheckpointManager(CheckpointType.OriginalTx)?.hasLastFailedBucketExceededDuration()
-    const receiptLastFiveMinutesGiveUpBucketStatus =
-      getCheckpointManager(CheckpointType.Receipt)?.hasLastFailedBucketExceededDuration()
+    const cycleLastFiveMinutesGiveUpBucketStatus = getCheckpointManager(
+      CheckpointType.Cycle
+    )?.hasLastFailedBucketExceededDuration()
+    const originalTxLastFiveMinutesGiveUpBucketStatus = getCheckpointManager(
+      CheckpointType.OriginalTx
+    )?.hasLastFailedBucketExceededDuration()
+    const receiptLastFiveMinutesGiveUpBucketStatus = getCheckpointManager(
+      CheckpointType.Receipt
+    )?.hasLastFailedBucketExceededDuration()
 
     reply.send(
       Crypto.sign({
@@ -943,8 +986,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   server.post('/gossip-data', async (_request: GossipDataRequest, reply) => {
     const gossipPayload = _request.body
-    if (config.VERBOSE)
-      Logger.mainLogger.debug('Gossip Data received', StringUtils.safeStringify(gossipPayload))
+    if (config.VERBOSE) Logger.mainLogger.debug('Gossip Data received', StringUtils.safeStringify(gossipPayload))
     const result = Collector.validateGossipData(gossipPayload)
     if (!result.success) {
       reply.send({ success: false, error: result.error })
@@ -991,8 +1033,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   server.post('/get_account_data_by_list_archiver', async (_request: AccountDataRequest, reply) => {
     const payload = _request.body as AccountDataProvider.AccountDataByListRequestSchema
-    if (config.VERBOSE)
-      Logger.mainLogger.debug('Account Data By List received', StringUtils.safeStringify(payload))
+    if (config.VERBOSE) Logger.mainLogger.debug('Account Data By List received', StringUtils.safeStringify(payload))
     const result = AccountDataProvider.validateAccountDataByListRequest(payload)
     // Logger.mainLogger.debug('Account Data By List validation result', result)
     if (!result.success) {
@@ -1010,8 +1051,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   server.post('/get_globalaccountreport_archiver', async (_request: AccountDataRequest, reply) => {
     const payload = _request.body as AccountDataProvider.GlobalAccountReportRequestSchema
-    if (config.VERBOSE)
-      Logger.mainLogger.debug('Global Account Report received', StringUtils.safeStringify(payload))
+    if (config.VERBOSE) Logger.mainLogger.debug('Global Account Report received', StringUtils.safeStringify(payload))
     const result = AccountDataProvider.validateGlobalAccountReportRequest(payload)
     // Logger.mainLogger.debug('Global Account Report validation result', result)
     if (!result.success) {
@@ -1047,15 +1087,12 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
         const { sign, ...newConfig } = _request.body
         const validKeys = new Set(Object.keys(config))
         const payloadKeys = Object.keys(newConfig)
-        const invalidKeys = payloadKeys.filter(
-          (key) => !validKeys.has(key) || RESTRICTED_PARAMS.includes(key)
-        )
+        const invalidKeys = payloadKeys.filter((key) => !validKeys.has(key) || RESTRICTED_PARAMS.includes(key))
 
         if (invalidKeys.length > 0)
           throw new Error(`Invalid/Unauthorised config properties provided: ${invalidKeys.join(', ')}`)
 
-        if (config.VERBOSE)
-          Logger.mainLogger.debug('Archiver config update executed: ', JSON.stringify(newConfig))
+        if (config.VERBOSE) Logger.mainLogger.debug('Archiver config update executed: ', JSON.stringify(newConfig))
 
         const updatedConfig = updateConfig(newConfig)
         reply.send({ success: true, ...updatedConfig, ARCHIVER_SECRET_KEY: '' })
@@ -1411,9 +1448,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       Logger.mainLogger.error(
         `Error processing exchangeCheckpointRadixEntries for checkpoint type ${req.body.checkpointType}: ${err.message}`
       )
-      reply
-        .status(500)
-        .send(`Server error in exchangeCheckpointRadixEntries for type ${req.body.checkpointType}`)
+      reply.status(500).send(`Server error in exchangeCheckpointRadixEntries for type ${req.body.checkpointType}`)
     }
   })
 
@@ -1428,7 +1463,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       if (!result.success) {
         reply.code(400).send({
           success: false,
-          error: result.error
+          error: result.error,
         })
         return
       }
@@ -1441,7 +1476,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
         if (isNaN(endBucketID) || endBucketID < 0) {
           reply.code(400).send({
             success: false,
-            error: 'Invalid endBucketID. Must be a non-negative integer.'
+            error: 'Invalid endBucketID. Must be a non-negative integer.',
           })
           return
         }
@@ -1450,7 +1485,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       if (isNaN(bucketID) || bucketID < 0) {
         reply.code(400).send({
           success: false,
-          error: 'Invalid bucketID. Must be a non-negative integer.'
+          error: 'Invalid bucketID. Must be a non-negative integer.',
         })
         return
       }
@@ -1459,7 +1494,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
       const response = Crypto.sign({
         success: true,
-        isVerified
+        isVerified,
       })
 
       reply.send(response)
@@ -1467,7 +1502,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       Logger.mainLogger.error(`Error checking bucket verification status:`, error)
       reply.code(500).send({
         success: false,
-        error: 'Internal server error while checking bucket verification status'
+        error: 'Internal server error while checking bucket verification status',
       })
     }
   })
@@ -1498,20 +1533,14 @@ export const validateRequestData = (
       const isAllowedArchiver = allowedArchiversManager.isArchiverAllowed(data.sender)
 
       // Check if the sender is in the active archiver list or is the devPublicKey
-      const isActiveArchiver = State.activeArchivers.some(
-        (archiver) => archiver.publicKey === data.sender
-      )
+      const isActiveArchiver = State.activeArchivers.some((archiver) => archiver.publicKey === data.sender)
 
-      const approvedSender =
-        (isAllowedArchiver && isActiveArchiver) ||
-        config.DevPublicKey === data.sender
+      const approvedSender = (isAllowedArchiver && isActiveArchiver) || config.DevPublicKey === data.sender
 
       if (!approvedSender) {
         return {
           success: false,
-          error: isAllowedArchiver
-            ? 'Archiver is not active'
-            : 'Data request sender is not an authorized archiver'
+          error: isAllowedArchiver ? 'Archiver is not active' : 'Data request sender is not an authorized archiver',
         }
       }
     }
@@ -1541,10 +1570,10 @@ export const queryFromArchivers = async (
   queryParameters: object,
   timeoutInSecond?: number
 ): Promise<unknown | null> => {
-  let bucketID: number | undefined;
-  const params = queryParameters as any;
-  let checkpointStatusType: CheckpointStatusType | undefined;
-  let bucketRange: { start: number; end: number } | undefined;
+  let bucketID: number | undefined
+  const params = queryParameters as any
+  let checkpointStatusType: CheckpointStatusType | undefined
+  let bucketRange: { start: number; end: number } | undefined
 
   // Extract bucket ID based on the request type and parameters
   switch (type) {
@@ -1554,22 +1583,22 @@ export const queryFromArchivers = async (
         // If both start and end are provided, we'll check the entire range
         bucketRange = {
           start: params.start,
-          end: params.end
-        };
-        bucketID = params.start; // Default to start for single bucket check fallback
+          end: params.end,
+        }
+        bucketID = params.start // Default to start for single bucket check fallback
       } else if (params.start !== undefined) {
-        bucketID = params.start;
+        bucketID = params.start
       } else if (params.end !== undefined) {
-        bucketID = params.end;
+        bucketID = params.end
       }
-      checkpointStatusType = CheckpointStatusType.CYCLE;
-      break;
+      checkpointStatusType = CheckpointStatusType.CYCLE
+      break
     case RequestDataType.RECEIPT:
-      checkpointStatusType = CheckpointStatusType.RECEIPT;
-      break;
+      checkpointStatusType = CheckpointStatusType.RECEIPT
+      break
     case RequestDataType.ORIGINALTX:
-      checkpointStatusType = CheckpointStatusType.ORIGINAL_TX;
-      break;
+      checkpointStatusType = CheckpointStatusType.ORIGINAL_TX
+      break
     case RequestDataType.ACCOUNT:
     case RequestDataType.TRANSACTION:
       // For other data types, check if startCycle or endCycle is specified
@@ -1577,15 +1606,15 @@ export const queryFromArchivers = async (
         // If both startCycle and endCycle are provided, we'll check the entire range
         bucketRange = {
           start: params.startCycle,
-          end: params.endCycle
-        };
-        bucketID = params.startCycle; // Default to startCycle for single bucket check fallback
+          end: params.endCycle,
+        }
+        bucketID = params.startCycle // Default to startCycle for single bucket check fallback
       } else if (params.startCycle !== undefined) {
-        bucketID = params.startCycle;
+        bucketID = params.startCycle
       } else if (params.endCycle !== undefined) {
-        bucketID = params.endCycle;
+        bucketID = params.endCycle
       }
-      break;
+      break
   }
 
   const data = {
@@ -1619,11 +1648,13 @@ export const queryFromArchivers = async (
   const randomArchivers = Utils.getRandomItemFromArr(State.otherArchivers, 0, maxNumberofArchiversToRetry)
 
   // Try to find an archiver with verified data if checkpoint is enabled and we have bucket information
-  if (config.checkpoint.bucketConfig.allowCheckpointUpdates && randomArchivers.length > 0 &&
-    (bucketRange !== undefined || bucketID !== undefined)) {
-
+  if (
+    config.checkpoint.bucketConfig.allowCheckpointUpdates &&
+    randomArchivers.length > 0 &&
+    (bucketRange !== undefined || bucketID !== undefined)
+  ) {
     // Try to find an archiver with verified data for the bucket range or single bucket
-    const verifiedArchiver = await findVerifiedArchiver(randomArchivers, bucketRange, bucketID, timeoutInSecond);
+    const verifiedArchiver = await findVerifiedArchiver(randomArchivers, bucketRange, bucketID, timeoutInSecond)
 
     if (verifiedArchiver) {
       try {
@@ -1647,7 +1678,10 @@ export const queryFromArchivers = async (
           }
         }
       } catch (error) {
-        Logger.mainLogger.error(`Error querying data from verified archiver ${verifiedArchiver.ip}:${verifiedArchiver.port}:`, error);
+        Logger.mainLogger.error(
+          `Error querying data from verified archiver ${verifiedArchiver.ip}:${verifiedArchiver.port}:`,
+          error
+        )
       }
     }
   }
@@ -1694,7 +1728,7 @@ async function findVerifiedArchiver(
   timeoutInSecond?: number
 ): Promise<any | null> {
   for (const archiver of archivers) {
-    if (!archiver) continue;
+    if (!archiver) continue
 
     try {
       if (bucketRange) {
@@ -1705,16 +1739,14 @@ async function findVerifiedArchiver(
           sender: config.ARCHIVER_PUBLIC_KEY,
         }
         const signedBucketVerificationDataToSend = Crypto.sign(verificationData)
-        const verificationResponse: { success?: boolean, isVerified?: boolean, sign?: Signature, sender?: string } = await P2P.postJson(
-          `http://${archiver.ip}:${archiver.port}/bucket-verification`,
-          signedBucketVerificationDataToSend,
-          timeoutInSecond
-        )
+        const verificationResponse: { success?: boolean; isVerified?: boolean; sign?: Signature; sender?: string } =
+          await P2P.postJson(
+            `http://${archiver.ip}:${archiver.port}/bucket-verification`,
+            signedBucketVerificationDataToSend,
+            timeoutInSecond
+          )
 
-        if (
-          verificationResponse?.success &&
-          verificationResponse?.isVerified
-        ) {
+        if (verificationResponse?.success && verificationResponse?.isVerified) {
           const signatureVerificationResult = Crypto.verify(verificationResponse as { sender: string; sign: Signature })
           if (signatureVerificationResult) {
             return archiver
@@ -1727,16 +1759,14 @@ async function findVerifiedArchiver(
           sender: config.ARCHIVER_PUBLIC_KEY,
         }
         const signedBucketVerificationDataToSend = Crypto.sign(verificationData)
-        const verificationResponse: { sender?: string, sign?: Signature, success?: boolean, isVerified?: boolean } = await P2P.postJson(
-          `http://${archiver.ip}:${archiver.port}/bucket-verification`,
-          signedBucketVerificationDataToSend,
-          timeoutInSecond
-        )
+        const verificationResponse: { sender?: string; sign?: Signature; success?: boolean; isVerified?: boolean } =
+          await P2P.postJson(
+            `http://${archiver.ip}:${archiver.port}/bucket-verification`,
+            signedBucketVerificationDataToSend,
+            timeoutInSecond
+          )
 
-        if (
-          verificationResponse?.success &&
-          verificationResponse?.isVerified
-        ) {
+        if (verificationResponse?.success && verificationResponse?.isVerified) {
           const signatureVerificationResult = Crypto.verify(verificationResponse as { sender: string; sign: Signature })
           if (signatureVerificationResult) {
             return archiver
@@ -1744,9 +1774,9 @@ async function findVerifiedArchiver(
         }
       }
     } catch (error) {
-      Logger.mainLogger.error(`Error checking bucket verification for archiver ${archiver.ip}:${archiver.port}:`, error);
+      Logger.mainLogger.error(`Error checking bucket verification for archiver ${archiver.ip}:${archiver.port}:`, error)
     }
   }
 
-  return null;
+  return null
 }

@@ -39,9 +39,7 @@ const byAscendingNodeId = (a: ConsensusNodeInfo, b: ConsensusNodeInfo): number =
 export const byAscendingPublicKey = (a: State.ArchiverNodeInfo, b: State.ArchiverNodeInfo): number =>
   a.publicKey > b.publicKey ? 1 : -1
 
-export const fromP2PTypesJoinedConsensor = (
-  joinedConsensor: P2PTypes.JoinTypes.JoinedConsensor
-): JoinedConsensor => ({
+export const fromP2PTypesJoinedConsensor = (joinedConsensor: P2PTypes.JoinTypes.JoinedConsensor): JoinedConsensor => ({
   ip: joinedConsensor.internalIp,
   port: joinedConsensor.internalPort,
   publicKey: joinedConsensor.publicKey,
@@ -346,17 +344,13 @@ export const getCachedFullNodeList = (
   return fullNodesCache.get('/full-active-syncing-nodelist')
 }
 
-export async function getActiveNodeListFromArchiver(
-  archiver: State.ArchiverNodeInfo
-): Promise<ConsensusNodeInfo[]> {
+export async function getActiveNodeListFromArchiver(archiver: State.ArchiverNodeInfo): Promise<ConsensusNodeInfo[]> {
   const response = (await P2P.getJson(`http://${archiver.ip}:${archiver.port}/nodelist`)) as SignedNodeList
   Logger.mainLogger.debug('response', `http://${archiver.ip}:${archiver.port}/nodelist`, response)
 
   if (response && response.nodeList && response.nodeList.length > 0) {
     const isResponseVerified = Crypto.verify(response)
-    const isFromActiveArchiver = State.activeArchivers.some(
-      (archiver) => archiver.publicKey === response.sign.owner
-    )
+    const isFromActiveArchiver = State.activeArchivers.some((archiver) => archiver.publicKey === response.sign.owner)
 
     if (!isResponseVerified || !isFromActiveArchiver) {
       Logger.mainLogger.debug(`Fail to verify the response from the archiver ${archiver.ip}:${archiver.port}`)

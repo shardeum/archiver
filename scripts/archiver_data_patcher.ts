@@ -82,18 +82,13 @@ const runProgram = async (): Promise<void> => {
     for (let i = startCycle; i <= endCycle; ) {
       if (nextEnd > endCycle) nextEnd = endCycle
       console.log(i, nextEnd)
-      const downloadedReceiptCountByCycles = await fetchDataCountByCycles(
-        archiver,
-        DataType.RECEIPT,
-        i,
-        nextEnd
-      )
+      const downloadedReceiptCountByCycles = await fetchDataCountByCycles(archiver, DataType.RECEIPT, i, nextEnd)
       // console.log(downloadedReceiptCountByCycles)
       if (!downloadedReceiptCountByCycles || !downloadedReceiptCountByCycles.receipts) {
         console.log(`archiver ${archiver.ip}:${archiver.port} failed to respond`)
         break
       }
-      const receiptsCountByCycles = await ReceiptDB.queryReceiptCountByCycles(i, nextEnd) || [];
+      const receiptsCountByCycles = (await ReceiptDB.queryReceiptCountByCycles(i, nextEnd)) || []
       // console.log(receiptsCountByCycles)
       for (let j = i; j <= nextEnd; j++) {
         const downloadedReceipts = downloadedReceiptCountByCycles.receipts.filter((d) => d.cycle === j)
@@ -135,7 +130,9 @@ const runProgram = async (): Promise<void> => {
         )
         const existingOriginalTxsData = originalTxsDataCountByCycles.filter((d) => d.cycle === j)
         // console.log(j, downloadedOriginalTxsData, existingOriginalTxsData)
-        if (StringUtils.safeStringify(downloadedOriginalTxsData) !== StringUtils.safeStringify(existingOriginalTxsData)) {
+        if (
+          StringUtils.safeStringify(downloadedOriginalTxsData) !== StringUtils.safeStringify(existingOriginalTxsData)
+        ) {
           console.log('Unmatched', j, downloadedOriginalTxsData, existingOriginalTxsData)
           const originalTxsData = await fetchDataForCycle(archiver, DataType.ORIGINAL_TX_DATA, j)
           if (originalTxsData) {
@@ -188,11 +185,7 @@ const fetchDataCountByCycles = async (
   endCycle: number
 ): Promise<any> => {
   const route =
-    dataType === DataType.RECEIPT
-      ? 'receipt'
-      : dataType === DataType.ORIGINAL_TX_DATA
-      ? 'originalTx'
-      : 'cycleinfo'
+    dataType === DataType.RECEIPT ? 'receipt' : dataType === DataType.ORIGINAL_TX_DATA ? 'originalTx' : 'cycleinfo'
   const data =
     dataType === DataType.CYCLE
       ? {
@@ -217,11 +210,7 @@ const fetchDataCountByCycles = async (
 }
 
 // TODO: Update as pagination query
-const fetchDataForCycle = async (
-  archiver: ArchiverNode,
-  dataType: DataType,
-  cycleNumber: number
-): Promise<any> => {
+const fetchDataForCycle = async (archiver: ArchiverNode, dataType: DataType, cycleNumber: number): Promise<any> => {
   const route = dataType === DataType.RECEIPT ? 'receipt' : 'originalTx'
   let page = 1
   let combinedData: any = []

@@ -14,7 +14,6 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { initAjvSchemas } from '../src/types/ajv/Helpers'
 import { initializeSerialization } from '../src/utils/serialization/SchemaHelpers'
 
-
 const archiversAtShutdown = [
   {
     ip: '127.0.0.1',

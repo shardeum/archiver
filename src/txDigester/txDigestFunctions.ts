@@ -57,7 +57,7 @@ export const processAndInsertTxDigests = async (
       return
     }
 
-    if(config.VERBOSE) {
+    if (config.VERBOSE) {
       console.log(`TxIds from ${currentCycle} to ${endCycle} of length ${txIds.length}: `, txIds)
     }
 

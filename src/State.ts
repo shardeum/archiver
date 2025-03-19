@@ -12,7 +12,7 @@ import fetch from 'node-fetch'
 import { getAdjacentLeftAndRightArchivers } from './Data/GossipData'
 import { closeDatabase } from './dbstore'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
-import { customFetch } from './utils/customHttpFunctions';
+import { customFetch } from './utils/customHttpFunctions'
 
 export interface ArchiverNodeState {
   ip: string
@@ -44,11 +44,7 @@ export let isSyncing = false
 export let lastCycleToSync = 0
 export const archiversReputation: Map<string, string> = new Map()
 
-export async function initFromConfig(
-  config: Config,
-  shutDownMode = false,
-  useArchiverDiscovery = true
-): Promise<void> {
+export async function initFromConfig(config: Config, shutDownMode = false, useArchiverDiscovery = true): Promise<void> {
   // Get own nodeInfo from config
   nodeState.ip = config.ARCHIVER_IP
   nodeState.port = config.ARCHIVER_PORT
@@ -240,9 +236,7 @@ export async function compareCycleRecordWithOtherArchivers(
           if (res && res.cycleInfo && res.cycleInfo.length > 0) {
             const cycleInfo = res.cycleInfo[0] as P2PTypes.CycleCreatorTypes.CycleRecord
             if (cycleInfo.counter > ourCycleRecord.counter || cycleInfo.mode !== ourCycleRecord.mode) {
-              Logger.mainLogger.debug(
-                `Our cycle record does not match with archiver ${archiver.ip}:${archiver.port}`
-              )
+              Logger.mainLogger.debug(`Our cycle record does not match with archiver ${archiver.ip}:${archiver.port}`)
               // If our cycle record does not match with any of the archivers, maybe we are behind the network
               foundMatch = false
               break

@@ -52,9 +52,7 @@ export function scheduleMissingCheckpointSync(): void {
   async function syncCheckpoints() {
     try {
       if (!syncActive) {
-        Logger.mainLogger.info(
-          'Checkpoint sync has been stopped as stored cycle count matches network cycle count'
-        )
+        Logger.mainLogger.info('Checkpoint sync has been stopped as stored cycle count matches network cycle count')
         return // Exit the sync loop if syncing is no longer needed
       }
 

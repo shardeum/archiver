@@ -70,5 +70,5 @@ process.on('uncaughtException', (error) => {
 })
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection in Child Process:', promise, 'reason:', reason);
-});
+  console.error('Unhandled Rejection in Child Process:', promise, 'reason:', reason)
+})

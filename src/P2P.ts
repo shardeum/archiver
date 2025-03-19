@@ -6,7 +6,7 @@ import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import { RequestInit, Response } from 'node-fetch'
 import { SignedObject } from '@shardeum-foundation/lib-crypto-utils'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
-import {customFetch} from './utils/customHttpFunctions'
+import { customFetch } from './utils/customHttpFunctions'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { version } = require('../package.json')
 
@@ -41,9 +41,7 @@ export interface FirstNodeInfo {
 export interface FirstNodeResponse {
   nodeList: NodeList.ConsensusNodeInfo[]
   joinRequest?: ArchiverJoinRequest & Crypto.SignedMessage
-  dataRequestCycle?:
-    | (Data.DataRequest<P2PTypes.CycleCreatorTypes.CycleRecord> & Crypto.TaggedMessage)
-    | number
+  dataRequestCycle?: (Data.DataRequest<P2PTypes.CycleCreatorTypes.CycleRecord> & Crypto.TaggedMessage) | number
   dataRequestStateMetaData?: Data.DataRequest<P2PTypes.SnapshotTypes.StateMetaData> & Crypto.TaggedMessage
 }
 

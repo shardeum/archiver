@@ -39,7 +39,8 @@ export function setGlobalNetworkAccount(account: AccountDB.AccountsCopy): void {
   // Get the latest change if any
   allowedArchiversManager.setGlobalAccountConfig(
     account.data?.listOfChanges?.[account.data?.listOfChanges?.length - 1]?.change?.debug?.multisigKeys,
-    account.data?.listOfChanges?.[account.data?.listOfChanges?.length - 1]?.change?.debug?.minSigRequiredForArchiverWhitelist
+    account.data?.listOfChanges?.[account.data?.listOfChanges?.length - 1]?.change?.debug
+      ?.minSigRequiredForArchiverWhitelist
   )
 }
 
@@ -126,10 +127,7 @@ const generatePathKeys = (obj: any, prefix = ''): string[] => {
   /* eslint-enable security/detect-object-injection */
 }
 
-const pruneNetworkChangeQueue = (
-  changes: NetworkConfigChanges[],
-  currentCycle: number
-): NetworkConfigChanges[] => {
+const pruneNetworkChangeQueue = (changes: NetworkConfigChanges[], currentCycle: number): NetworkConfigChanges[] => {
   const configsMap = new Map()
   const keepAliveCount = config.configChangeMaxChangesToKeep
   for (let i = changes.length - 1; i >= 0; i--) {
@@ -199,10 +197,7 @@ export const syncGlobalAccount = async (retry = 5): Promise<void> => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const queryFn = async (node: Node): Promise<any> => {
-        return await postJson(
-          `http://${node.ip}:${node.port}/get_globalaccountreport_archiver`,
-          Crypto.sign({})
-        )
+        return await postJson(`http://${node.ip}:${node.port}/get_globalaccountreport_archiver`, Crypto.sign({}))
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

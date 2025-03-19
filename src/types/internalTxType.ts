@@ -1,16 +1,14 @@
-
 export interface Sign {
   /** The key of the owner */
-  owner: string;
+  owner: string
   /** The hash of the object's signature signed by the owner */
-  sig: string;
+  sig: string
 }
-
 
 export enum InternalTXType {
   SetGlobalCodeBytes = 0, //Deprecated
   InitNetwork = 1,
-  NodeReward = 2,   //Deprecated
+  NodeReward = 2, //Deprecated
   ChangeConfig = 3,
   ApplyChangeConfig = 4,
   SetCertTime = 5,
@@ -28,4 +26,3 @@ export enum DebugTXType {
   Create = 0,
   Transfer = 1,
 }
-
