@@ -11,7 +11,7 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import * as Logger from './Logger'
 import { startSaving } from './saveConsoleOutput'
-import axios from 'axios'
+import { customAxios } from './utils/customHttpFunctions'
 
 const configFile = join(process.cwd(), 'archiver-config.json')
 
@@ -43,7 +43,7 @@ const start = async (): Promise<void> => {
   cron.schedule(config.txDigest.txCronSchedule, async () => {
     console.log('Running cron task....')
     console.log('Checking archiver status....')
-    const archiverStatusResp = await axios.get(ARCHIVER_STATUS_CHECK_URL)
+    const archiverStatusResp = await customAxios().get(ARCHIVER_STATUS_CHECK_URL)
     const isArchiverActive: boolean = archiverStatusResp.data.status.isActive
     console.log('isArchiverActive: ', isArchiverActive)
 

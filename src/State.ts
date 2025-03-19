@@ -12,6 +12,7 @@ import fetch from 'node-fetch'
 import { getAdjacentLeftAndRightArchivers } from './Data/GossipData'
 import { closeDatabase } from './dbstore'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
+import { customFetch } from './utils/customHttpFunctions';
 
 export interface ArchiverNodeState {
   ip: string
@@ -222,7 +223,7 @@ export async function compareCycleRecordWithOtherArchivers(
   ourCycleRecord: P2PTypes.CycleCreatorTypes.CycleRecord
 ): Promise<boolean> {
   const promises = archivers.map((archiver) =>
-    fetch(`http://${archiver.ip}:${archiver.port}/cycleinfo/1`, {
+    customFetch(`http://${archiver.ip}:${archiver.port}/cycleinfo/1`, {
       method: 'get',
       headers: { 'Content-Type': 'application/json' },
       timeout: 2000,

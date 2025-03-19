@@ -43,6 +43,7 @@ import { robustQuery } from '../Utils'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { cachedCycleRecords } from '../cache/cycleRecordsCache'
 import { XOR } from '../utils/general'
+import {customFetch} from '../utils/customHttpFunctions'
 
 export const socketClients: Map<string, SocketIOClientStatic['Socket']> = new Map()
 export let combineAccountsData = {
@@ -934,7 +935,7 @@ export async function sendLeaveRequest(nodes: NodeList.ConsensusNodeInfo[]): Pro
   Logger.mainLogger.debug(`Sending leave request to ${nodes.map((n) => `${n.ip}:${n.port}`)}`)
 
   const promises = nodes.map((node) =>
-    fetch(`http://${node.ip}:${node.port}/leavingarchivers`, {
+    customFetch(`http://${node.ip}:${node.port}/leavingarchivers`, {
       method: 'post',
       body: StringUtils.safeStringify(leaveRequest),
       headers: { 'Content-Type': 'application/json' },
@@ -986,7 +987,7 @@ export async function sendActiveRequest(): Promise<void> {
   Logger.mainLogger.debug(`Sending active request to ${nodes.map((n) => `${n.ip}:${n.port}`)}`)
 
   const promises = nodes.map((node) =>
-    fetch(`http://${node.ip}:${node.port}/activearchiver`, {
+    customFetch(`http://${node.ip}:${node.port}/activearchiver`, {
       method: 'post',
       body: StringUtils.safeStringify(activeRequest),
       headers: { 'Content-Type': 'application/json' },

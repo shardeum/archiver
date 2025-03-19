@@ -133,6 +133,7 @@ export interface Config {
   minCycleConfirmationsToSave: number // this is the minimum numbers of nodes that we need to a see a cycle from to save it
   nerfNonFoundationCertScores: boolean
   formingNetworkCycleThreshold: number // CODE REVIEW WARNING: never allow this to be set more than 30.  we have some trusted execution until this cycle is reached (specifically allowing global tx receipts) - will be refactored to be avoided
+  maxResponseSize: number
 }
 
 let config: Config = {
@@ -282,7 +283,8 @@ let config: Config = {
   multisigKeysSyncFromNetworkInternal: 600,
   minCycleConfirmationsToSave: -1,
   nerfNonFoundationCertScores: true,
-  formingNetworkCycleThreshold: 30
+  formingNetworkCycleThreshold: 30,
+  maxResponseSize: 15 * 1024 * 1024, // 15MB
 }
 // Override default config params from config file, env vars, and cli args
 export async function overrideDefaultConfig(file: string): Promise<void> {
