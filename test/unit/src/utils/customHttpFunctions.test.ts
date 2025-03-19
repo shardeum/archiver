@@ -116,7 +116,7 @@ describe('customGot and customFetch', () => {
 
     describe('customAxios', () => {
         test('should successfully fetch a response under the size limit', async () => {
-            const response = await customAxios().get(`${serverUrl}/small-data`)
+            const response = await customAxios(undefined, {responseType: 'arraybuffer'}).get(`${serverUrl}/small-data`)
             expect(response.status).toBe(200)
             expect(response.data.length).toBeGreaterThan(5 * 1024 - 100)
         }, 10000)
