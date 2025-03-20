@@ -19,22 +19,26 @@ async function generateSignature(): Promise<void> {
     }
 
     // Read and parse config file
-    const configData: ConfigData = StringUtils.safeJsonParse(fs.readFileSync('./allowed-archivers.json', 'utf8'))
+    const configData: ConfigData = StringUtils.safeJsonParse(fs.readFileSync('../allowed-archivers.json', 'utf8'))
 
     // Create payload
     const rawPayload: SignaturePayload = {
       allowedArchivers: configData.allowedArchivers,
     }
 
-    // Generate hash of payload
-    const payloadHash = ethers.keccak256(ethers.toUtf8Bytes(StringUtils.safeStringify(rawPayload)))
-
-    console.log('Payload hash:', payloadHash)
+    // Sign the stringified payload directly
+    const signedMessage = StringUtils.safeStringify(rawPayload)
 
     // Initialize wallet and sign
     const wallet = new ethers.Wallet(privateKey)
-    const signature = await wallet.signMessage(payloadHash)
-    console.log('Signature:', signature)
+    const signature = await wallet.signMessage(signedMessage)
+    const address = wallet.address
+    // Output signature in format needed for verification
+    console.log('Signature object:', {
+      owner: address,
+      sig: signature
+    })
+
   } catch (error) {
     console.error('Error generating signature:', error)
     process.exit(1)

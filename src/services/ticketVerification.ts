@@ -50,7 +50,7 @@ export function verifyMultiSigs(
   if (sigs.length > Object.keys(allowedPubkeys).length) return { isValid: false, validCount: 0 }
 
   let validSigs = 0
-  const payload_hash = ethers.keccak256(ethers.toUtf8Bytes(Utils.safeStringify(rawPayload)))
+  const messageToSign = Utils.safeStringify(rawPayload)
   const seen = new Set()
 
   for (let i = 0; i < sigs.length; i++) {
@@ -64,7 +64,7 @@ export function verifyMultiSigs(
       !seen.has(sigs[i].owner.toLowerCase()) &&
       allowedPubkeys[sigs[i].owner] &&
       allowedPubkeys[sigs[i].owner] >= requiredSecurityLevel &&
-      ethers.verifyMessage(payload_hash, sigs[i].sig).toLowerCase() === sigs[i].owner.toLowerCase()
+      ethers.verifyMessage(messageToSign, sigs[i].sig).toLowerCase() === sigs[i].owner.toLowerCase()
     ) {
       validSigs++
       seen.add(sigs[i].owner.toLowerCase())
