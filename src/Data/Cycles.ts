@@ -34,7 +34,7 @@ import { addCyclesToCache } from '../cache/cycleRecordsCache'
 import { queryLatestCycleRecords } from '../dbstore/cycles'
 import { updateGlobalNetworkAccount } from '../GlobalAccount'
 import { syncTxList } from '../sync-v2'
-import { customFetch } from '../utils/customHttpFunctions';
+import { customFetch } from '../utils/customHttpFunctions'
 
 export interface ArchiverCycleResponse {
   cycleInfo: P2PTypes.CycleCreatorTypes.CycleData[]
@@ -49,10 +49,8 @@ export let currentCycleDuration = 0
 let currentCycleCounter = -1
 let currentCycleMarker = '0'.repeat(32)
 export let lastProcessedMetaData = -1
-export const CycleChain: Map<
-  P2PTypes.CycleCreatorTypes.CycleData['counter'],
-  P2PTypes.CycleCreatorTypes.CycleData
-> = new Map()
+export const CycleChain: Map<P2PTypes.CycleCreatorTypes.CycleData['counter'], P2PTypes.CycleCreatorTypes.CycleData> =
+  new Map()
 export const removedAndApopedNodes = []
 export let cycleRecordWithShutDownMode = null as P2PTypes.CycleCreatorTypes.CycleRecord | null
 export let currentNetworkMode: P2PTypes.ModesTypes.Record['mode'] = 'forming'
@@ -77,7 +75,7 @@ export async function processCycles(cycles: P2PTypes.CycleCreatorTypes.CycleData
       updateNetworkTxsList(cycle)
       // Consensus radius is required for the initial data sync which was not happening earlier
       if (State.isSyncing && nodesPerConsensusGroup < 3) {
-        if (config.VERBOSE) Logger.mainLogger.debug("processCycles: Updating consensus radius")
+        if (config.VERBOSE) Logger.mainLogger.debug('processCycles: Updating consensus radius')
         await getConsensusRadius()
       }
       updateShardValues(cycle)
@@ -170,7 +168,9 @@ export function validateCycle(
   return next.previous === prevMarker
 }
 
-export const validateCycleData = (cycleRecord: P2PTypes.CycleCreatorTypes.CycleData | subscriptionCycleData): boolean => {
+export const validateCycleData = (
+  cycleRecord: P2PTypes.CycleCreatorTypes.CycleData | subscriptionCycleData
+): boolean => {
   const err = Utils.validateTypes(cycleRecord, {
     activated: 'a',
     activatedPublicKeys: 'a',
@@ -366,10 +366,7 @@ function updateNodeList(cycle: P2PTypes.CycleCreatorTypes.CycleData): void {
 }
 
 async function updateNetworkTxsList(cycle: P2PTypes.CycleCreatorTypes.CycleData): Promise<void> {
-  const {
-    txadd,
-    txremove
-  } = cycle
+  const { txadd, txremove } = cycle
 
   ServiceQueue.addTxs(txadd)
   ServiceQueue.removeTxs(txremove)
@@ -382,20 +379,16 @@ async function updateNetworkTxsList(cycle: P2PTypes.CycleCreatorTypes.CycleData)
 
     syncTxListResult.match(
       (txList) => {
-        Logger.mainLogger.debug("Successfully synced txList from validators"), 
-        ServiceQueue.setTxList(txList)
+        Logger.mainLogger.debug('Successfully synced txList from validators'), ServiceQueue.setTxList(txList)
       },
       (error) => {
-        Logger.mainLogger.error("Failed to synchronize transaction list:", error.message);
+        Logger.mainLogger.error('Failed to synchronize transaction list:', error.message)
       }
-    );
+    )
   }
 }
 
-export async function fetchCycleRecords(
-  start: number,
-  end: number
-): Promise<P2PTypes.CycleCreatorTypes.CycleData[]> {
+export async function fetchCycleRecords(start: number, end: number): Promise<P2PTypes.CycleCreatorTypes.CycleData[]> {
   const response = (await queryFromArchivers(RequestDataType.CYCLE, { start, end })) as ArchiverCycleResponse
   if (response) return response.cycleInfo
   return []
@@ -405,9 +398,7 @@ export async function getNewestCycleFromConsensors(
   activeNodes: NodeList.ConsensusNodeInfo[]
 ): Promise<P2PTypes.CycleCreatorTypes.CycleData> {
   const queryFn = async (node: NodeList.ConsensusNodeInfo): Promise<P2PTypes.CycleCreatorTypes.CycleData> => {
-    const response = (await getJson(
-      `http://${node.ip}:${node.port}/sync-newest-cycle`
-    )) as ConsensorCycleResponse
+    const response = (await getJson(`http://${node.ip}:${node.port}/sync-newest-cycle`)) as ConsensorCycleResponse
 
     if (response.newestCycle) {
       return response.newestCycle as P2PTypes.CycleCreatorTypes.CycleData
@@ -426,9 +417,7 @@ export async function getNewestCycleFromArchivers(): Promise<P2PTypes.CycleCreat
     sender: config.ARCHIVER_PUBLIC_KEY,
   }
 
-  const queryFn = async (
-    node: NodeList.ConsensusNodeInfo
-  ): Promise<P2PTypes.CycleCreatorTypes.CycleData[]> => {
+  const queryFn = async (node: NodeList.ConsensusNodeInfo): Promise<P2PTypes.CycleCreatorTypes.CycleData[]> => {
     const response = (await postJson(
       `http://${node.ip}:${node.port}/cycleinfo`,
       Crypto.sign(data)
@@ -464,9 +453,7 @@ export async function recordArchiversReputation(): Promise<void> {
             if (cycleRecord.counter - currentCycleCounter >= -10) {
               State.archiversReputation.set(archiver.publicKey, 'up')
             } else {
-              Logger.mainLogger.debug(
-                `Archiver  ${archiver.ip}:${archiver.port} has fallen behind the latest cycle`
-              )
+              Logger.mainLogger.debug(`Archiver  ${archiver.ip}:${archiver.port} has fallen behind the latest cycle`)
               State.archiversReputation.set(archiver.publicKey, 'down')
             }
           } else {
@@ -512,8 +499,7 @@ function updateShardValues(cycle: P2PTypes.CycleCreatorTypes.CycleData): void {
     nodesPerEdge
   )
 
-  if (profilerInstance)
-    profilerInstance.profileSectionStart('updateShardValues_computePartitionShardDataMap1') //13ms, #:60
+  if (profilerInstance) profilerInstance.profileSectionStart('updateShardValues_computePartitionShardDataMap1') //13ms, #:60
   // partition shard data
   ShardFunctions.computePartitionShardDataMap(
     cycleShardData.shardGlobals,
@@ -523,8 +509,7 @@ function updateShardValues(cycle: P2PTypes.CycleCreatorTypes.CycleData): void {
   )
   if (profilerInstance) profilerInstance.profileSectionEnd('updateShardValues_computePartitionShardDataMap1')
 
-  if (profilerInstance)
-    profilerInstance.profileSectionStart('updateShardValues_computePartitionShardDataMap2') //37ms, #:60
+  if (profilerInstance) profilerInstance.profileSectionStart('updateShardValues_computePartitionShardDataMap2') //37ms, #:60
   // generate limited data for all nodes data for all nodes.
   ShardFunctions.computeNodePartitionDataMap(
     cycleShardData.shardGlobals,

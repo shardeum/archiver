@@ -104,9 +104,7 @@ export const setupWorkerProcesses = (cluster: Cluster): void => {
     }
     if (config.workerProcessesDebugLog)
       console.log(
-        `Adjusted worker count to ${
-          workers.length + newWorkers.size
-        }, based on ${receiptLoadTraker} receipts received.`
+        `Adjusted worker count to ${workers.length + newWorkers.size}, based on ${receiptLoadTraker} receipts received.`
       )
     receiptLoadTraker = 0 // Reset the count
   }, config.receiptLoadTrakerInterval)
@@ -138,8 +136,7 @@ const setupWorkerListeners = (worker: Worker): void => {
         if (config.workerProcessesDebugLog) console.log(`Worker ${workerId} is requesting to close`)
         // Check if the worker is in the extraWorkers map
         if (extraWorkers.has(workerId)) {
-          if (config.workerProcessesDebugLog)
-            console.log(`Worker ${workerId} is in extraWorkers, killing it now`)
+          if (config.workerProcessesDebugLog) console.log(`Worker ${workerId} is in extraWorkers, killing it now`)
           const worker = extraWorkers.get(workerId)
           if (worker) worker.kill()
         } else {
@@ -147,9 +144,7 @@ const setupWorkerListeners = (worker: Worker): void => {
           // Check if the worker is in the workers array
           const workerIndex = workers.findIndex((worker) => worker.process.pid === workerId)
           if (workerIndex !== -1) {
-            console.error(
-              `Worker ${workerId} is in workers now, we can't kill it as it might be processing a receipt`
-            )
+            console.error(`Worker ${workerId} is in workers now, we can't kill it as it might be processing a receipt`)
           } else {
             console.error(`Worker ${workerId} is not in workers`)
           }
@@ -184,8 +179,7 @@ const setupWorkerListeners = (worker: Worker): void => {
     console.log(`Worker ${worker.process.pid} died with code ${code} and signal ${signal}`)
     let isExtraWorker = false
     if (extraWorkers.has(workerId)) {
-      if (config.workerProcessesDebugLog)
-        console.log(`Worker ${workerId} is in extraWorkers, removing it now`)
+      if (config.workerProcessesDebugLog) console.log(`Worker ${workerId} is in extraWorkers, removing it now`)
       isExtraWorker = true
       extraWorkers.get(workerId)?.kill()
       extraWorkers.delete(workerId)

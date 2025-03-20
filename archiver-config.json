@@ -7,7 +7,7 @@
   "archivers": [],
   "ARCHIVER_MODE": "release",
   "DevPublicKey": "",
-  "tickets": {  
+  "tickets": {
     "allowedTicketSigners": {
       "0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5": 5,
       "0x0a0844DA5e01E391d12999ca859Da8a897D5979A": 5,

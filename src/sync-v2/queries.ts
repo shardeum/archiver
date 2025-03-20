@@ -119,7 +119,9 @@ function attemptSimpleFetch<T>(
 }
 
 /** Executes a robust query to retrieve the cycle marker from the network. */
-export function robustQueryForCycleRecordHash(nodes: ActiveNode[]): RobustQueryResultAsync<{ currentCycleHash: hexstring }> {
+export function robustQueryForCycleRecordHash(
+  nodes: ActiveNode[]
+): RobustQueryResultAsync<{ currentCycleHash: hexstring }> {
   return makeRobustQueryCall(nodes, 'current-cycle-hash')
 }
 
@@ -145,9 +147,7 @@ export function robustQueryForStandbyNodeListHash(
 }
 
 /** Executes a robust query to retrieve the txList hash from the network. */
-export function robustQueryForTxListHash(
-  nodes: ActiveNode[]
-): RobustQueryResultAsync<{ txListHash: hexstring }> {
+export function robustQueryForTxListHash(nodes: ActiveNode[]): RobustQueryResultAsync<{ txListHash: hexstring }> {
   return makeRobustQueryCall(nodes, 'tx-list-hash')
 }
 
@@ -162,10 +162,7 @@ export function getCurrentCycleDataFromNode(
 }
 
 /** Gets the full validator list from the specified node. */
-export function getValidatorListFromNode(
-  node: ActiveNode,
-  expectedHash: hexstring
-): ResultAsync<Validator[], Error> {
+export function getValidatorListFromNode(node: ActiveNode, expectedHash: hexstring): ResultAsync<Validator[], Error> {
   console.log(`getting validator list from ${node.ip}:${node.port} with hash ${expectedHash}`)
   return attemptSimpleFetch(node, 'validator-list', {
     hash: expectedHash,
@@ -173,10 +170,7 @@ export function getValidatorListFromNode(
 }
 
 /** Gets the full node list from the specified archiver. */
-export function getArchiverListFromNode(
-  node: ActiveNode,
-  expectedHash: hexstring
-): ResultAsync<Archiver[], Error> {
+export function getArchiverListFromNode(node: ActiveNode, expectedHash: hexstring): ResultAsync<Archiver[], Error> {
   console.log(`getting archiver list from ${node.ip}:${node.port} with hash ${expectedHash}`)
   return attemptSimpleFetch(node, 'archiver-list', {
     hash: expectedHash,

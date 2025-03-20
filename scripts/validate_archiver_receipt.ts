@@ -45,8 +45,6 @@ const runProgram = async (): Promise<void> => {
 
 // validating appReceiptData
 const validateReceiptData = (receipt: Receipt.ArchiverReceipt): boolean => {
-
-  
   // Add type and field existence check
   let err = Utils.validateTypes(receipt, {
     tx: 'o',
@@ -183,9 +181,7 @@ const calculateAppReceiptDataHash = (appReceiptData: any): string => {
   try {
     if (appReceiptData.data && appReceiptData.data.receipt) {
       if (appReceiptData.data.receipt.bitvector)
-        appReceiptData.data.receipt.bitvector = Uint8Array.from(
-          Object.values(appReceiptData.data.receipt.bitvector)
-        )
+        appReceiptData.data.receipt.bitvector = Uint8Array.from(Object.values(appReceiptData.data.receipt.bitvector))
       if (appReceiptData.data.receipt.logs && appReceiptData.data.receipt.logs.length > 0) {
         appReceiptData.data.receipt.logs = appReceiptData.data.receipt.logs.map((log) => {
           return log.map((log1) => {
@@ -234,9 +230,7 @@ export const verifyAppReceiptData = (receipt: Receipt.ArchiverReceipt): boolean 
   const calculatedAppReceiptDataHash = calculateAppReceiptDataHash(appReceiptDataCopy)
   if (calculatedAppReceiptDataHash !== receipt.appliedReceipt.app_data_hash) {
     console.error(
-      `appReceiptData hash mismatch: ${Crypto.hashObj(appReceiptData)} != ${
-        receipt.appliedReceipt.app_data_hash
-      }`
+      `appReceiptData hash mismatch: ${Crypto.hashObj(appReceiptData)} != ${receipt.appliedReceipt.app_data_hash}`
     )
     return false
   }
@@ -250,13 +244,7 @@ export const verifyAccountHash = (receipt: Receipt.ArchiverReceipt): boolean => 
       const calculatedAccountHash = accountSpecificHash(account.data)
       const indexOfAccount = receipt.appliedReceipt.appliedVote.account_id.indexOf(account.accountId)
       if (indexOfAccount === -1) {
-        console.error(
-          'Account not found',
-          account.accountId,
-          receipt.tx.txId,
-          receipt.cycle,
-          receipt.tx.timestamp
-        )
+        console.error('Account not found', account.accountId, receipt.tx.txId, receipt.cycle, receipt.tx.timestamp)
         return false
       }
       const expectedAccountHash = receipt.appliedReceipt.appliedVote.account_state_hash_after[indexOfAccount]

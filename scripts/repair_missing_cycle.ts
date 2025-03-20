@@ -11,7 +11,6 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { initAjvSchemas } from '../src/types/ajv/Helpers'
 import { initializeSerialization } from '../src/utils/serialization/SchemaHelpers'
 
-
 const patchCycleData = false
 
 const start = async (): Promise<void> => {
@@ -73,8 +72,7 @@ async function checkCycleData(startCycleNumber = 0, latestCycleNumber: number): 
 
     // Query cycle in batches in parallel using Promise.allSettled
     const promises = cycleBatches.map(async (cycleNumberBatch: number[]) => {
-      const sql =
-        'SELECT counter FROM cycles WHERE counter IN (' + cycleNumberBatch + ') ORDER BY counter ASC'
+      const sql = 'SELECT counter FROM cycles WHERE counter IN (' + cycleNumberBatch + ') ORDER BY counter ASC'
       return db.all(sql)
     })
 

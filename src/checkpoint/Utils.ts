@@ -16,9 +16,7 @@ const checkpointManagers: Record<CheckpointType, CheckpointBucketManager<any>> =
  * @param checkpointType - The type of checkpoint for which to retrieve the manager.
  * @returns The corresponding CheckpointBucketManager or undefined if not found.
  */
-export const getCheckpointManager = (
-  checkpointType: CheckpointType
-): CheckpointBucketManager<any> | undefined => {
+export const getCheckpointManager = (checkpointType: CheckpointType): CheckpointBucketManager<any> | undefined => {
   try {
     return checkpointManagers[checkpointType]
   } catch (error) {

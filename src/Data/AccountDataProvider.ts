@@ -69,9 +69,7 @@ export const servingValidators: Map<string, number> = new Map() // key: validato
 const SERVING_VALIDATOR_TIMEOUT = 10 * 1000 // 10 seconds
 let servingValidatorsRemovalInterval: NodeJS.Timeout
 
-export const validateAccountDataRequest = (
-  payload: AccountDataRequestSchema
-): { success: boolean; error?: string } => {
+export const validateAccountDataRequest = (payload: AccountDataRequestSchema): { success: boolean; error?: string } => {
   if (currentNetworkMode !== 'restore') {
     return { success: false, error: 'Account data can only be requested in restore mode!' }
   }

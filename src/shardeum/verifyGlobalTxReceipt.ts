@@ -95,9 +95,7 @@ export const verifyGlobalTxAccountChange = (
           nestedCounterMessages.push(`Unexpected account found in accounts`)
           return false
         }
-        const networkAccountBefore = receipt.beforeStates.find(
-          (bAccount) => bAccount?.accountId === account.accountId
-        )
+        const networkAccountBefore = receipt.beforeStates.find((bAccount) => bAccount?.accountId === account.accountId)
         const networkAccountAfter = receipt.afterStates.find(
           (fAccount) => fAccount?.accountId === signedReceipt.tx.address
         )

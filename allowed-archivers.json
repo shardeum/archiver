@@ -1,20 +1,20 @@
 {
-    "allowedArchivers": [
-        {
-            "ip": "127.0.0.1",
-            "port": 4000,
-            "publicKey": "758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3"
-        },
-        {
-            "ip": "127.0.0.1",
-            "port": 4001,
-            "publicKey": "e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94"
-        }
-    ],
-    "signatures": [
-        {
-            "owner": "0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5",
-            "sig": "0x53535921e57d0796b0dbf1451ff6a9ff535bbf2f51cdcc1a5ddd618aa62ca0f36a98c5e2fcecaa7217626735fc3bb5f47acc5e7e60284bb20fb157b50390d45f1b"
-        }
-    ]
+  "allowedArchivers": [
+    {
+      "ip": "127.0.0.1",
+      "port": 4000,
+      "publicKey": "758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3"
+    },
+    {
+      "ip": "127.0.0.1",
+      "port": 4001,
+      "publicKey": "e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94"
+    }
+  ],
+  "signatures": [
+    {
+      "owner": "0x002D3a2BfE09E3E29b6d38d58CaaD16EEe4C9BC5",
+      "sig": "0x53535921e57d0796b0dbf1451ff6a9ff535bbf2f51cdcc1a5ddd618aa62ca0f36a98c5e2fcecaa7217626735fc3bb5f47acc5e7e60284bb20fb157b50390d45f1b"
+    }
+  ]
 }

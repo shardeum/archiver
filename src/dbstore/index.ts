@@ -15,10 +15,7 @@ export const initializeDB = async (config: Config): Promise<void> => {
   createDirectories(config.ARCHIVER_DB)
   accountDatabase = await createDB(`${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.accountDB}`, 'Account')
   cycleDatabase = await createDB(`${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.cycleDB}`, 'Cycle')
-  transactionDatabase = await createDB(
-    `${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.transactionDB}`,
-    'Transaction'
-  )
+  transactionDatabase = await createDB(`${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.transactionDB}`, 'Transaction')
   receiptDatabase = await createDB(`${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.receiptDB}`, 'Receipt')
   originalTxDataDatabase = await createDB(
     `${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.originalTxDataDB}`,
@@ -61,10 +58,7 @@ export const initializeDB = async (config: Config): Promise<void> => {
     accountDatabase,
     'CREATE INDEX if not exists `accounts_cycleNumber` ON `accounts` (`cycleNumber` ASC)'
   )
-  await runCreate(
-    accountDatabase,
-    'CREATE INDEX if not exists `accounts_timestamp` ON `accounts` (`timestamp` ASC)'
-  )
+  await runCreate(accountDatabase, 'CREATE INDEX if not exists `accounts_timestamp` ON `accounts` (`timestamp` ASC)')
   await runCreate(
     accountDatabase,
     'CREATE INDEX if not exists `accounts_cycleNumber_timestamp` ON `accounts` (`cycleNumber` ASC, `timestamp` ASC)'
@@ -74,10 +68,7 @@ export const initializeDB = async (config: Config): Promise<void> => {
     'CREATE TABLE if not exists `receipts` (`receiptId` TEXT NOT NULL UNIQUE PRIMARY KEY, `tx` JSON NOT NULL, `cycle` NUMBER NOT NULL, `applyTimestamp` BIGINT NOT NULL, `timestamp` BIGINT NOT NULL, `signedReceipt` JSON NOT NULL, `afterStates` JSON, `beforeStates` JSON, `appReceiptData` JSON, `executionShardKey` TEXT NOT NULL, `globalModification` BOOLEAN NOT NULL)'
   )
   await runCreate(receiptDatabase, 'CREATE INDEX if not exists `receipts_cycle` ON `receipts` (`cycle` ASC)')
-  await runCreate(
-    receiptDatabase,
-    'CREATE INDEX if not exists `receipts_timestamp` ON `receipts` (`timestamp` ASC)'
-  )
+  await runCreate(receiptDatabase, 'CREATE INDEX if not exists `receipts_timestamp` ON `receipts` (`timestamp` ASC)')
   await runCreate(receiptDatabase, 'CREATE INDEX if not exists `receipts_cycle` ON `receipts` (`cycle` ASC)')
   await runCreate(
     receiptDatabase,

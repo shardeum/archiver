@@ -99,9 +99,7 @@ async function sendRefute(): Promise<void> {
  * Shuts down the archiver with exit code 2.
  */
 function die(): void {
-  Logger.mainLogger.debug(
-    'Archiver was found in `removedArchivers` and will exit now without sending a leave request'
-  )
+  Logger.mainLogger.debug('Archiver was found in `removedArchivers` and will exit now without sending a leave request')
   allowedArchiversManager.stopWatching()
   process.exit(2)
 }

@@ -95,16 +95,13 @@ export async function updateCheckpointStatusField(
     // Get the field name to update based on the status field type
     const fieldToUpdate = fieldMapping[statusField]
 
-      // Update the specific field (using type assertion for TypeScript)
-      ; (newStatus as Record<string, any>)[fieldToUpdate] = value
+    // Update the specific field (using type assertion for TypeScript)
+    ;(newStatus as Record<string, any>)[fieldToUpdate] = value
 
     // Calculate the unified status
     if (currentStatus) {
       let sql = `UPDATE checkpoint_status SET ${fieldToUpdate} = ? WHERE cycle = ?`
-      await db.run(checkpointStatusDatabase, sql, [
-        value,
-        newStatus.cycle,
-      ])
+      await db.run(checkpointStatusDatabase, sql, [value, newStatus.cycle])
       const status = await getCheckpointStatus(newStatus.cycle)
       sql = `UPDATE checkpoint_status SET unifiedStatus = ? WHERE cycle = ?`
       await db.run(checkpointStatusDatabase, sql, [
@@ -186,21 +183,23 @@ export async function bulkUpdateCheckpointStatusField(
     // Handle specific cycles
     if (cycles && cycles.length > 0) {
       const cyclesStatus = new Map<number, CheckpointStatus>()
-      await Promise.allSettled(cycles.map(async (cycle) => {
-        const status = await getCheckpointStatus(cycle)
-        if (status) {
-          cyclesStatus.set(cycle, status)
-        } else {
-          cyclesStatus.set(cycle, {
-            cycle,
-            unifiedStatus: false,
-            cycleStatus: false,
-            receiptStatus: false,
-            originalTxStatus: false,
-            created_at: Date.now(),
-          })
-        }
-      }))
+      await Promise.allSettled(
+        cycles.map(async (cycle) => {
+          const status = await getCheckpointStatus(cycle)
+          if (status) {
+            cyclesStatus.set(cycle, status)
+          } else {
+            cyclesStatus.set(cycle, {
+              cycle,
+              unifiedStatus: false,
+              cycleStatus: false,
+              receiptStatus: false,
+              originalTxStatus: false,
+              created_at: Date.now(),
+            })
+          }
+        })
+      )
       existingMap = cyclesStatus
     }
 
@@ -212,8 +211,8 @@ export async function bulkUpdateCheckpointStatusField(
 
       // Update the desired field using the fieldMapping
       const fieldToUpdate = fieldMapping[statusField]
-        // Update the specific field (using type assertion for TypeScript)
-        ; (currentStatus as Record<string, any>)[fieldToUpdate] = value
+      // Update the specific field (using type assertion for TypeScript)
+      ;(currentStatus as Record<string, any>)[fieldToUpdate] = value
 
       // Recompute the unifiedStatus
       currentStatus.unifiedStatus =
@@ -333,10 +332,7 @@ export async function getCheckpointStatus(cycle: number): Promise<CheckpointStat
  * @param startCycle The start cycle number
  * @param endCycle The end cycle number
  */
-async function getCheckpointStatusForRange(
-  startCycle: number,
-  endCycle: number
-): Promise<CheckpointStatus[]> {
+async function getCheckpointStatusForRange(startCycle: number, endCycle: number): Promise<CheckpointStatus[]> {
   const sql = `
     SELECT *
     FROM checkpoint_status
@@ -385,7 +381,6 @@ export async function getCheckpointStatusesByUnifiedStatus(unified: boolean): Pr
     throw error
   }
 }
-
 
 /**
  * Gets the oldest pending or failed checkpoint status
@@ -480,7 +475,7 @@ export async function isBucketVerified(bucketID: number, endBucketID?: number): 
     const results = await db.all(checkpointStatusDatabase, sql, [bucketID, endBucketID])
 
     // If no results or fewer results than expected, return false
-    if (!results || results.length === 0 || results.length < (endBucketID - bucketID + 1)) {
+    if (!results || results.length === 0 || results.length < endBucketID - bucketID + 1) {
       return false
     }
 
@@ -493,7 +488,7 @@ export async function isBucketVerified(bucketID: number, endBucketID?: number): 
       FROM checkpoint_status
       WHERE cycle = ?
     `
-    const result = await db.get(checkpointStatusDatabase, sql, [bucketID]) as { unifiedStatus: number | boolean }
+    const result = (await db.get(checkpointStatusDatabase, sql, [bucketID])) as { unifiedStatus: number | boolean }
 
     if (!result) {
       return false

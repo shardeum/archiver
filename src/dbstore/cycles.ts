@@ -9,24 +9,23 @@ import { calculateBucketID, CycleCheckpointData, cycleCheckpointManager } from '
 import { bulkUpdateCheckpointStatusField, CheckpointStatusType } from './checkpointStatus'
 
 export async function insertCycle(cycle: Cycle, storeCheckpoints: boolean = true): Promise<void> {
-
   try {
     // Define the table columns based on schema
-    const columns = ['cycleMarker', 'counter', 'cycleRecord'];
+    const columns = ['cycleMarker', 'counter', 'cycleRecord']
 
     // Construct the SQL query with placeholders
-    const placeholders = `(${columns.map(() => '?').join(', ')})`;
-    const sql = `INSERT OR REPLACE INTO cycles (${columns.join(', ')}) VALUES ${placeholders}`;
+    const placeholders = `(${columns.map(() => '?').join(', ')})`
+    const sql = `INSERT OR REPLACE INTO cycles (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Map the `cycle` object to match the columns
     const values = columns.map((column) =>
       typeof cycle[column] === 'object'
         ? SerializeToJsonString(cycle[column]) // Serialize objects to JSON
         : cycle[column]
-    );
+    )
 
     // Execute the query directly (single-row insert)
-    await db.run(cycleDatabase, sql, values);
+    await db.run(cycleDatabase, sql, values)
 
     if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
       //Create checkpoint for cycle
@@ -35,21 +34,17 @@ export async function insertCycle(cycle: Cycle, storeCheckpoints: boolean = true
       cycleCheckpointManager.addData(checkpointData, bucketID)
       await bulkUpdateCheckpointStatusField(CheckpointStatusType.CYCLE, true, undefined, undefined, [cycle.counter])
     }
-    
+
     if (config.VERBOSE) {
-      Logger.mainLogger.debug(
-        'Successfully inserted Cycle',
-        cycle.counter,
-        cycle.cycleMarker
-      );
+      Logger.mainLogger.debug('Successfully inserted Cycle', cycle.counter, cycle.cycleMarker)
     }
   } catch (err) {
-    Logger.mainLogger.error(err);
+    Logger.mainLogger.error(err)
     Logger.mainLogger.error(
       'Unable to insert cycle or it is already stored in the database',
       cycle.counter,
       cycle.cycleMarker
-    );
+    )
   }
 }
 
@@ -86,15 +81,21 @@ export async function bulkInsertCycles(cycles: Cycle[], storeCheckpoints: boolea
       const cyclesToUpdate = cycles.map((cycle) => cycle.counter)
       await bulkUpdateCheckpointStatusField(CheckpointStatusType.CYCLE, true, undefined, undefined, cyclesToUpdate)
       await bulkUpdateCheckpointStatusField(CheckpointStatusType.RECEIPT, true, undefined, undefined, cyclesToUpdate)
-      await bulkUpdateCheckpointStatusField(CheckpointStatusType.ORIGINAL_TX, true, undefined, undefined, cyclesToUpdate)
+      await bulkUpdateCheckpointStatusField(
+        CheckpointStatusType.ORIGINAL_TX,
+        true,
+        undefined,
+        undefined,
+        cyclesToUpdate
+      )
     }
 
     if (config.VERBOSE) {
       Logger.mainLogger.debug('Successfully inserted Cycles', cycles.length)
     }
   } catch (err) {
-    Logger.mainLogger.error(err);
-    Logger.mainLogger.error('Unable to bulk insert Cycles', cycles.length);
+    Logger.mainLogger.error(err)
+    Logger.mainLogger.error('Unable to bulk insert Cycles', cycles.length)
   }
 }
 
@@ -167,10 +168,7 @@ export async function queryLatestCycleRecords(count: number): Promise<P2P.CycleC
   }
 }
 
-export async function queryCycleRecordsBetween(
-  start: number,
-  end: number
-): Promise<P2P.CycleCreatorTypes.CycleData[]> {
+export async function queryCycleRecordsBetween(start: number, end: number): Promise<P2P.CycleCreatorTypes.CycleData[]> {
   try {
     const sql = `SELECT * FROM cycles WHERE counter BETWEEN ? AND ? ORDER BY counter ASC`
     const dbCycles = (await db.all(cycleDatabase, sql, [start, end])) as DbCycle[]

@@ -13,7 +13,6 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { initAjvSchemas } from '../src/types/ajv/Helpers'
 import { initializeSerialization } from '../src/utils/serialization/SchemaHelpers'
 
-
 const updateHash = false
 const runProgram = async (): Promise<void> => {
   initAjvSchemas()
@@ -56,13 +55,7 @@ const runProgram = async (): Promise<void> => {
       const calculatedAccountHash = accountSpecificHash(account.data)
 
       if (accountHash1 !== calculatedAccountHash) {
-        console.log(
-          account.accountId,
-          'accountHash1',
-          accountHash1,
-          'calculatedAccountHash',
-          calculatedAccountHash
-        )
+        console.log(account.accountId, 'accountHash1', accountHash1, 'calculatedAccountHash', calculatedAccountHash)
         if (updateHash) {
           account.hash = calculatedAccountHash
           account.data.hash = calculatedAccountHash

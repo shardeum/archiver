@@ -1,11 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {Utils, Utils as StringUtils} from '@shardeum-foundation/lib-types'
+import { Utils, Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import * as util from 'util'
 import * as Logger from './Logger'
-import {Sign} from "./types/internalTxType";
-import {DevSecurityLevel} from "./types/security";
-import {ethers} from "ethers";
+import { Sign } from './types/internalTxType'
+import { DevSecurityLevel } from './types/security'
+import { ethers } from 'ethers'
 import * as crypto from '@shardeum-foundation/lib-crypto-utils'
 
 export interface CountSchema {
@@ -66,8 +66,8 @@ export interface SequentialQueryResult<Node> {
 export function shuffleArray<T>(array: T[]): void {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
-      // eslint-disable-next-line security/detect-object-injection
-      ;[array[i], array[j]] = [array[j], array[i]]
+    // eslint-disable-next-line security/detect-object-injection
+    ;[array[i], array[j]] = [array[j], array[i]]
   }
 }
 
@@ -254,8 +254,7 @@ export async function robustQuery<Node = unknown, Response = unknown>(
     tries += 1
     const toQuery = redundancy - responses.getHighestCount()
     if (nodes.length < toQuery) {
-      if (!disableFailLog)
-        Logger.mainLogger.error('In robustQuery stopping since we ran out of nodes to query.')
+      if (!disableFailLog) Logger.mainLogger.error('In robustQuery stopping since we ran out of nodes to query.')
       break
     }
     if (delayTimeInMS > 0 && Math.ceil(nodeCount / 2) >= nodes.length) {
@@ -279,7 +278,8 @@ export async function robustQuery<Node = unknown, Response = unknown>(
     //        This change would require also changing all the places it is called.
     if (!disableFailLog)
       Logger.mainLogger.error(
-        `Could not get ${redundancy} ${redundancy > 1 ? 'redundant responses' : 'response'
+        `Could not get ${redundancy} ${
+          redundancy > 1 ? 'redundant responses' : 'response'
         } from ${nodeCount} ${nodeCount !== 1 ? 'nodes' : 'node'}. Encountered ${errors} query errors.`
       )
     console.trace()
@@ -564,8 +564,7 @@ interface Identifiable {
   id: string | number
 }
 
-export const byIdAsc = (a: Identifiable, b: Identifiable): number =>
-  a.id === b.id ? 0 : a.id < b.id ? -1 : 1
+export const byIdAsc = (a: Identifiable, b: Identifiable): number => (a.id === b.id ? 0 : a.id < b.id ? -1 : 1)
 
 export function createDirectories(pathname: string): void {
   const __dirname = path.resolve()
@@ -573,13 +572,12 @@ export function createDirectories(pathname: string): void {
   fs.mkdirSync(path.resolve(__dirname, pathname), { recursive: true }) // eslint-disable-line security/detect-non-literal-fs-filename
 }
 
-
 export function verifyMultiSigs(
-    rawPayload: object,
-    sigs: Sign[],
-    allowedPubkeys: { [pubkey: string]: DevSecurityLevel },
-    minSigRequired: number,
-    requiredSecurityLevel: DevSecurityLevel
+  rawPayload: object,
+  sigs: Sign[],
+  allowedPubkeys: { [pubkey: string]: DevSecurityLevel },
+  minSigRequired: number,
+  requiredSecurityLevel: DevSecurityLevel
 ): { isValid: boolean; validCount: number } {
   if (!rawPayload || !sigs || !allowedPubkeys || !Array.isArray(sigs)) {
     return { isValid: false, validCount: 0 }
@@ -602,10 +600,10 @@ export function verifyMultiSigs(
     // The signature is valid
     // The signature is not a duplicate
     if (
-        !seen.has(sigs[i].owner.toLowerCase()) &&
-        allowedPubkeys[sigs[i].owner] &&
-        allowedPubkeys[sigs[i].owner] >= requiredSecurityLevel &&
-        ethers.verifyMessage(payload_hash, sigs[i].sig).toLowerCase() === sigs[i].owner.toLowerCase()
+      !seen.has(sigs[i].owner.toLowerCase()) &&
+      allowedPubkeys[sigs[i].owner] &&
+      allowedPubkeys[sigs[i].owner] >= requiredSecurityLevel &&
+      ethers.verifyMessage(payload_hash, sigs[i].sig).toLowerCase() === sigs[i].owner.toLowerCase()
     ) {
       validSigs++
       seen.add(sigs[i].owner.toLowerCase())
@@ -617,7 +615,7 @@ export function verifyMultiSigs(
 
   return {
     isValid: validSigs >= minSigRequired,
-    validCount: validSigs
+    validCount: validSigs,
   }
 }
 

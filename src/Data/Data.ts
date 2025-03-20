@@ -43,7 +43,7 @@ import { robustQuery } from '../Utils'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { cachedCycleRecords } from '../cache/cycleRecordsCache'
 import { XOR } from '../utils/general'
-import {customFetch} from '../utils/customHttpFunctions'
+import { customFetch } from '../utils/customHttpFunctions'
 
 export const socketClients: Map<string, SocketIOClientStatic['Socket']> = new Map()
 export let combineAccountsData = {
@@ -141,7 +141,9 @@ interface JoinStatus {
   isJoined: boolean
 }
 
-export type subscriptionCycleData = Omit<P2PTypes.CycleCreatorTypes.CycleData, 'certificate'> & { certificates: P2PTypes.CycleCreatorTypes.CycleCert[] }
+export type subscriptionCycleData = Omit<P2PTypes.CycleCreatorTypes.CycleData, 'certificate'> & {
+  certificates: P2PTypes.CycleCreatorTypes.CycleCert[]
+}
 
 export function createDataRequest<T extends P2PTypes.SnapshotTypes.ValidTypes>(
   type: P2PTypes.SnapshotTypes.TypeName<T>,
@@ -157,9 +159,7 @@ export function createDataRequest<T extends P2PTypes.SnapshotTypes.ValidTypes>(
   )
 }
 
-export async function unsubscribeDataSender(
-  publicKey: NodeList.ConsensusNodeInfo['publicKey']
-): Promise<void> {
+export async function unsubscribeDataSender(publicKey: NodeList.ConsensusNodeInfo['publicKey']): Promise<void> {
   Logger.mainLogger.debug('Disconnecting previous connection', publicKey)
   const sender = dataSenders.get(publicKey)
   if (sender) {
@@ -179,12 +179,7 @@ export async function unsubscribeDataSender(
     socketClients.delete(publicKey)
   }
   nestedCountersInstance.countEvent('archiver', 'remove_data_sender')
-  Logger.mainLogger.debug(
-    'Subscribed dataSenders',
-    dataSenders.size,
-    'Connected socketClients',
-    socketClients.size
-  )
+  Logger.mainLogger.debug('Subscribed dataSenders', dataSenders.size, 'Connected socketClients', socketClients.size)
   if (config.VERBOSE)
     Logger.mainLogger.debug(
       'Subscribed dataSenders',
@@ -254,8 +249,7 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
           nestedCountersInstance.countEvent('archiver', 'clear_contact_timeout')
         }
 
-        if (config.VERBOSE)
-          console.log('DATA', sender.nodeInfo.publicKey, sender.nodeInfo.ip, sender.nodeInfo.port)
+        if (config.VERBOSE) console.log('DATA', sender.nodeInfo.publicKey, sender.nodeInfo.ip, sender.nodeInfo.port)
 
         if (newData.responses && newData.responses.ORIGINAL_TX_DATA) {
           if (config.VERBOSE)
@@ -353,7 +347,7 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
       }
     })
   } catch (error) {
-    console.error('Error occurred during socket connection:', error);
+    console.error('Error occurred during socket connection:', error)
   }
 }
 
@@ -365,14 +359,17 @@ export function collectCycleData(
   // check if the sender is in the nodelists
   if (NodeList.activeListByIdSorted.length > 0) {
     const [ip, port] = senderInfo.split(':')
-    const isInActiveNodes = NodeList.activeListByIdSorted.some(node => node.ip === ip && node.port.toString() === port)
-    const isInActiveArchivers = State.activeArchivers.some(archiver => archiver.ip === ip && archiver.port.toString() === port)
+    const isInActiveNodes = NodeList.activeListByIdSorted.some(
+      (node) => node.ip === ip && node.port.toString() === port
+    )
+    const isInActiveArchivers = State.activeArchivers.some(
+      (archiver) => archiver.ip === ip && archiver.port.toString() === port
+    )
     if (!isInActiveNodes && !isInActiveArchivers) return
   }
 
   for (const cycle of cycleData) {
-    if (receivedCycleTracker[cycle.counter]?.saved === true)
-      break
+    if (receivedCycleTracker[cycle.counter]?.saved === true) break
 
     // since we can trust archivers and archiver only gossip after they have verified the cycleData
     // we can just call processCycles here
@@ -383,14 +380,18 @@ export function collectCycleData(
 
     let receivedCertSigners = []
     if (NodeList.activeListByIdSorted.length > 0) {
-      const certSigners = receivedCycleTracker[cycle.counter]?.[cycle.marker]?.['certSigners'] ?? new Set();
+      const certSigners = receivedCycleTracker[cycle.counter]?.[cycle.marker]?.['certSigners'] ?? new Set()
       // need to get the hash(marker) of the cycle as it was in q3/q4 when the certs were made and compared
       const cycleCopy = getRecordWithoutPostQ3Changes(cycle)
-      const validateCertsResult = validateCerts((cycle as subscriptionCycleData).certificates, certSigners, Cycles.computeCycleMarker(cycleCopy))
+      const validateCertsResult = validateCerts(
+        (cycle as subscriptionCycleData).certificates,
+        certSigners,
+        Cycles.computeCycleMarker(cycleCopy)
+      )
       if (validateCertsResult === false) break
     }
 
-    receivedCertSigners = (cycle as subscriptionCycleData).certificates.map(cert => cert.sign.owner)
+    receivedCertSigners = (cycle as subscriptionCycleData).certificates.map((cert) => cert.sign.owner)
     delete (cycle as subscriptionCycleData).certificates
 
     if (receivedCycleTracker[cycle.counter]) {
@@ -401,7 +402,7 @@ export function collectCycleData(
         if (!validateCycleData(cycle)) continue
         receivedCycleTracker[cycle.counter][cycle.marker] = {
           cycleInfo: cycle,
-          certSigners: new Set(receivedCertSigners)
+          certSigners: new Set(receivedCertSigners),
         }
         if (config.VERBOSE) Logger.mainLogger.debug('Different Cycle Record received', cycle.counter)
       }
@@ -417,8 +418,7 @@ export function collectCycleData(
         saved: false,
       }
     }
-    if (config.VERBOSE)
-      Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
+    if (config.VERBOSE) Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
 
     if (NodeList.activeListByIdSorted.length === 0) {
       processCycles([receivedCycleTracker[cycle.counter][cycle.marker].cycleInfo])
@@ -436,7 +436,7 @@ export function collectCycleData(
       // find the marker with largest sum of its top 3 cert scores
       const markers = Object.entries(receivedCycleTracker[cycle.counter])
         .filter(([key]) => key !== 'saved' && key !== 'received')
-        .map(([, value]) => value);
+        .map(([, value]) => value)
 
       for (const marker of markers) {
         const scores = []
@@ -444,7 +444,10 @@ export function collectCycleData(
           scores.push(scoreCert(signer as string, prevMarker))
         }
         // get sum of top 3 scores: sort scores in desc order, then slice off first 3 elements, and add them
-        const sum = scores.sort((a, b) => b - a).slice(0, 3).reduce((sum, score) => sum += score, 0)
+        const sum = scores
+          .sort((a, b) => b - a)
+          .slice(0, 3)
+          .reduce((sum, score) => (sum += score), 0)
         if (sum > bestScore) {
           bestScore = sum
           bestMarker = marker['cycleInfo'].marker
@@ -464,7 +467,7 @@ export function collectCycleData(
 
         const markers = Object.entries(receivedCycleTracker[counter])
           .filter(([key]) => key !== 'saved' && key !== 'received')
-          .map(([, value]) => value);
+          .map(([, value]) => value)
 
         // If there is more than one marker for this cycle, output the cycle log
         if (markers.length > 1) logCycle = true
@@ -533,9 +536,7 @@ export async function replaceDataSender(publicKey: NodeList.ConsensusNodeInfo['p
       const subsetIndex = Math.floor(nodeIndex / currentConsensusRadius)
       const subsetNodesList = subsetNodesMapByConsensusRadius.get(subsetIndex)
       if (!subsetNodesList) {
-        Logger.mainLogger.error(
-          `There is no nodes in the index ${subsetIndex} of subsetNodesMapByConsensusRadius!`
-        )
+        Logger.mainLogger.error(`There is no nodes in the index ${subsetIndex} of subsetNodesMapByConsensusRadius!`)
         return
       }
       subscribeNodeFromThisSubset(subsetNodesList)
@@ -556,13 +557,9 @@ export async function subscribeNodeForDataTransfer(): Promise<void> {
  * Removes sender from dataSenders on timeout
  * Select a new dataSender
  */
-export function createContactTimeout(
-  publicKey: NodeList.ConsensusNodeInfo['publicKey'],
-  msg = ''
-): NodeJS.Timeout {
+export function createContactTimeout(publicKey: NodeList.ConsensusNodeInfo['publicKey'], msg = ''): NodeJS.Timeout {
   const CONTACT_TIMEOUT_MS = 10 * 1000 // Change contact timeout to 10s
-  if (config.VERBOSE)
-    Logger.mainLogger.debug('Created contact timeout: ' + CONTACT_TIMEOUT_MS, `for ${publicKey}`)
+  if (config.VERBOSE) Logger.mainLogger.debug('Created contact timeout: ' + CONTACT_TIMEOUT_MS, `for ${publicKey}`)
   nestedCountersInstance.countEvent('archiver', 'contact_timeout_created')
   return setTimeout(() => {
     // Logger.mainLogger.debug('nestedCountersInstance', nestedCountersInstance)
@@ -582,10 +579,7 @@ async function syncFromNetworkConfig(): Promise<any> {
     const queryFn = async (node): Promise<object> => {
       const REQUEST_NETCONFIG_TIMEOUT_SECOND = 3 // 3s timeout
       try {
-        const response = await P2P.getJson(
-          `http://${node.ip}:${node.port}/netconfig`,
-          REQUEST_NETCONFIG_TIMEOUT_SECOND
-        )
+        const response = await P2P.getJson(`http://${node.ip}:${node.port}/netconfig`, REQUEST_NETCONFIG_TIMEOUT_SECOND)
         return response
       } catch (error) {
         Logger.mainLogger.error(`Error querying node ${node.ip}:${node.port}: ${error}`)
@@ -594,14 +588,10 @@ async function syncFromNetworkConfig(): Promise<any> {
     }
     // Define the equality function to compare two responses
     const equalityFn = (responseA, responseB): boolean => {
-      return (
-        responseA?.config?.sharding?.nodesPerConsensusGroup ===
-        responseB?.config?.sharding?.nodesPerConsensusGroup
-      )
+      return responseA?.config?.sharding?.nodesPerConsensusGroup === responseB?.config?.sharding?.nodesPerConsensusGroup
     }
     // Get the list of 10 max random active nodes or the first node if no active nodes are available
-    const nodes =
-      NodeList.getActiveNodeCount() > 0 ? NodeList.getRandomActiveNodes(10) : [NodeList.getFirstNode()]
+    const nodes = NodeList.getActiveNodeCount() > 0 ? NodeList.getRandomActiveNodes(10) : [NodeList.getFirstNode()]
     // Use robustQuery to get the consensusRadius from multiple nodes
     const tallyItem = await robustQuery(
       nodes,
@@ -671,10 +661,7 @@ export async function getConsensusRadius(): Promise<number> {
     const nodesPerConsensusGroupFromConfig = tallyItem.value.config.sharding?.nodesPerConsensusGroup
 
     if (!Number.isInteger(nodesPerConsensusGroupFromConfig) || nodesPerConsensusGroupFromConfig <= 0) {
-      Logger.mainLogger.error(
-        'nodesPerConsensusGroup is not a valid number:',
-        nodesPerConsensusGroupFromConfig
-      )
+      Logger.mainLogger.error('nodesPerConsensusGroup is not a valid number:', nodesPerConsensusGroupFromConfig)
       return currentConsensusRadius
     }
 
@@ -682,10 +669,7 @@ export async function getConsensusRadius(): Promise<number> {
       Logger.mainLogger.error('nodesPerEdge is not a valid number:', nodesPerEdgeFromConfig)
       return currentConsensusRadius
     }
-    if (
-      nodesPerConsensusGroup === nodesPerConsensusGroupFromConfig &&
-      nodesPerEdge === nodesPerEdgeFromConfig
-    )
+    if (nodesPerConsensusGroup === nodesPerConsensusGroupFromConfig && nodesPerEdge === nodesPerEdgeFromConfig)
       return currentConsensusRadius
     nodesPerConsensusGroup = nodesPerConsensusGroupFromConfig
     nodesPerEdge = nodesPerEdgeFromConfig
@@ -712,9 +696,7 @@ export async function getConsensusRadius(): Promise<number> {
   return currentConsensusRadius
 }
 
-export async function createDataTransferConnection(
-  newSenderInfo: NodeList.ConsensusNodeInfo
-): Promise<boolean> {
+export async function createDataTransferConnection(newSenderInfo: NodeList.ConsensusNodeInfo): Promise<boolean> {
   // // Verify node before subscribing for data transfer
   // const status = await verifyNode(newSenderInfo)
   // if (!status) return false
@@ -759,8 +741,7 @@ export async function createNodesGroupByConsensusRadius(): Promise<void> {
     subsetNodesMapByConsensusRadius.set(round, subsetList)
     round++
   }
-  if (config.VERBOSE)
-    Logger.mainLogger.debug('subsetNodesMapByConsensusRadius', subsetNodesMapByConsensusRadius)
+  if (config.VERBOSE) Logger.mainLogger.debug('subsetNodesMapByConsensusRadius', subsetNodesMapByConsensusRadius)
 }
 
 export async function subscribeConsensorsByConsensusRadius(): Promise<void> {
@@ -793,8 +774,7 @@ export async function subscribeNodeFromThisSubset(nodeList: NodeList.ConsensusNo
       unsubscribeDataSender(publicKey)
     }
   }
-  if (config.VERBOSE)
-    Logger.mainLogger.debug('Subscribed nodes from this subset', subscribedNodesFromThisSubset)
+  if (config.VERBOSE) Logger.mainLogger.debug('Subscribed nodes from this subset', subscribedNodesFromThisSubset)
   if (subscribedNodesFromThisSubset.length === numberOfNodesToSubsribe) return
   Logger.mainLogger.debug('Subscribing node from this subset!')
   // Pick a new dataSender from this subset
@@ -839,10 +819,7 @@ export async function sendDataRequest(
     nodeInfo: State.getNodeInfo(),
   }
   const taggedDataRequest = Crypto.tag(dataRequest, nodeInfo.publicKey)
-  Logger.mainLogger.info(
-    `Sending ${dataRequestType} data request to consensor.`,
-    nodeInfo.ip + ':' + nodeInfo.port
-  )
+  Logger.mainLogger.info(`Sending ${dataRequestType} data request to consensor.`, nodeInfo.ip + ':' + nodeInfo.port)
   let reply = false
   const REQUEST_DATA_TIMEOUT_SECOND = 2 // 2s timeout
   const response = await P2P.postJson(
@@ -878,10 +855,7 @@ export function calcIncomingTimes(record: P2PTypes.CycleCreatorTypes.CycleRecord
   return { quarterDuration, startQ1, startQ2, startQ3, startQ4, end }
 }
 
-export async function joinNetwork(
-  nodeList: NodeList.ConsensusNodeInfo[],
-  isFirstTime: boolean
-): Promise<boolean> {
+export async function joinNetwork(nodeList: NodeList.ConsensusNodeInfo[], isFirstTime: boolean): Promise<boolean> {
   Logger.mainLogger.debug('Is firstTime', isFirstTime)
   if (!isFirstTime) {
     const isJoined: boolean = await checkJoinStatus(nodeList)
@@ -1066,9 +1040,7 @@ export async function checkActiveStatus(): Promise<boolean> {
       Logger.mainLogger.debug('cycle counter', latestCycle.counter)
       Logger.mainLogger.debug('Active archivers', activeArchivers)
 
-      const isActive = activeArchivers.some(
-        (a: State.ArchiverNodeInfo) => a.publicKey === ourNodeInfo.publicKey
-      )
+      const isActive = activeArchivers.some((a: State.ArchiverNodeInfo) => a.publicKey === ourNodeInfo.publicKey)
       Logger.mainLogger.debug('isActive', isActive)
       return isActive
     } else {
@@ -1275,9 +1247,7 @@ export async function buildNodeListFromStoredCycle(
     Logger.mainLogger.debug(
       `Got ${squasher.final.updated.length} active nodes, need ${activeNodeCount(lastStoredCycle)}`
     )
-    Logger.mainLogger.debug(
-      `Got ${squasher.final.added.length} total nodes, need ${totalNodeCount(lastStoredCycle)}`
-    )
+    Logger.mainLogger.debug(`Got ${squasher.final.added.length} total nodes, need ${totalNodeCount(lastStoredCycle)}`)
     if (squasher.final.added.length < totalNodeCount(lastStoredCycle))
       Logger.mainLogger.debug('Short on nodes. Need to get more cycles. Cycle:' + lastStoredCycle.counter)
 
@@ -1347,12 +1317,8 @@ export async function syncCyclesAndNodeList(lastStoredCycleCount = 0): Promise<v
       }
     }
 
-    Logger.mainLogger.debug(
-      `Got ${squasher.final.updated.length} active nodes, need ${activeNodeCount(cycleToSyncTo)}`
-    )
-    Logger.mainLogger.debug(
-      `Got ${squasher.final.added.length} total nodes, need ${totalNodeCount(cycleToSyncTo)}`
-    )
+    Logger.mainLogger.debug(`Got ${squasher.final.updated.length} active nodes, need ${activeNodeCount(cycleToSyncTo)}`)
+    Logger.mainLogger.debug(`Got ${squasher.final.added.length} total nodes, need ${totalNodeCount(cycleToSyncTo)}`)
     if (squasher.final.added.length < totalNodeCount(cycleToSyncTo))
       Logger.mainLogger.debug('Short on nodes. Need to get more cycles. Cycle:' + cycleToSyncTo.counter)
 
@@ -1380,9 +1346,7 @@ export async function syncCyclesAndNodeList(lastStoredCycleCount = 0): Promise<v
   let endCycle = CycleChain[0].counter - 1
   Logger.mainLogger.debug('endCycle counter', endCycle, 'lastStoredCycleCount', lastStoredCycleCount)
   if (endCycle > lastStoredCycleCount) {
-    Logger.mainLogger.debug(
-      `Downloading old cycles from cycles ${lastStoredCycleCount} to cycle ${endCycle}!`
-    )
+    Logger.mainLogger.debug(`Downloading old cycles from cycles ${lastStoredCycleCount} to cycle ${endCycle}!`)
   }
   let savedCycleRecord = CycleChain[0]
   while (endCycle > lastStoredCycleCount) {
@@ -1439,8 +1403,8 @@ export async function syncCyclesAndNodeListV2(
 }
 
 export async function syncCyclesBetweenCycles(lastStoredCycle = 0, cycleToSyncTo = 0): Promise<boolean> {
-  const MAX_RETRIES = 3;
-  let retryCount = 0;
+  const MAX_RETRIES = 3
+  let retryCount = 0
 
   let startCycle = lastStoredCycle
   let endCycle = startCycle + MAX_CYCLES_PER_REQUEST
@@ -1453,14 +1417,14 @@ export async function syncCyclesBetweenCycles(lastStoredCycle = 0, cycleToSyncTo
     retryCount = 0
 
     while (!success && retryCount < MAX_RETRIES) {
-      const res = await queryFromArchivers(
+      const res = (await queryFromArchivers(
         RequestDataType.CYCLE,
         {
           start: startCycle,
           end: endCycle,
         },
         QUERY_TIMEOUT_MAX
-      ) as ArchiverCycleResponse
+      )) as ArchiverCycleResponse
 
       if (res && res.cycleInfo) {
         const cycles = res.cycleInfo as P2PTypes.CycleCreatorTypes.CycleData[]
@@ -1507,8 +1471,8 @@ export async function syncCyclesBetweenCycles(lastStoredCycle = 0, cycleToSyncTo
 }
 
 export async function syncReceipts(): Promise<void> {
-  const MAX_RETRIES = 3;
-  let retryCount = 0;
+  const MAX_RETRIES = 3
+  let retryCount = 0
 
   let response: ArchiverTotalDataResponse = await getTotalDataFromArchivers()
   if (!response || response.totalReceipts < 0) {
@@ -1622,12 +1586,7 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
         if (res && res.totalReceipts > 0) {
           if (res.totalReceipts > totalReceipts) totalReceipts = res.totalReceipts
           if (res.totalCycles > totalCycles) totalCycles = res.totalCycles
-          Logger.mainLogger.debug(
-            'totalReceiptsToSync',
-            totalReceipts,
-            'totalSavedReceipts',
-            totalSavedReceiptsCount
-          )
+          Logger.mainLogger.debug('totalReceiptsToSync', totalReceipts, 'totalSavedReceipts', totalSavedReceiptsCount)
           if (totalSavedReceiptsCount === totalReceipts) {
             Logger.mainLogger.debug('Sync receipts data completed!')
             return true
@@ -1734,8 +1693,8 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
 }
 
 export const syncOriginalTxs = async (): Promise<void> => {
-  const MAX_RETRIES = 3;
-  let retryCount = 0;
+  const MAX_RETRIES = 3
+  let retryCount = 0
 
   let response: ArchiverTotalDataResponse = await getTotalDataFromArchivers()
   if (!response || response.totalOriginalTxs < 0) {
@@ -1815,10 +1774,7 @@ export const syncOriginalTxs = async (): Promise<void> => {
   Logger.mainLogger.debug('Sync Original-Txs Data Completed!')
 }
 
-export const syncOriginalTxsByCycle = async (
-  lastStoredOriginalTxCycle = 0,
-  cycleToSyncTo = 0
-): Promise<void> => {
+export const syncOriginalTxsByCycle = async (lastStoredOriginalTxCycle = 0, cycleToSyncTo = 0): Promise<void> => {
   let totalCycles = cycleToSyncTo
   let totalOriginalTxs = 0
   if (cycleToSyncTo === 0) {
@@ -1954,8 +1910,8 @@ export const syncCyclesAndTxsData = async (
   lastStoredReceiptCount = 0,
   lastStoredOriginalTxCount = 0
 ): Promise<void> => {
-  const MAX_RETRIES = 3;
-  let retryCount = 0;
+  const MAX_RETRIES = 3
+  let retryCount = 0
 
   let response: ArchiverTotalDataResponse = await getTotalDataFromArchivers()
   if (!response || response.totalCycles < 0 || response.totalReceipts < 0) {
@@ -2171,13 +2127,8 @@ export const syncCyclesAndTxsData = async (
   Logger.mainLogger.debug('Sync Cycle, Receipt & Original-Tx data completed!')
 }
 
-export const syncCyclesAndTxsDataBetweenCycles = async (
-  lastStoredCycle = 0,
-  cycleToSyncTo = 0
-): Promise<void> => {
-  Logger.mainLogger.debug(
-    `Syncing cycles and txs data between cycles ${lastStoredCycle} and ${cycleToSyncTo}`
-  )
+export const syncCyclesAndTxsDataBetweenCycles = async (lastStoredCycle = 0, cycleToSyncTo = 0): Promise<void> => {
+  Logger.mainLogger.debug(`Syncing cycles and txs data between cycles ${lastStoredCycle} and ${cycleToSyncTo}`)
   await syncCyclesBetweenCycles(lastStoredCycle, cycleToSyncTo)
   await syncReceiptsByCycle(lastStoredCycle, cycleToSyncTo)
   // await syncOriginalTxsByCycle(lastStoredCycle, cycleToSyncTo)
@@ -2248,9 +2199,7 @@ export async function compareWithOldOriginalTxsData(lastStoredOriginalTxCycle = 
   )) as ArchiverOriginalTxResponse
 
   if (!response || !response.originalTxs) {
-    Logger.mainLogger.error(
-      `Can't fetch original tx data from cycle ${startCycle} to cycle ${endCycle} from archivers`
-    )
+    Logger.mainLogger.error(`Can't fetch original tx data from cycle ${startCycle} to cycle ${endCycle} from archivers`)
     return { success, matchedCycle }
   }
   const downloadedOriginalTxsByCycles = response.originalTxs as OriginalTxDB.OriginalTxDataCount[]
@@ -2298,9 +2247,7 @@ export async function compareWithOldReceiptsData(lastStoredReceiptCycle = 0): Pr
   )) as ArchiverReceiptResponse
 
   if (!response || !response.receipts) {
-    Logger.mainLogger.error(
-      `Can't fetch receipts data from cycle ${startCycle} to cycle ${endCycle}  from archivers`
-    )
+    Logger.mainLogger.error(`Can't fetch receipts data from cycle ${startCycle} to cycle ${endCycle}  from archivers`)
     return { success, matchedCycle }
   }
   const downloadedReceiptCountByCycles = response.receipts as ReceiptDB.ReceiptCount[]
@@ -2385,9 +2332,7 @@ async function downloadOldCycles(
   let endCycle = cycleToSyncTo.counter - 1
   Logger.mainLogger.debug('endCycle counter', endCycle, 'lastStoredCycleCount', lastStoredCycleCount)
   if (endCycle > lastStoredCycleCount) {
-    Logger.mainLogger.debug(
-      `Downloading old cycles from cycles ${lastStoredCycleCount} to cycle ${endCycle}!`
-    )
+    Logger.mainLogger.debug(`Downloading old cycles from cycles ${lastStoredCycleCount} to cycle ${endCycle}!`)
   }
 
   let savedCycleRecord = cycleToSyncTo
@@ -2407,9 +2352,7 @@ async function downloadOldCycles(
       QUERY_TIMEOUT_MAX
     )) as ArchiverCycleResponse
     if (!res || !res.cycleInfo || !Array.isArray(res.cycleInfo) || res.cycleInfo.length === 0) {
-      Logger.mainLogger.error(
-        `Can't fetch data from cycle ${startCycle} to cycle ${endCycle}  from archivers`
-      )
+      Logger.mainLogger.error(`Can't fetch data from cycle ${startCycle} to cycle ${endCycle}  from archivers`)
       if (retryCount < MAX_RETRY_COUNT) {
         retryCount++
         continue
@@ -2448,14 +2391,14 @@ export async function syncCycleData(cycle: number): Promise<boolean> {
 
   while (!success && retryCount < MAX_RETRIES) {
     try {
-      const res = await queryFromArchivers(
+      const res = (await queryFromArchivers(
         RequestDataType.CYCLE,
         {
           start: cycle,
           end: cycle,
         },
         QUERY_TIMEOUT_MAX
-      ) as ArchiverCycleResponse
+      )) as ArchiverCycleResponse
 
       if (res && res.cycleInfo && res.cycleInfo.length > 0) {
         const cycleData = res.cycleInfo[0]
@@ -2471,7 +2414,9 @@ export async function syncCycleData(cycle: number): Promise<boolean> {
         success = true
         return true
       } else {
-        Logger.mainLogger.error(`Failed to get cycle data for cycle ${cycle}, attempt ${retryCount + 1} of ${MAX_RETRIES}`)
+        Logger.mainLogger.error(
+          `Failed to get cycle data for cycle ${cycle}, attempt ${retryCount + 1} of ${MAX_RETRIES}`
+        )
         retryCount++
       }
     } catch (error) {
@@ -2485,7 +2430,7 @@ export async function syncCycleData(cycle: number): Promise<boolean> {
 // We want to check that all of the provided certs are actually valid. This means we need to check that
 // they all have the same marker, and that that marker is the same as the one of the original record.
 // We also want all of the signer to actually be active node. And of course, the certs must pass sign
-// verification. If we have already verified a cert in the past, we can skip it. It is possble for a 
+// verification. If we have already verified a cert in the past, we can skip it. It is possble for a
 // malicious node to use valid certs from a honest record to get this function to return true. However,
 // it will also have to make sure the inpMarker is the same as the markers as it is in the certs. If it
 // does this, then the validateCycleData() function that gets called later will fail
@@ -2499,7 +2444,7 @@ function validateCerts(certs: P2PTypes.CycleCreatorTypes.CycleCert[], certSigner
       Logger.mainLogger.warn('validateCerts: cleanCert.marker did not match inpMarker')
       return false
     }
-    if (NodeList.activeListByIdSorted.some(node => node.publicKey === cleanCert.sign.owner) === false) {
+    if (NodeList.activeListByIdSorted.some((node) => node.publicKey === cleanCert.sign.owner) === false) {
       Logger.mainLogger.warn('validateCerts: bad owner')
       return false
     }
@@ -2524,7 +2469,7 @@ export function scoreCert(pubKey: string, prevMarker: P2PTypes.CycleCreatorTypes
     // will also nerf if foundationNode is undefined, which is will be for already active nodes when we
     // first turn on the addFoundationNodeAttribute flag under the current implementation
     if (config.nerfNonFoundationCertScores && !node.foundationNode) {
-      return out & 0x0FFFFFFF
+      return out & 0x0fffffff
     }
 
     return out
@@ -2546,6 +2491,6 @@ function getRecordWithoutPostQ3Changes(cycle: P2PTypes.CycleCreatorTypes.CycleRe
   cycleCopy.nodeListHash = ''
   cycleCopy.archiverListHash = ''
   cycleCopy.standbyNodeListHash = ''
-  cycleCopy.joinedConsensors.forEach((jc) => jc.syncingTimestamp = 0)
+  cycleCopy.joinedConsensors.forEach((jc) => (jc.syncingTimestamp = 0))
   return cycleCopy
 }

@@ -11,11 +11,7 @@ import { PassThrough } from 'stream'
  * @param maxBytes Maximum response size in bytes (default: config.maxResponseSize).
  * @returns A Response.
  */
-export async function customFetch(
-  input: RequestInfo,
-  init?: RequestInit,
-  maxBytes?: number
-): Promise<Response> {
+export async function customFetch(input: RequestInfo, init?: RequestInit, maxBytes?: number): Promise<Response> {
   const downloadLimit = maxBytes ?? config.maxResponseSize
   return await fetch(input, { ...init, size: downloadLimit })
 }
@@ -60,9 +56,7 @@ export function customAxios(maxBytes?: number, axiosConfig: AxiosRequestConfig =
         stream.on('data', (chunk: Buffer) => {
           totalBytes += chunk.length
           if (totalBytes > downloadLimit) {
-            stream.destroy(
-              new Error(`Response size exceeds limit of ${downloadLimit} bytes`)
-            )
+            stream.destroy(new Error(`Response size exceeds limit of ${downloadLimit} bytes`))
             return
           }
           chunks.push(chunk)
@@ -72,7 +66,8 @@ export function customAxios(maxBytes?: number, axiosConfig: AxiosRequestConfig =
           const fullBuffer = Buffer.concat(chunks)
 
           switch (userRequestedType) {
-            case 'stream': { // If user truly wants a stream, we can either:
+            case 'stream': {
+              // If user truly wants a stream, we can either:
               const pass = new PassThrough()
               pass.end(fullBuffer)
               response.data = pass
@@ -88,9 +83,7 @@ export function customAxios(maxBytes?: number, axiosConfig: AxiosRequestConfig =
               try {
                 response.data = Utils.safeJsonParse(fullBuffer.toString('utf8'))
               } catch (err: any) {
-                return reject(
-                  new Error(`Failed to parse JSON (size: ${fullBuffer.length} bytes): ${err.message}`)
-                )
+                return reject(new Error(`Failed to parse JSON (size: ${fullBuffer.length} bytes): ${err.message}`))
               }
               break
           }

@@ -1,3 +1,3 @@
 export type TicketData = {
-    address: string;
-} 
+  address: string
+}

@@ -5,11 +5,7 @@ import * as Receipt from '../dbstore/receipts'
 import * as OriginalTxsData from '../dbstore/originalTxsData'
 import * as ProcessedTransaction from '../dbstore/processedTxs'
 import * as Crypto from '../Crypto'
-import {
-  clearCombinedAccountsData,
-  combineAccountsData,
-  collectCycleData,
-} from './Data'
+import { clearCombinedAccountsData, combineAccountsData, collectCycleData } from './Data'
 import { config } from '../Config'
 import * as Logger from '../Logger'
 import { nestedCountersInstance } from '../profiler/nestedCounters'
@@ -30,7 +26,7 @@ import { Cycle as DbCycle } from '../dbstore/types'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
-import { verifyTransaction } from "../services/transactionVerification";
+import { verifyTransaction } from '../services/transactionVerification'
 import { CycleShardData } from '@shardeum-foundation/lib-types/build/src/state-manager/shardFunctionTypes'
 import { generateTxId } from '../Utils'
 
@@ -107,8 +103,7 @@ function fetchAuthorizedSigners(
         Logger.mainLogger.error(
           `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the active nodesList of cycle ${cycle}`
         )
-        if (nestedCountersInstance)
-          nestedCountersInstance.countEvent('receipt', 'sign_owner_not_in_active_nodesList')
+        if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'sign_owner_not_in_active_nodesList')
         continue
       }
 
@@ -117,8 +112,7 @@ function fetchAuthorizedSigners(
         Logger.mainLogger.error(
           `The node with public key ${nodePubKey} of the receipt ${txId} with ${timestamp} is not in the execution group of the tx`
         )
-        if (nestedCountersInstance)
-          nestedCountersInstance.countEvent('receipt', 'node_not_in_execution_group_of_tx')
+        if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'node_not_in_execution_group_of_tx')
         continue
       }
 
@@ -185,10 +179,7 @@ const verifyGlobalTxreceipt = async (
       cycleShardData.cycleNumber <= config.formingNetworkCycleThreshold
     ) {
       if (nestedCountersInstance)
-        nestedCountersInstance.countEvent(
-          'receipt',
-          'votingGroupCount_lesser_than_nodes_length_forming_phase'
-        )
+        nestedCountersInstance.countEvent('receipt', 'votingGroupCount_lesser_than_nodes_length_forming_phase')
       Logger.mainLogger.log(
         'verifyGlobalTxreceipt: votingGroupCount_lesser_than_nodes_length',
         votingGroupCount,
@@ -324,10 +315,7 @@ const verifyNonGlobalTxReceipt = async (
       cycleShardData.cycleNumber <= config.formingNetworkCycleThreshold
     ) {
       if (nestedCountersInstance)
-        nestedCountersInstance.countEvent(
-          'receipt',
-          'votingGroupCount_lesser_than_nodes_length_forming_phase'
-        )
+        nestedCountersInstance.countEvent('receipt', 'votingGroupCount_lesser_than_nodes_length_forming_phase')
       Logger.mainLogger.log(
         'verifyNonGlobalTxReceipt : votingGroupCount_lesser_than_nodes_length_forming_phase',
         votingGroupCount,
@@ -376,9 +364,7 @@ const verifyNonGlobalTxReceipt = async (
     // Using a map to store the good signatures to avoid duplicates
     const goodSignatures = new Map()
     for (const [nodePublicKey, signature] of acceptableSigners) {
-      if (
-        Crypto.verify({ txid, voteHash, sign: signature.sign, voteTime: voteOffsets.at(signature.index) })
-      ) {
+      if (Crypto.verify({ txid, voteHash, sign: signature.sign, voteTime: voteOffsets.at(signature.index) })) {
         goodSignatures.set(nodePublicKey, signature)
         // Break the loop if the required number of good signatures are found
         if (goodSignatures.size >= requiredSignatures) break
@@ -413,7 +399,6 @@ const verifyNonGlobalTxReceipt = async (
     return result
   }
 }
-
 
 /**
  * Validate type and field existence of the receipt data before processing it further
@@ -511,8 +496,7 @@ export const verifyReceiptData = async (
           return verifyGlobalTxreceipt(receipt)
         } else {
           Logger.mainLogger.error('VerifyReceiptData : globalReceiptValidationErrors have occured')
-          if (nestedCountersInstance)
-            nestedCountersInstance.countEvent('receipt', 'globalReceiptValidationErrors')
+          if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'globalReceiptValidationErrors')
         }
         return result
       } catch (error) {
@@ -567,8 +551,8 @@ const calculateVoteHash = (vote: Receipt.AppliedVote | Receipt.Proposal): string
       }
       const accountsHash = Crypto.hash(
         Crypto.hashObj(proposal.accountIDs) +
-        Crypto.hashObj(proposal.beforeStateHashes) +
-        Crypto.hashObj(proposal.afterStateHashes)
+          Crypto.hashObj(proposal.beforeStateHashes) +
+          Crypto.hashObj(proposal.afterStateHashes)
       )
       const proposalHash = Crypto.hash(
         Crypto.hashObj(applyStatus) + accountsHash + proposal.appReceiptDataHash + proposal.executionShardKey
@@ -634,9 +618,7 @@ export const verifyArchiverReceipt = async (
         nestedCounterMessages
       )
       if (!valid) {
-        failedReasons.push(
-          `Invalid receipt: App Receipt Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`
-        )
+        failedReasons.push(`Invalid receipt: App Receipt Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`)
         nestedCounterMessages.push('Invalid_receipt_app_receipt_verification_failed')
         return { success: false, failedReasons, nestedCounterMessages }
       }
@@ -649,9 +631,7 @@ export const verifyArchiverReceipt = async (
     if (config.verifyAccountData) {
       const result = verifyAccountHash(receipt, failedReasons, nestedCounterMessages)
       if (!result) {
-        failedReasons.push(
-          `Invalid receipt: Account Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`
-        )
+        failedReasons.push(`Invalid receipt: Account Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`)
         nestedCounterMessages.push('Invalid_receipt_account_verification_failed')
         return { success: false, failedReasons, nestedCounterMessages }
       }
@@ -680,15 +660,15 @@ export const verifyArchiverReceipt = async (
  * @remarks
  * This function processes and stores receipt data. It performs validation and verification of receipts,
  * updates account and transaction data, and handles bulk insertion of data into the database.
- * 
+ *
  * The function skips processing if the receipts array is empty or invalid. It also skips receipts that
  * have already been processed or are in the validation map.
- * 
+ *
  * If `verifyData` is true, the function verifies the receipt data and handles any verification failures.
- * 
+ *
  * The function processes each receipt, updating account and transaction data, and performs bulk insertion
  * when the number of receipts, accounts, transactions, or processed transactions reaches a specified bucket size.
- * 
+ *
  * If the archiver is not active and the processed receipts map exceeds 2000 entries, the map is cleared.
  */
 export const storeReceiptData = async (
@@ -734,8 +714,7 @@ export const storeReceiptData = async (
       if (!validateReceiptType(receipt)) {
         Logger.mainLogger.error('Invalid receipt: Validation failed', txId, receipt.cycle, timestamp)
         receiptsInValidationMap.delete(txId)
-        if (nestedCountersInstance)
-          nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_validation_failed')
+        if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_validation_failed')
         if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
         continue
       }
@@ -796,12 +775,7 @@ export const storeReceiptData = async (
           const end_time = process.hrtime(start_time)
           const time_taken = end_time[0] * 1000 + end_time[1] / 1000000
           if (time_taken > 100) {
-            console.log(
-              `Time taken for receipt verification in millisecond is: `,
-              txId,
-              timestamp,
-              time_taken
-            )
+            console.log(`Time taken for receipt verification in millisecond is: `, txId, timestamp, time_taken)
           }
           if (profilerInstance) profilerInstance.profileSectionEnd('Offload_receipt')
           for (const message of result.failedReasons) {
@@ -824,9 +798,7 @@ export const storeReceiptData = async (
       //   timestamp: tx.timestamp,
       // })
       const { afterStates, cycle, tx, appReceiptData, signedReceipt, globalModification } = receipt
-      const sortedVoteOffsets = globalModification
-        ? []
-        : (signedReceipt as Receipt.SignedReceipt).voteOffsets.sort()
+      const sortedVoteOffsets = globalModification ? [] : (signedReceipt as Receipt.SignedReceipt).voteOffsets.sort()
       const medianOffset = sortedVoteOffsets[Math.floor(sortedVoteOffsets.length / 2)] ?? 0
       const applyTimestamp = tx.timestamp + medianOffset * 1000
       if (config.VERBOSE) console.log('RECEIPT', 'Save', txId, timestamp, senderInfo)
@@ -987,8 +959,7 @@ export const storeReceiptData = async (
         'err:',
         e
       )
-      if (nestedCountersInstance)
-        nestedCountersInstance.countEvent('receipt', 'storeReceiptData_unknown_error')
+      if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'storeReceiptData_unknown_error')
     }
   }
   // Receipts size can be big, better to save per 100
@@ -1071,8 +1042,7 @@ export const storeCycleData = async (cycles: P2PTypes.CycleCreatorTypes.CycleDat
       cycleMarker: cycleRecord.marker,
       cycleRecord,
     }
-    if (config.dataLogWrite && CycleLogWriter)
-      CycleLogWriter.writeToLog(`${StringUtils.safeStringify(cycleObj)}\n`)
+    if (config.dataLogWrite && CycleLogWriter) CycleLogWriter.writeToLog(`${StringUtils.safeStringify(cycleObj)}\n`)
     const cycleExist = await queryCycleByMarker(cycleObj.cycleMarker)
     if (cycleExist) {
       if (StringUtils.safeStringify(cycleObj) !== StringUtils.safeStringify(cycleExist))
@@ -1094,12 +1064,8 @@ interface StoreAccountParam {
 }
 
 export const storeAccountData = async (restoreData: StoreAccountParam = {}): Promise<void> => {
-  Logger.mainLogger.debug(
-    `storeAccountData: ${restoreData.accounts ? restoreData.accounts.length : 0} accounts`
-  )
-  Logger.mainLogger.debug(
-    `storeAccountData: ${restoreData.receipts ? restoreData.receipts.length : 0} receipts`
-  )
+  Logger.mainLogger.debug(`storeAccountData: ${restoreData.accounts ? restoreData.accounts.length : 0} accounts`)
+  Logger.mainLogger.debug(`storeAccountData: ${restoreData.receipts ? restoreData.receipts.length : 0} receipts`)
   const { accounts, receipts } = restoreData
   if (profilerInstance) profilerInstance.profileSectionStart('store_account_data')
   storingAccountData = true
@@ -1126,12 +1092,7 @@ export const storeAccountData = async (restoreData: StoreAccountParam = {}): Pro
       try {
         const calculatedAccountHash = accountSpecificHash(account.data)
         if (calculatedAccountHash !== account.hash) {
-          Logger.mainLogger.error(
-            'Invalid account hash',
-            account.accountId,
-            account.hash,
-            calculatedAccountHash
-          )
+          Logger.mainLogger.error('Invalid account hash', account.accountId, account.hash, calculatedAccountHash)
           continue
         }
         combineAccounts.push(account)
@@ -1192,9 +1153,9 @@ export const storeOriginalTxData = async (
     const { txId, timestamp } = originalTxData
     if (!txId || !timestamp) continue
     try {
-      const tx = (originalTxData.originalTxData as any)?.tx;
+      const tx = (originalTxData.originalTxData as any)?.tx
 
-      const { result, reason } = verifyTransaction(tx);
+      const { result, reason } = verifyTransaction(tx)
 
       if (result !== 'pass') {
         Logger.mainLogger.info(
@@ -1202,11 +1163,13 @@ export const storeOriginalTxData = async (
           StringUtils.safeStringify(originalTxData),
           '\n with reason ',
           reason
-        );
+        )
         continue
       }
     } catch (error) {
-      Logger.mainLogger.error(`Error verifying transaction: ${error.message} where tx was ${StringUtils.safeStringify(originalTxData)}`);
+      Logger.mainLogger.error(
+        `Error verifying transaction: ${error.message} where tx was ${StringUtils.safeStringify(originalTxData)}`
+      )
       continue
     }
     if (
@@ -1252,22 +1215,20 @@ interface validateResponse {
 }
 
 export const validateOriginalTxDataSchema = (originalTxData: OriginalTxsData.OriginalTxData): boolean => {
-
   const errors = verifyPayload(AJVSchemaEnum.OriginalTxData, originalTxData)
 
   if (errors) {
     Logger.mainLogger.error(
       'Invalid originalTxsData',
       errors,
-      'where originalTxData was: ', StringUtils.safeStringify(originalTxData)
-    );
-    return false;
+      'where originalTxData was: ',
+      StringUtils.safeStringify(originalTxData)
+    )
+    return false
   }
 
   return true
 }
-
-
 
 export const validateGossipData = (data: GossipData): validateResponse => {
   let err = Utils.validateTypes(data, {
@@ -1330,12 +1291,9 @@ export const processGossipData = (gossipdata: GossipData): void => {
                 `Received gossip for receipt ${txId} with different timestamp ${timestamp} from archiver ${sign.owner}`
               )
             if (missingReceiptsMap.get(txId).senders.some((sender) => sender === sign.owner))
-              Logger.mainLogger.error(
-                `Received gossip for receipt ${txId} from the same sender ${sign.owner}`
-              )
+              Logger.mainLogger.error(`Received gossip for receipt ${txId} from the same sender ${sign.owner}`)
           }
-        } else
-          missingReceiptsMap.set(txId, { txTimestamp: timestamp, receivedTimestamp, senders: [sign.owner] })
+        } else missingReceiptsMap.set(txId, { txTimestamp: timestamp, receivedTimestamp, senders: [sign.owner] })
         // console.log('GOSSIP', 'RECEIPT', 'MISS', txId, 'sender', sign.owner)
       }
     }
@@ -1425,11 +1383,7 @@ export const collectMissingTxDataFromArchivers = async (): Promise<void> => {
   // }
 }
 
-export const collectMissingReceipts = async (
-  senders: string[],
-  txId: string,
-  txTimestamp: number
-): Promise<void> => {
+export const collectMissingReceipts = async (senders: string[], txId: string, txTimestamp: number): Promise<void> => {
   const txIdList: [string, number][] = [[txId, txTimestamp]]
   let foundTxData = false
   const senderArchivers = State.activeArchivers.filter((archiver) => senders.includes(archiver.publicKey))
@@ -1447,11 +1401,7 @@ export const collectMissingReceipts = async (
       foundTxData = true
       break
     }
-    const receipts = (await queryTxDataFromArchivers(
-      senderArchiver,
-      DataType.RECEIPT,
-      txIdList
-    )) as Receipt.Receipt[]
+    const receipts = (await queryTxDataFromArchivers(senderArchiver, DataType.RECEIPT, txIdList)) as Receipt.Receipt[]
     if (receipts && receipts.length > 0) {
       for (const receipt of receipts) {
         const { receiptId, timestamp } = receipt
@@ -1474,11 +1424,7 @@ export const collectMissingReceipts = async (
   if (profilerInstance) profilerInstance.profileSectionEnd('Collect_missing_receipt')
 }
 
-const collectMissingOriginalTxsData = async (
-  senders: string[],
-  txId: string,
-  txTimestamp: number
-): Promise<void> => {
+const collectMissingOriginalTxsData = async (senders: string[], txId: string, txTimestamp: number): Promise<void> => {
   const txIdList: [string, number][] = [[txId, txTimestamp]]
   let foundTxData = false
   const senderArchivers = State.activeArchivers.filter((archiver) => senders.includes(archiver.publicKey))
@@ -1486,8 +1432,7 @@ const collectMissingOriginalTxsData = async (
     `Collecting missing originalTxData for txId ${txId} with timestamp ${txTimestamp} from archivers`,
     senderArchivers.map((a) => a.ip + ':' + a.port)
   )
-  if (nestedCountersInstance)
-    nestedCountersInstance.countEvent('originalTxData', 'Collect_missing_originalTxData')
+  if (nestedCountersInstance) nestedCountersInstance.countEvent('originalTxData', 'Collect_missing_originalTxData')
   if (profilerInstance) profilerInstance.profileSectionStart('Collect_missing_originalTxData')
   for (const senderArchiver of senderArchivers) {
     if (

@@ -29,8 +29,10 @@ type DbOriginalTxDataCount = OriginalTxDataCount & {
   'COUNT(*)': number
 }
 
-export async function insertOriginalTxData(originalTxData: OriginalTxData, storeCheckpoints: boolean = true): Promise<void> {
-
+export async function insertOriginalTxData(
+  originalTxData: OriginalTxData,
+  storeCheckpoints: boolean = true
+): Promise<void> {
   try {
     if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
       // Create checkpoint for originalTxData
@@ -57,24 +59,27 @@ export async function insertOriginalTxData(originalTxData: OriginalTxData, store
     await db.run(originalTxDataDatabase, sql, values)
 
     if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
-      await bulkUpdateCheckpointStatusField(CheckpointStatusType.ORIGINAL_TX, true, undefined, undefined, [originalTxData.cycle])
+      await bulkUpdateCheckpointStatusField(CheckpointStatusType.ORIGINAL_TX, true, undefined, undefined, [
+        originalTxData.cycle,
+      ])
     }
 
     if (config.VERBOSE) {
       Logger.mainLogger.debug('Successfully inserted OriginalTxData', originalTxData.txId)
     }
   } catch (err) {
-    Logger.mainLogger.error(err);
+    Logger.mainLogger.error(err)
     Logger.mainLogger.error(
       'Unable to insert OriginalTxData or it is already stored in the database',
       originalTxData.txId
-    );
+    )
   }
 }
 
-
-export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[], storeCheckpoints: boolean = true): Promise<void> {
-
+export async function bulkInsertOriginalTxsData(
+  originalTxsData: OriginalTxData[],
+  storeCheckpoints: boolean = true
+): Promise<void> {
   try {
     if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
       // Create checkpoints for all originalTxs
@@ -97,26 +102,30 @@ export async function bulkInsertOriginalTxsData(originalTxsData: OriginalTxData[
           ? SerializeToJsonString(txData[column]) // Serialize objects to JSON
           : txData[column]
       )
-    );
+    )
 
     // Execute the single query for all originalTxsData
-    await db.run(originalTxDataDatabase, sql, values);
+    await db.run(originalTxDataDatabase, sql, values)
 
     if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
       const originalTxsDataToUpdate = originalTxsData.map((tx) => tx.cycle)
-      await bulkUpdateCheckpointStatusField(CheckpointStatusType.ORIGINAL_TX, State.isSyncing, undefined, undefined, originalTxsDataToUpdate)
+      await bulkUpdateCheckpointStatusField(
+        CheckpointStatusType.ORIGINAL_TX,
+        State.isSyncing,
+        undefined,
+        undefined,
+        originalTxsDataToUpdate
+      )
     }
 
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted OriginalTxsData', originalTxsData.length);
+      Logger.mainLogger.debug('Successfully inserted OriginalTxsData', originalTxsData.length)
     }
   } catch (err) {
-    Logger.mainLogger.error(err);
-    Logger.mainLogger.error('Unable to bulk insert OriginalTxsData', originalTxsData.length);
+    Logger.mainLogger.error(err)
+    Logger.mainLogger.error('Unable to bulk insert OriginalTxsData', originalTxsData.length)
   }
 }
-
-
 
 export async function queryOriginalTxDataCount(startCycle?: number, endCycle?: number): Promise<number> {
   let originalTxsData
@@ -192,18 +201,12 @@ export async function queryOriginalTxDataByTxId(txId: string, timestamp = 0): Pr
   return null
 }
 
-export async function queryOriginalTxDataCountByCycles(
-  start: number,
-  end: number
-): Promise<OriginalTxDataCount[]> {
+export async function queryOriginalTxDataCountByCycles(start: number, end: number): Promise<OriginalTxDataCount[]> {
   const originalTxsDataCount: OriginalTxDataCount[] = []
   let dbOriginalTxsDataCount: DbOriginalTxDataCount[] = []
   try {
     const sql = `SELECT cycle, COUNT(*) FROM originalTxsData GROUP BY cycle HAVING cycle BETWEEN ? AND ? ORDER BY cycle ASC`
-    dbOriginalTxsDataCount = (await db.all(originalTxDataDatabase, sql, [
-      start,
-      end,
-    ])) as DbOriginalTxDataCount[]
+    dbOriginalTxsDataCount = (await db.all(originalTxDataDatabase, sql, [start, end])) as DbOriginalTxDataCount[]
   } catch (e) {
     Logger.mainLogger.error(e)
   }
@@ -229,9 +232,7 @@ export async function queryLatestOriginalTxs(count: number): Promise<OriginalTxD
     return null
   }
   try {
-    const sql = `SELECT * FROM originalTxsData ORDER BY cycle DESC, timestamp DESC LIMIT ${
-      count ? count : 100
-    }`
+    const sql = `SELECT * FROM originalTxsData ORDER BY cycle DESC, timestamp DESC LIMIT ${count ? count : 100}`
     const originalTxsData = (await db.all(originalTxDataDatabase, sql)) as DbOriginalTxData[]
     if (originalTxsData.length > 0) {
       originalTxsData.forEach((tx: DbOriginalTxData) => {

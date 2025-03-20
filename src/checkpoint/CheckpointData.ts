@@ -213,9 +213,7 @@ export class CheckpointBucketManager<T> {
           }
           if (bucket.hasUpdatesToShare) {
             if (config.VERBOSE) {
-              Logger.mainLogger.debug(
-                `Bucket ${bucket.bucketID} has updates to share. Writing to file and alerting.`
-              )
+              Logger.mainLogger.debug(`Bucket ${bucket.bucketID} has updates to share. Writing to file and alerting.`)
             }
             /*
                 If the bucket is older than the last cycle to sync, then we need to update the checkpoint status to true
@@ -264,11 +262,7 @@ export class CheckpointBucketManager<T> {
     }
   }
 
-  onHashDigestsReceived(
-    senderAddress: string,
-    bucketID: string,
-    radixDigests: CheckpointRadixDigest[]
-  ): void {
+  onHashDigestsReceived(senderAddress: string, bucketID: string, radixDigests: CheckpointRadixDigest[]): void {
     const bucket = this.checkpointBuckets.get(bucketID)
     if (bucket) {
       bucket.onHashDigestsReceived(senderAddress, bucketID, radixDigests)
@@ -430,19 +424,13 @@ export class CheckpointBucket<T> {
               sender: State.getNodeInfo().publicKey, // for signature verification
             }
 
-            const response = await postJson(
-              `http://${peerAddress}/shareCheckpointRadixDigests`,
-              Crypto.sign(body)
-            )
+            const response = await postJson(`http://${peerAddress}/shareCheckpointRadixDigests`, Crypto.sign(body))
             // Verify peer acknowledged receipt
             if (response && response.success) {
               successfulPeers.add(peerAddress)
             }
           } catch (err) {
-            Logger.mainLogger.error(
-              `Failed to share digests with peer ${peerAddress} (attempt ${retry + 1}):`,
-              err
-            )
+            Logger.mainLogger.error(`Failed to share digests with peer ${peerAddress} (attempt ${retry + 1}):`, err)
           }
         })
 
@@ -646,11 +634,7 @@ export class CheckpointBucket<T> {
   }
 
   // We update the tallies for each radix.
-  onHashDigestsReceived(
-    senderAddress: string,
-    bucketID: string,
-    radixDigests: CheckpointRadixDigest[]
-  ): void {
+  onHashDigestsReceived(senderAddress: string, bucketID: string, radixDigests: CheckpointRadixDigest[]): void {
     try {
       for (const digest of radixDigests) {
         let tally = this.peerRadixDigests.get(digest.radix)
@@ -726,11 +710,7 @@ export class CheckpointBucket<T> {
     return tally
   }
 
-  private updateTallyForPeer(
-    tally: RadixDigestTally,
-    senderAddress: string,
-    digest: CheckpointRadixDigest
-  ): void {
+  private updateTallyForPeer(tally: RadixDigestTally, senderAddress: string, digest: CheckpointRadixDigest): void {
     const previousDigest = tally.peerDigests.get(senderAddress)
     // Remove previous vote if exists
     if (previousDigest && previousDigest.hash !== digest.hash) {
@@ -754,10 +734,7 @@ export class CheckpointBucket<T> {
     }
   }
 
-  private async processBatchEntries(
-    entries: CheckpointRadixEntry<T>[],
-    updatedRadixes: Set<string>
-  ): Promise<void> {
+  private async processBatchEntries(entries: CheckpointRadixEntry<T>[], updatedRadixes: Set<string>): Promise<void> {
     for (const incomingEntry of entries) {
       const localEntry = this.radixEntries.get(incomingEntry.digest.radix)
       if (!localEntry) continue
@@ -879,10 +856,7 @@ export class CheckpointBucket<T> {
     }
   }
 
-  private async updateTallyAfterMerge(
-    localEntry: CheckpointRadixEntry<T>,
-    previousHash: string
-  ): Promise<void> {
+  private async updateTallyAfterMerge(localEntry: CheckpointRadixEntry<T>, previousHash: string): Promise<void> {
     const tally = this.peerRadixDigests.get(localEntry.digest.radix)
     if (!tally) return
 
