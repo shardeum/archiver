@@ -26,9 +26,8 @@ describe('Ticket Verification Service', () => {
   async function createSignature(wallet: ethers.Wallet, payload: object): Promise<string> {
     // Convert payload to string in a deterministic way and hash it
     const message = Utils.safeStringify(payload)
-    const hash = ethers.keccak256(ethers.toUtf8Bytes(message))
     // Sign the hash directly
-    return wallet.signMessage(hash)
+    return wallet.signMessage(message)
   }
 
   let mockValidSigs: { owner: string; sig: string }[]
