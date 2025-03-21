@@ -13,7 +13,6 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { initAjvSchemas } from '../src/types/ajv/Helpers'
 import { initializeSerialization } from '../src/utils/serialization/SchemaHelpers'
 
-
 const activeVersion = '1.9.0'
 const latestVersion = '1.9.0'
 const minVersion = '1.9.0'

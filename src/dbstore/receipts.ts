@@ -43,7 +43,7 @@ export interface ArchiverReceipt {
   signedReceipt: SignedReceipt | P2P.GlobalAccountsTypes.GlobalTxReceipt
   afterStates?: AccountsCopy[]
   beforeStates?: AccountsCopy[]
-  appReceiptData:object & { accountId?: string; data: object; [key: string]: any }
+  appReceiptData: object & { accountId?: string; data: object; [key: string]: any }
   globalModification: boolean
 }
 
@@ -156,16 +156,12 @@ export async function insertReceipt(receipt: Receipt, storeCheckpoints: boolean 
       Logger.mainLogger.debug('Successfully inserted Receipt', receipt.receiptId)
     }
   } catch (err) {
-    Logger.mainLogger.error(err);
-    Logger.mainLogger.error(
-      'Unable to insert Receipt or it is already stored in the database',
-      receipt.receiptId
-    );
+    Logger.mainLogger.error(err)
+    Logger.mainLogger.error('Unable to insert Receipt or it is already stored in the database', receipt.receiptId)
   }
 }
 
 export async function bulkInsertReceipts(receipts: Receipt[], storeCheckpoints: boolean = true): Promise<void> {
-
   try {
     if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
       // Create checkpoints for all receipts
@@ -209,20 +205,23 @@ export async function bulkInsertReceipts(receipts: Receipt[], storeCheckpoints: 
 
     if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
       const receiptsToUpdate = receipts.map((receipt) => receipt.cycle)
-      await bulkUpdateCheckpointStatusField(CheckpointStatusType.RECEIPT, State.isSyncing, undefined, undefined, receiptsToUpdate)
+      await bulkUpdateCheckpointStatusField(
+        CheckpointStatusType.RECEIPT,
+        State.isSyncing,
+        undefined,
+        undefined,
+        receiptsToUpdate
+      )
     }
 
     if (config.VERBOSE) {
       Logger.mainLogger.debug('Successfully inserted Receipts', receipts.length)
     }
   } catch (err) {
-    Logger.mainLogger.error(err);
-    Logger.mainLogger.error('Unable to bulk insert Receipts', receipts.length);
+    Logger.mainLogger.error(err)
+    Logger.mainLogger.error('Unable to bulk insert Receipts', receipts.length)
   }
 }
-
-
-
 
 export async function queryReceiptByReceiptId(receiptId: string, timestamp = 0): Promise<Receipt> {
   try {
@@ -367,12 +366,7 @@ export async function queryReceiptsBetweenCycles(
     console.log(e)
   }
   if (config.VERBOSE) {
-    Logger.mainLogger.debug(
-      'Receipt receipts between cycles',
-      receipts ? receipts.length : receipts,
-      'skip',
-      skip
-    )
+    Logger.mainLogger.debug('Receipt receipts between cycles', receipts ? receipts.length : receipts, 'skip', skip)
   }
   return receipts
 }

@@ -163,9 +163,7 @@ const askConfigQuestions = async (): Promise<ConfigSchema> => {
       let isValid = false
 
       while (!isValid && attempts < maxAttempts) {
-        const value = await askQuestion(
-          `Enter ${section} as JSON (default: ${JSON.stringify(defaultValue)}): `
-        )
+        const value = await askQuestion(`Enter ${section} as JSON (default: ${JSON.stringify(defaultValue)}): `)
         if (value === '') {
           userConfig[section] = defaultValue
           isValid = true
@@ -323,9 +321,7 @@ const runProgram = async (): Promise<void> => {
     addSigListeners()
 
     const networkAccountId = config.globalNetworkAccount
-    const networkAccount = (await AccountDB.queryAccountByAccountId(
-      networkAccountId
-    )) as AccountDB.AccountsCopy
+    const networkAccount = (await AccountDB.queryAccountByAccountId(networkAccountId)) as AccountDB.AccountsCopy
 
     // Combine config and appData changes in one change object
     const changes = {
@@ -336,9 +332,7 @@ const runProgram = async (): Promise<void> => {
 
     console.log('Proposed Changes:', JSON.stringify(changes, null, 2))
 
-    const confirmation = (
-      await askQuestion('Are you sure you want to proceed with these changes? (yes/no): ')
-    ).trim()
+    const confirmation = (await askQuestion('Are you sure you want to proceed with these changes? (yes/no): ')).trim()
     console.log(`User input: ${confirmation}`)
     if (confirmation.toLowerCase() === 'yes' || confirmation.toLowerCase() === 'y') {
       networkAccount.data.listOfChanges.push(changes)

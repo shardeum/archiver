@@ -27,45 +27,39 @@ type DbTransaction = Transaction & {
 export async function insertTransaction(transaction: Transaction): Promise<void> {
   try {
     // Define the table columns based on schema
-    const columns = ['txId', 'appReceiptId', 'timestamp', 'cycleNumber', 'data', 'originalTxData'];
+    const columns = ['txId', 'appReceiptId', 'timestamp', 'cycleNumber', 'data', 'originalTxData']
 
     // Construct the SQL query with placeholders
-    const placeholders = `(${columns.map(() => '?').join(', ')})`;
-    const sql = `INSERT OR REPLACE INTO transactions (${columns.join(', ')}) VALUES ${placeholders}`;
+    const placeholders = `(${columns.map(() => '?').join(', ')})`
+    const sql = `INSERT OR REPLACE INTO transactions (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Map the `transaction` object to match the columns
     const values = columns.map((column) =>
       typeof transaction[column] === 'object'
         ? SerializeToJsonString(transaction[column]) // Serialize objects to JSON
         : transaction[column]
-    );
+    )
 
     // Execute the query directly
-    await db.run(transactionDatabase, sql, values);
+    await db.run(transactionDatabase, sql, values)
 
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted Transaction', transaction.txId);
+      Logger.mainLogger.debug('Successfully inserted Transaction', transaction.txId)
     }
   } catch (err) {
-    Logger.mainLogger.error(err);
-    Logger.mainLogger.error(
-      'Unable to insert Transaction or it is already stored in the database',
-      transaction.txId
-    );
+    Logger.mainLogger.error(err)
+    Logger.mainLogger.error('Unable to insert Transaction or it is already stored in the database', transaction.txId)
   }
 }
 
-
 export async function bulkInsertTransactions(transactions: Transaction[]): Promise<void> {
-
   try {
-
     // Define the table columns based on schema
-    const columns = ['txId', 'appReceiptId', 'timestamp', 'cycleNumber', 'data', 'originalTxData'];
+    const columns = ['txId', 'appReceiptId', 'timestamp', 'cycleNumber', 'data', 'originalTxData']
 
     // Construct the SQL query for bulk insertion with all placeholders
-    const placeholders = transactions.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
-    const sql = `INSERT OR REPLACE INTO transactions (${columns.join(', ')}) VALUES ${placeholders}`;
+    const placeholders = transactions.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ')
+    const sql = `INSERT OR REPLACE INTO transactions (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Flatten the `transactions` array into a single list of values
     const values = transactions.flatMap((transaction) =>
@@ -74,17 +68,17 @@ export async function bulkInsertTransactions(transactions: Transaction[]): Promi
           ? SerializeToJsonString(transaction[column]) // Serialize objects to JSON
           : transaction[column]
       )
-    );
+    )
 
     // Execute the single query for all transactions
-    await db.run(transactionDatabase, sql, values);
+    await db.run(transactionDatabase, sql, values)
 
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted Transactions', transactions.length);
+      Logger.mainLogger.debug('Successfully inserted Transactions', transactions.length)
     }
   } catch (err) {
-    Logger.mainLogger.error(err);
-    Logger.mainLogger.error('Unable to bulk insert Transactions', transactions.length);
+    Logger.mainLogger.error(err)
+    Logger.mainLogger.error('Unable to bulk insert Transactions', transactions.length)
   }
 }
 
@@ -94,8 +88,7 @@ export async function queryTransactionByTxId(txId: string): Promise<Transaction>
     const transaction = (await db.get(transactionDatabase, sql, [txId])) as DbTransaction // TODO: confirm structure of object from db
     if (transaction) {
       if (transaction.data) transaction.data = DeSerializeFromJsonString(transaction.data)
-      if (transaction.originalTxData)
-        transaction.originalTxData = DeSerializeFromJsonString(transaction.originalTxData)
+      if (transaction.originalTxData) transaction.originalTxData = DeSerializeFromJsonString(transaction.originalTxData)
     }
     if (config.VERBOSE) {
       Logger.mainLogger.debug('Transaction txId', transaction)
@@ -113,8 +106,7 @@ export async function queryTransactionByAccountId(accountId: string): Promise<Tr
     const transaction = (await db.get(transactionDatabase, sql, [accountId])) as DbTransaction // TODO: confirm structure of object from db
     if (transaction) {
       if (transaction.data) transaction.data = DeSerializeFromJsonString(transaction.data)
-      if (transaction.originalTxData)
-        transaction.originalTxData = DeSerializeFromJsonString(transaction.originalTxData)
+      if (transaction.originalTxData) transaction.originalTxData = DeSerializeFromJsonString(transaction.originalTxData)
     }
     if (config.VERBOSE) {
       Logger.mainLogger.debug('Transaction accountId', transaction)
@@ -132,9 +124,7 @@ export async function queryLatestTransactions(count: number): Promise<Transactio
     return null
   }
   try {
-    const sql = `SELECT * FROM transactions ORDER BY cycleNumber DESC, timestamp DESC LIMIT ${
-      count ? count : 100
-    }`
+    const sql = `SELECT * FROM transactions ORDER BY cycleNumber DESC, timestamp DESC LIMIT ${count ? count : 100}`
     const transactions = (await db.all(transactionDatabase, sql)) as DbTransaction[] // TODO: confirm structure of object from db
     if (transactions.length > 0) {
       transactions.forEach((transaction: DbTransaction) => {
@@ -173,12 +163,7 @@ export async function queryTransactions(skip = 0, limit = 10000): Promise<Transa
     Logger.mainLogger.error(e)
   }
   if (config.VERBOSE) {
-    Logger.mainLogger.debug(
-      'Transaction transactions',
-      transactions ? transactions.length : transactions,
-      'skip',
-      skip
-    )
+    Logger.mainLogger.debug('Transaction transactions', transactions ? transactions.length : transactions, 'skip', skip)
   }
   return transactions
 }
@@ -231,10 +216,7 @@ export async function queryTransactionsBetweenCycles(
   }
   try {
     const sql = `SELECT * FROM transactions WHERE cycleNumber BETWEEN ? AND ? ORDER BY cycleNumber ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
-    transactions = (await db.all(transactionDatabase, sql, [
-      startCycleNumber,
-      endCycleNumber,
-    ])) as DbTransaction[] // TODO: confirm structure of object from db
+    transactions = (await db.all(transactionDatabase, sql, [startCycleNumber, endCycleNumber])) as DbTransaction[] // TODO: confirm structure of object from db
     if (transactions.length > 0) {
       transactions.forEach((transaction: DbTransaction) => {
         if (transaction.data) transaction.data = DeSerializeFromJsonString(transaction.data)

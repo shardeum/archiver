@@ -67,9 +67,7 @@ export const verifyAppReceiptData = async (
         failedReasons.push(
           `The receipt has 0 amountSpent and status 0 but has state updated accounts! ${receipt.tx.txId} , ${receipt.cycle} , ${receipt.tx.timestamp}`
         )
-        nestedCounterMessages.push(
-          `The receipt has 0 amountSpent and status 0 but has state updated accounts!`
-        )
+        nestedCounterMessages.push(`The receipt has 0 amountSpent and status 0 but has state updated accounts!`)
         break
       }
     }
@@ -141,9 +139,7 @@ const validateAppReceiptData = (appReceiptData: any, failedReasons = [], nestedC
   try {
     if (appReceiptData.data && appReceiptData.data.receipt) {
       if (appReceiptData.data.receipt.bitvector) {
-        appReceiptData.data.receipt.bitvector = Uint8Array.from(
-          Object.values(appReceiptData.data.receipt.bitvector)
-        )
+        appReceiptData.data.receipt.bitvector = Uint8Array.from(Object.values(appReceiptData.data.receipt.bitvector))
       }
       if (appReceiptData.data.receipt.logs && appReceiptData.data.receipt.logs.length > 0) {
         appReceiptData.data.receipt.logs = appReceiptData.data.receipt.logs.map((log) => {

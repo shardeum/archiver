@@ -30,9 +30,7 @@ import * as ServiceQueue from '../ServiceQueue'
  * The endpoint queried does not return a *full* list of nodes. It's a partial
  * list that will be enough to use in robust queries.
  */
-async function getActiveListFromSomeArchiver(
-  archivers: ArchiverNodeInfo[]
-): Promise<P2PTypes.SyncTypes.ActiveNode[]> {
+async function getActiveListFromSomeArchiver(archivers: ArchiverNodeInfo[]): Promise<P2PTypes.SyncTypes.ActiveNode[]> {
   for (const archiver of archivers) {
     try {
       const nodeList = await getActiveNodeListFromArchiver(archiver)
@@ -52,88 +50,85 @@ async function getActiveListFromSomeArchiver(
 /**
  * Synchronizes the NodeList and gets the latest CycleRecord from other validators.
  */
-export function syncV2(
-  activeArchivers: ArchiverNodeInfo[]
-): ResultAsync<P2PTypes.CycleCreatorTypes.CycleData, Error> {
-  return ResultAsync.fromPromise(getActiveListFromSomeArchiver(activeArchivers), (e: Error) => e).andThen(
-    (nodeList) =>
-      syncValidatorList(nodeList).andThen(([validatorList, validatorListHash]) =>
-        syncArchiverList(nodeList).andThen(([archiverList, archiverListHash]) =>
-          syncStandbyNodeList(nodeList).andThen(([standbyList, standbyListHash]) =>
-            syncTxList(nodeList).andThen((txList) =>
-              syncLatestCycleRecordAndMarker(nodeList).andThen(([cycle, cycleMarker]) => {
-                Logger.mainLogger.debug('syncV2: validatorList', validatorList)
+export function syncV2(activeArchivers: ArchiverNodeInfo[]): ResultAsync<P2PTypes.CycleCreatorTypes.CycleData, Error> {
+  return ResultAsync.fromPromise(getActiveListFromSomeArchiver(activeArchivers), (e: Error) => e).andThen((nodeList) =>
+    syncValidatorList(nodeList).andThen(([validatorList, validatorListHash]) =>
+      syncArchiverList(nodeList).andThen(([archiverList, archiverListHash]) =>
+        syncStandbyNodeList(nodeList).andThen(([standbyList, standbyListHash]) =>
+          syncTxList(nodeList).andThen((txList) =>
+            syncLatestCycleRecordAndMarker(nodeList).andThen(([cycle, cycleMarker]) => {
+              Logger.mainLogger.debug('syncV2: validatorList', validatorList)
 
-                // additional checks to make sure the list hashes in the cycle
-                // matches the hash for the validator list retrieved earlier
-                if (cycle.nodeListHash !== validatorListHash) {
-                  return errAsync(
-                    new Error(
-                      `validator list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`
-                    )
+              // additional checks to make sure the list hashes in the cycle
+              // matches the hash for the validator list retrieved earlier
+              if (cycle.nodeListHash !== validatorListHash) {
+                return errAsync(
+                  new Error(
+                    `validator list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`
                   )
-                }
-                if (cycle.standbyNodeListHash !== standbyListHash) {
-                  return errAsync(
-                    new Error(
-                      `standby list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`
-                    )
+                )
+              }
+              if (cycle.standbyNodeListHash !== standbyListHash) {
+                return errAsync(
+                  new Error(
+                    `standby list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`
                   )
-                }
-                if (cycle.archiverListHash !== archiverListHash) {
-                  return errAsync(
-                    new Error(
-                      `archiver list hash from received cycle (${cycle.archiverListHash}) does not match the hash received from robust query (${archiverListHash})`
-                    )
+                )
+              }
+              if (cycle.archiverListHash !== archiverListHash) {
+                return errAsync(
+                  new Error(
+                    `archiver list hash from received cycle (${cycle.archiverListHash}) does not match the hash received from robust query (${archiverListHash})`
                   )
+                )
+              }
+
+              // validatorList and standbyList need to be transformed into a ConsensusNodeInfo[]
+              const syncingNodeList: NodeList.ConsensusNodeInfo[] = []
+              const activeNodeList: NodeList.ConsensusNodeInfo[] = []
+
+              for (const node of validatorList) {
+                if (node.status === 'selected' || node.status === 'syncing' || node.status === 'ready') {
+                  syncingNodeList.push({
+                    publicKey: node.publicKey,
+                    ip: node.externalIp,
+                    port: node.externalPort,
+                    id: node.id,
+                  })
+                } else if (node.status === 'active') {
+                  activeNodeList.push({
+                    publicKey: node.publicKey,
+                    ip: node.externalIp,
+                    port: node.externalPort,
+                    id: node.id,
+                  })
                 }
+              }
+              const standbyNodeList: NodeList.ConsensusNodeInfo[] = standbyList.map((joinRequest) => ({
+                publicKey: joinRequest.nodeInfo.publicKey,
+                ip: joinRequest.nodeInfo.externalIp,
+                port: joinRequest.nodeInfo.externalPort,
+              }))
+              NodeList.addNodes(NodeList.NodeStatus.SYNCING, syncingNodeList)
+              NodeList.addNodes(NodeList.NodeStatus.ACTIVE, activeNodeList)
+              NodeList.addStandbyNodes(standbyNodeList)
 
-                // validatorList and standbyList need to be transformed into a ConsensusNodeInfo[]
-                const syncingNodeList: NodeList.ConsensusNodeInfo[] = []
-                const activeNodeList: NodeList.ConsensusNodeInfo[] = []
+              // add txList
+              ServiceQueue.setTxList(txList)
 
-                for (const node of validatorList) {
-                  if (node.status === 'selected' || node.status === 'syncing' || node.status === 'ready') {
-                    syncingNodeList.push({
-                      publicKey: node.publicKey,
-                      ip: node.externalIp,
-                      port: node.externalPort,
-                      id: node.id,
-                    })
-                  } else if (node.status === 'active') {
-                    activeNodeList.push({
-                      publicKey: node.publicKey,
-                      ip: node.externalIp,
-                      port: node.externalPort,
-                      id: node.id,
-                    })
-                  }
-                }
-                const standbyNodeList: NodeList.ConsensusNodeInfo[] = standbyList.map((joinRequest) => ({
-                  publicKey: joinRequest.nodeInfo.publicKey,
-                  ip: joinRequest.nodeInfo.externalIp,
-                  port: joinRequest.nodeInfo.externalPort,
-                }))
-                NodeList.addNodes(NodeList.NodeStatus.SYNCING, syncingNodeList)
-                NodeList.addNodes(NodeList.NodeStatus.ACTIVE, activeNodeList)
-                NodeList.addStandbyNodes(standbyNodeList)
+              // reset the active archivers list with the new list
+              resetActiveArchivers(archiverList)
 
-                // add txList
-                ServiceQueue.setTxList(txList)
-
-                // reset the active archivers list with the new list
-                resetActiveArchivers(archiverList)
-
-                // return a cycle that we'll store in the database
-                return okAsync({
-                  ...cycle,
-                  marker: cycleMarker,
-                })
+              // return a cycle that we'll store in the database
+              return okAsync({
+                ...cycle,
+                marker: cycleMarker,
               })
-            )
+            })
           )
         )
       )
+    )
   )
 }
 
@@ -185,7 +180,9 @@ function syncStandbyNodeList(
   )
 }
 
-export function syncTxList(activeNodes: P2PTypes.SyncTypes.ActiveNode[]): ResultAsync<P2PTypes.ServiceQueueTypes.NetworkTxEntry[], Error> {
+export function syncTxList(
+  activeNodes: P2PTypes.SyncTypes.ActiveNode[]
+): ResultAsync<P2PTypes.ServiceQueueTypes.NetworkTxEntry[], Error> {
   return robustQueryForTxListHash(activeNodes).andThen(({ value, winningNodes }) =>
     getTxListFromNode(winningNodes[0], value.txListHash).andThen((txList) =>
       verifyTxList(txList, value.txListHash).map(() => txList)

@@ -63,10 +63,7 @@ export const getAdjacentLeftAndRightArchivers = (): void => {
   }
 }
 
-export async function sendDataToAdjacentArchivers(
-  dataType: DataType,
-  data: GossipData['data']
-): Promise<void> {
+export async function sendDataToAdjacentArchivers(dataType: DataType, data: GossipData['data']): Promise<void> {
   if (config.stopGossipTxData) return
   if (State.otherArchivers.length === 0) return
   const gossipPayload = {
@@ -78,11 +75,7 @@ export async function sendDataToAdjacentArchivers(
     const promises = []
     const archiversToSend = [...adjacentArchivers]
     if (config.gossipToMoreArchivers && remainingArchivers.length > 0) {
-      const randomArchivers = Utils.getRandomItemFromArr(
-        remainingArchivers,
-        0,
-        config.randomGossipArchiversCount
-      )
+      const randomArchivers = Utils.getRandomItemFromArr(remainingArchivers, 0, config.randomGossipArchiversCount)
       if (randomArchivers.length > 0) archiversToSend.push(...randomArchivers)
     }
     if (config.VERBOSE)

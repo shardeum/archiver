@@ -53,9 +53,7 @@ export async function sendGossip(type: string, payload: Record<string, unknown>)
   )
 
   // TODO: check if need to select random archivers instead of sending to all other archivers
-  const recipients: State.ArchiverNodeInfo[] = archivers.filter(
-    (a) => a.publicKey !== config.ARCHIVER_PUBLIC_KEY
-  )
+  const recipients: State.ArchiverNodeInfo[] = archivers.filter((a) => a.publicKey !== config.ARCHIVER_PUBLIC_KEY)
 
   if (recipients.length === 0) {
     Logger.mainLogger.debug('There is no other archivers to send our gossip')

@@ -23,11 +23,7 @@ type HashableObject = (object | string) & { sign?: Signature }
  *
  * @returns Returns a Result object. On successful hash verification, returns 'ok' with value true. On mismatch, returns 'err' with an Error object detailing the mismatch.
  */
-function verify(
-  object: HashableObject,
-  expectedHash: hexstring,
-  objectName = 'some object'
-): Result<boolean, Error> {
+function verify(object: HashableObject, expectedHash: hexstring, objectName = 'some object'): Result<boolean, Error> {
   const newHash = hashObj(object)
   return newHash === expectedHash
     ? ok(true)

@@ -36,9 +36,7 @@ export async function insertTransactionDigest(txDigest: TransactionDigest): Prom
     }
   } catch (e) {
     console.error(e)
-    throw new Error(
-      `Unable to insert txDigest for cycle records from ${txDigest.cycleStart} to ${txDigest.cycleEnd}`
-    )
+    throw new Error(`Unable to insert txDigest for cycle records from ${txDigest.cycleStart} to ${txDigest.cycleEnd}`)
   }
 }
 

@@ -278,9 +278,7 @@ describe('verifyGlobalTxAccountChange', () => {
       mockReceipt.signedReceipt.tx.value = txValue
       mockReceipt.signedReceipt.tx.address = 'testAddress'
       mockReceipt.signedReceipt.tx.addressHash = 'testHash'
-      mockReceipt.beforeStates = [
-        { accountId: 'unexpectedAddress', data: {}, timestamp: 0, hash: '', isGlobal: false },
-      ]
+      mockReceipt.beforeStates = [{ accountId: 'unexpectedAddress', data: {}, timestamp: 0, hash: '', isGlobal: false }]
       const result = verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
 
       expect(result).toBe(false)

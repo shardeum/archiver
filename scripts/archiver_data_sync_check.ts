@@ -8,7 +8,6 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { initAjvSchemas } from '../src/types/ajv/Helpers'
 import { initializeSerialization } from '../src/utils/serialization/SchemaHelpers'
 
-
 const configFile = join(process.cwd(), 'archiver-config.json')
 overrideDefaultConfig(configFile)
 

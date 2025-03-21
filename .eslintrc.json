@@ -13,9 +13,7 @@
     "plugin:no-unsanitized/DOM",
     "prettier"
   ],
-  "ignorePatterns": [
-
-  ],
+  "ignorePatterns": [],
   "rules": {
     "no-empty": [
       1,

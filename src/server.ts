@@ -1,4 +1,4 @@
-import { scheduleMultiSigKeysSyncFromNetConfig } from "./services/transactionVerification";
+import { scheduleMultiSigKeysSyncFromNetConfig } from './services/transactionVerification'
 
 const _startingMessage = `@shardeum-foundation/archiver starting at
   locale:  ${new Date().toLocaleString()}
@@ -25,10 +25,7 @@ import { syncStateMetaData } from './archivedCycle/StateMetaData'
 import * as Logger from './Logger'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import MemoryReporting, {
-  memoryReportingInstance,
-  setMemoryReportingInstance,
-} from './profiler/memoryReporting'
+import MemoryReporting, { memoryReportingInstance, setMemoryReportingInstance } from './profiler/memoryReporting'
 import NestedCounters, { setNestedCountersInstance } from './profiler/nestedCounters'
 import Profiler, { setProfilerInstance } from './profiler/profiler'
 import Statistics from './statistics'
@@ -43,17 +40,17 @@ import { setShutdownCycleRecord, cycleRecordWithShutDownMode, ArchiverCycleRespo
 import { queryFromArchivers, registerRoutes } from './API'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { healthCheckRouter } from './routes/healthCheck'
-import { initializeTickets } from './routes/tickets';
+import { initializeTickets } from './routes/tickets'
 import { initAjvSchemas } from './types/ajv/Helpers'
 import { initializeSerialization } from './utils/serialization/SchemaHelpers'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
 import { cycleCheckpointManager } from './checkpoint/CycleData'
 import { receiptCheckpointManager } from './checkpoint/ReceiptData'
 import { originalTxCheckpointManager } from './checkpoint/OriginalTxsData'
-import { createDirectories } from "./Utils";
-import { syncMissingCheckpoints } from './checkpoint/CheckpointV2';
-import { RequestDataType } from './API';
-import { getOldestPendingOrFailedCheckpointStatus } from "./dbstore/checkpointStatus";
+import { createDirectories } from './Utils'
+import { syncMissingCheckpoints } from './checkpoint/CheckpointV2'
+import { RequestDataType } from './API'
+import { getOldestPendingOrFailedCheckpointStatus } from './dbstore/checkpointStatus'
 
 const configFile = resolve(__dirname, '../archiver-config.json')
 const allowedArchiversConfigPath = join(__dirname, '../allowed-archivers.json')
@@ -62,7 +59,7 @@ const cluster = clusterModule as unknown as clusterModule.Cluster
 
 async function start(): Promise<void> {
   overrideDefaultConfig(configFile)
-  initAjvSchemas();
+  initAjvSchemas()
   initializeSerialization()
   // Set crypto hash keys from config
   const hashKey = config.ARCHIVER_HASH_KEY
@@ -84,12 +81,12 @@ async function start(): Promise<void> {
   allowedArchiversManager.initialize(allowedArchiversConfigPath)
   // Global error handling
   process.on('uncaughtException', (error) => {
-    Logger.mainLogger.error('Uncaught Exception - Global:', error);
-  });
+    Logger.mainLogger.error('Uncaught Exception - Global:', error)
+  })
 
   process.on('unhandledRejection', (reason, promise) => {
-    Logger.mainLogger.error('Unhandled Rejection - Global:', promise, 'reason:', reason);
-  });
+    Logger.mainLogger.error('Unhandled Rejection - Global:', promise, 'reason:', reason)
+  })
 
   // Initialize storage and checkpoints
   if (config.experimentalSnapshot) {
@@ -194,8 +191,8 @@ async function start(): Promise<void> {
   }
 
   setTimeout(() => {
-    scheduleMultiSigKeysSyncFromNetConfig();
-  }, 60 * 1000); // Start after 60 seconds
+    scheduleMultiSigKeysSyncFromNetConfig()
+  }, 60 * 1000) // Start after 60 seconds
 
   // Create the failed buckets directory
   createDirectories(config.failedBucketsDir)
@@ -226,7 +223,7 @@ async function start(): Promise<void> {
         await Promise.allSettled([
           cycleCheckpointManager.update(),
           receiptCheckpointManager.update(),
-          originalTxCheckpointManager.update()
+          originalTxCheckpointManager.update(),
         ])
       }
     } catch (error) {
@@ -299,7 +296,6 @@ async function syncAndStartServer(): Promise<void> {
   }
 
   if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
-
     const response: TotalDataResponse = await Data.getTotalDataFromArchivers()
     const { totalCycles } = response
 
@@ -323,11 +319,11 @@ async function syncAndStartServer(): Promise<void> {
       Logger.mainLogger.info(`Patching cycles from ${currentStart} to ${currentEnd}...`)
 
       // Add a maximum retry count to prevent infinite loop
-      const MAX_RETRIES = 3;
+      const MAX_RETRIES = 3
 
       while (currentStart < endCycle) {
-        let retryCount = 0;
-        let success = false;
+        let retryCount = 0
+        let success = false
 
         while (retryCount < MAX_RETRIES && !success) {
           try {
@@ -367,13 +363,15 @@ async function syncAndStartServer(): Promise<void> {
             // Reduce batch size on error
             const newBatchSize = Math.max(1, Math.floor(BATCH_SIZE / 2))
             currentEnd = Math.min(currentStart + newBatchSize, endCycle)
-            retryCount++;
+            retryCount++
           }
         }
 
         // If we've exhausted retries and still haven't succeeded, skip this batch
         if (!success && retryCount >= MAX_RETRIES) {
-          Logger.mainLogger.warn(`Failed to process cycles ${currentStart} to ${currentEnd} after ${MAX_RETRIES} retries. Skipping.`);
+          Logger.mainLogger.warn(
+            `Failed to process cycles ${currentStart} to ${currentEnd} after ${MAX_RETRIES} retries. Skipping.`
+          )
           process.exit(1)
         }
       }
@@ -382,7 +380,6 @@ async function syncAndStartServer(): Promise<void> {
       Logger.mainLogger.info(`Cycle data patching complete. Now at cycle ${totalCycles}`)
     }
   } else {
-
     // Request total data from the random archiver
     const response: TotalDataResponse = await Data.getTotalDataFromArchivers()
 
@@ -401,9 +398,7 @@ async function syncAndStartServer(): Promise<void> {
 
     // Check if local database has more data than the network, if so, clear the database
     if (lastStoredReceiptCount > totalReceipts || lastStoredCycleCount > totalCycles) {
-      throw Error(
-        'The existing db has more data than the network data! Clear the DB and start the server again!'
-      )
+      throw Error('The existing db has more data than the network data! Clear the DB and start the server again!')
     }
 
     // If there are stored cycles, validate the old cycle data
@@ -428,12 +423,11 @@ async function syncAndStartServer(): Promise<void> {
       'lastStoredCycleCount',
       lastStoredCycleCount,
       'lastStoredReceiptCount',
-      lastStoredReceiptCount,
+      lastStoredReceiptCount
       // 'lastStoredOriginalTxCount',
       // lastStoredOriginalTxCount
     )
   }
-
 
   // If your not the first archiver node, get a nodelist from the others
 
@@ -446,8 +440,7 @@ async function syncAndStartServer(): Promise<void> {
     try {
       const randomArchiver = State.getRandomArchiver()
       // Get active nodes from Archiver
-      const nodeList: NodeList.ConsensusNodeInfo[] =
-        await NodeList.getActiveNodeListFromArchiver(randomArchiver)
+      const nodeList: NodeList.ConsensusNodeInfo[] = await NodeList.getActiveNodeListFromArchiver(randomArchiver)
 
       // If no nodes are active, retry the loop
       if (nodeList.length === 0) continue
@@ -483,8 +476,6 @@ async function syncAndStartServer(): Promise<void> {
   // Once the archiver is joined, check if the existing data (receipt/originalTxData) is valid
   // If there are stored receipts, validate the old receipt data
 
-
-
   if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
     // Find the last valid cycle for receipts
     let lastValidReceiptCycle = Math.max(firstUnifiedCheckpointCycle - 1, 0)
@@ -501,7 +492,7 @@ async function syncAndStartServer(): Promise<void> {
     let currentStart = lastStoredReceiptCycle
     let currentEnd = Math.min(currentStart + BATCH_SIZE, latestNetworkCycle.counter || currentStart)
     let retryCount = 0
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = 3
     while (currentStart < latestNetworkCycle.counter && retryCount < MAX_RETRIES) {
       try {
         const response = (await queryFromArchivers(
@@ -531,9 +522,7 @@ async function syncAndStartServer(): Promise<void> {
         // Reduce batch size on error
         const newBatchSize = Math.max(1, Math.floor(BATCH_SIZE / 2))
         currentEnd = Math.min(currentStart + newBatchSize, latestNetworkCycle.counter)
-        Logger.mainLogger.error(
-          `Failed to fetch receipts from cycle ${currentStart} to ${currentEnd}. Retrying...`
-        )
+        Logger.mainLogger.error(`Failed to fetch receipts from cycle ${currentStart} to ${currentEnd}. Retrying...`)
         retryCount++
       }
     }
@@ -611,7 +600,6 @@ async function syncAndStartServer(): Promise<void> {
           Logger.mainLogger.error('Error syncing missing checkpoints after server start:', error)
         }
       }, config.checkpoint.syncInterval)
-
     } else {
       // Use the original sync method
       // If no receipts stored, synchronize all receipts, otherwise synchronize by cycle
@@ -655,7 +643,6 @@ async function syncAndStartServer(): Promise<void> {
     // Start the server
     await startServer()
   }
-
 
   // Sync the missing data during the cycle of sending active request
   let latestCycle = await Cycles.getNewestCycleFromArchivers()
@@ -732,21 +719,22 @@ async function startServer(): Promise<void> {
         server.log.error(err)
         process.exit(1)
       }
-      Logger.mainLogger.info(`Worker ${process.pid}: Archive-server is listening on http://0.0.0.0:${config.ARCHIVER_PORT}`)
+      Logger.mainLogger.info(
+        `Worker ${process.pid}: Archive-server is listening on http://0.0.0.0:${config.ARCHIVER_PORT}`
+      )
       State.setActive()
       Collector.scheduleMissingTxsDataQuery()
       // setupWorkerProcesses(cluster)
     }
   )
-
 }
 
 // Add this before starting the server
 try {
-  initializeTickets();
+  initializeTickets()
 } catch (err) {
-  console.error('Failed to initialize tickets. Server startup aborted:', err);
-  process.exit(1);
+  console.error('Failed to initialize tickets. Server startup aborted:', err)
+  process.exit(1)
 }
 
 start()

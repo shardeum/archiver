@@ -46,9 +46,7 @@ function findUnmatchedNodeInitRewards(
     if (transaction.tx.type === 'nodeInitReward' && transaction.tx.txData.startTime) {
       const key = `${transaction.tx.txData.nodeId}-${transaction.tx.cycle}`
       nodeInitRewardMap.set(key, transaction)
-      console.log(
-        `Mapped nodeInitReward - Node ID: ${transaction.tx.txData.nodeId}, Cycle: ${transaction.tx.cycle}`
-      )
+      console.log(`Mapped nodeInitReward - Node ID: ${transaction.tx.txData.nodeId}, Cycle: ${transaction.tx.cycle}`)
     } else if (transaction.tx.type === 'nodeReward' && transaction.tx.txData.start !== undefined) {
       const rewardKey = `${transaction.tx.txData.nodeId}-${transaction.tx.txData.start}`
       nodeRewardMap.set(rewardKey, transaction)
@@ -67,11 +65,7 @@ function findUnmatchedNodeInitRewards(
     // Check if any nodeReward exists within ±5 cycles of the nodeInitReward's cycle
     const hasMatchingReward = Array.from(nodeRewardMap.values()).some((rewardTx) => {
       const rewardCycle = rewardTx.tx.txData.start
-      return (
-        rewardTx.tx.txData.nodeId === nodeId &&
-        rewardCycle !== undefined &&
-        Math.abs(rewardCycle - cycle) <= 5
-      )
+      return rewardTx.tx.txData.nodeId === nodeId && rewardCycle !== undefined && Math.abs(rewardCycle - cycle) <= 5
     })
 
     if (!hasMatchingReward) {
@@ -96,12 +90,9 @@ function findUnmatchedNodeInitRewards(
         },
       }
       unmatchedRewards.push(newNodeReward)
-      console.log(
-        `Created new nodeReward - Node ID: ${nodeId}, Start Cycle: ${cycle}, End Cycle: ${endCycle}`
-      )
+      console.log(`Created new nodeReward - Node ID: ${nodeId}, Start Cycle: ${cycle}, End Cycle: ${endCycle}`)
     }
   }
-
 
   console.log(`Total unmatched nodeInitRewards found: ${unmatchedRewards.length}`)
   return unmatchedRewards

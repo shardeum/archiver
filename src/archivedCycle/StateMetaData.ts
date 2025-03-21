@@ -11,13 +11,7 @@ import {
   fetchCycleRecords,
   getNewestCycleFromArchivers,
 } from '../Data/Cycles'
-import {
-  ChangeSquasher,
-  parse,
-  totalNodeCount,
-  activeNodeCount,
-  applyNodeListChange,
-} from '../Data/CycleParser'
+import { ChangeSquasher, parse, totalNodeCount, activeNodeCount, applyNodeListChange } from '../Data/CycleParser'
 import { publicKey } from '@shardeum-foundation/lib-crypto-utils'
 
 import * as State from '../State'
@@ -204,9 +198,8 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
       }
       setImmediate(processData, newData)
     })
-
   } catch (error) {
-    console.error('Error occurred during socket connection:', error);
+    console.error('Error occurred during socket connection:', error)
   }
 }
 
@@ -326,9 +319,7 @@ export async function subscribeRandomNodeForDataTransfer(): Promise<void> {
     else retry++
   }
   if (nodeSubscribedFail) {
-    Logger.mainLogger.error(
-      'The archiver fails to subscribe to any node for data transfer! and exit the network.'
-    )
+    Logger.mainLogger.error('The archiver fails to subscribe to any node for data transfer! and exit the network.')
     await State.exitArchiver()
   }
 }
@@ -418,9 +409,7 @@ function selectNewDataSender(publicKey: string): NodeList.ConsensusNodeInfo | un
   return newSender
 }
 
-export async function createDataTransferConnection(
-  newSenderInfo: NodeList.ConsensusNodeInfo
-): Promise<boolean> {
+export async function createDataTransferConnection(newSenderInfo: NodeList.ConsensusNodeInfo): Promise<boolean> {
   initSocketClient(newSenderInfo)
   let count = 0
   while (!socketClients.has(newSenderInfo.publicKey) && count <= 50) {
@@ -612,10 +601,7 @@ export async function processStateMetaData(response: ResponseType): Promise<void
   Logger.mainLogger.error('response', response)
   const STATE_METADATA = response.STATE_METADATA
   if (!STATE_METADATA || STATE_METADATA.length === 0) {
-    Logger.mainLogger.error(
-      'Invalid STATE_METADATA provided to processStateMetaData function',
-      STATE_METADATA
-    )
+    Logger.mainLogger.error('Invalid STATE_METADATA provided to processStateMetaData function', STATE_METADATA)
     return
   }
   profilerInstance.profileSectionStart('state_metadata')
@@ -686,8 +672,7 @@ export async function processStateMetaData(response: ResponseType): Promise<void
             if (failedPartitions.has(partition) || !coveredPartitions.has(partition)) return true
           return false
         }
-        const cycleActiveNodesSize =
-          parentCycle.active + parentCycle.activated.length - parentCycle.removed.length
+        const cycleActiveNodesSize = parentCycle.active + parentCycle.activated.length - parentCycle.removed.length
         while (!isDownloadSuccess && sleepCount < 20) {
           const randomConsensor = NodeList.getRandomActiveNodes()[0]
           const queryRequest = createQueryRequest(
@@ -746,10 +731,7 @@ export async function processStateMetaData(response: ResponseType): Promise<void
           }
           retry += 1
           if (!isDownloadSuccess && retry >= NodeList.getActiveNodeCount()) {
-            Logger.mainLogger.debug(
-              'Sleeping for 5 sec before retrying download again for cycle',
-              parentCycle.counter
-            )
+            Logger.mainLogger.debug('Sleeping for 5 sec before retrying download again for cycle', parentCycle.counter)
             await Utils.sleep(5000)
             retry = 0
             sleepCount += 1
@@ -896,10 +878,7 @@ export async function sendToExplorer(counter: number): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let completedArchivedCycle: any[]
     if (lastSentCycleCounterToExplorer === 0) {
-      completedArchivedCycle = await Storage.queryAllArchivedCyclesBetween(
-        lastSentCycleCounterToExplorer,
-        counter
-      )
+      completedArchivedCycle = await Storage.queryAllArchivedCyclesBetween(lastSentCycleCounterToExplorer, counter)
       Logger.mainLogger.debug('start, end', lastSentCycleCounterToExplorer, counter)
     } else {
       completedArchivedCycle = await Storage.queryAllArchivedCyclesBetween(counter, counter)
@@ -981,9 +960,7 @@ export async function buildNodeListFromStoredCycle(
     Logger.mainLogger.debug(
       `Got ${squasher.final.updated.length} active nodes, need ${activeNodeCount(lastStoredCycle)}`
     )
-    Logger.mainLogger.debug(
-      `Got ${squasher.final.added.length} total nodes, need ${totalNodeCount(lastStoredCycle)}`
-    )
+    Logger.mainLogger.debug(`Got ${squasher.final.added.length} total nodes, need ${totalNodeCount(lastStoredCycle)}`)
     if (squasher.final.added.length < totalNodeCount(lastStoredCycle))
       Logger.mainLogger.debug('Short on nodes. Need to get more cycles. Cycle:' + lastStoredCycle.counter)
 
@@ -1052,12 +1029,8 @@ export async function syncCyclesAndNodeList(lastStoredCycleCount = 0): Promise<v
       }
     }
 
-    Logger.mainLogger.debug(
-      `Got ${squasher.final.updated.length} active nodes, need ${activeNodeCount(cycleToSyncTo)}`
-    )
-    Logger.mainLogger.debug(
-      `Got ${squasher.final.added.length} total nodes, need ${totalNodeCount(cycleToSyncTo)}`
-    )
+    Logger.mainLogger.debug(`Got ${squasher.final.updated.length} active nodes, need ${activeNodeCount(cycleToSyncTo)}`)
+    Logger.mainLogger.debug(`Got ${squasher.final.added.length} total nodes, need ${totalNodeCount(cycleToSyncTo)}`)
     if (squasher.final.added.length < totalNodeCount(cycleToSyncTo))
       Logger.mainLogger.debug('Short on nodes. Need to get more cycles. Cycle:' + cycleToSyncTo.counter)
 
@@ -1087,9 +1060,7 @@ export async function syncCyclesAndNodeList(lastStoredCycleCount = 0): Promise<v
   let endCycle = CycleChain[0].counter - 1
   Logger.mainLogger.debug('endCycle counter', endCycle, 'lastStoredCycleCount', lastStoredCycleCount)
   if (endCycle > lastStoredCycleCount) {
-    Logger.mainLogger.debug(
-      `Downloading old cycles from cycles ${lastStoredCycleCount} to cycle ${endCycle}!`
-    )
+    Logger.mainLogger.debug(`Downloading old cycles from cycles ${lastStoredCycleCount} to cycle ${endCycle}!`)
   }
   let savedCycleRecord = CycleChain[0]
   while (endCycle > lastStoredCycleCount) {
@@ -1172,17 +1143,13 @@ export async function compareWithOldCyclesData(
   let downloadedCycles
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response: any = await P2P.getJson(
-    `http://${archiver.ip}:${archiver.port}/cycleinfo?start=${lastCycleCounter - 10}&end=${
-      lastCycleCounter - 1
-    }`
+    `http://${archiver.ip}:${archiver.port}/cycleinfo?start=${lastCycleCounter - 10}&end=${lastCycleCounter - 1}`
   )
   if (response && response.cycleInfo) {
     downloadedCycles = response.cycleInfo
   } else {
     throw Error(
-      `Can't fetch data from cycle ${lastCycleCounter - 10} to cycle ${
-        lastCycleCounter - 1
-      }  from archiver ${archiver}`
+      `Can't fetch data from cycle ${lastCycleCounter - 10} to cycle ${lastCycleCounter - 1}  from archiver ${archiver}`
     )
   }
   const oldCycles = await Storage.queryCycleRecordsBetween(lastCycleCounter - 10, lastCycleCounter + 1)
@@ -1517,19 +1484,16 @@ async function validateAndStoreSummaryBlobs(
   }
 }
 
-emitter.on(
-  'selectNewDataSender',
-  async (newSenderInfo: NodeList.ConsensusNodeInfo, taggedDataRequest: object) => {
-    //let request = {
-    //...dataRequest,
-    //nodeInfo: State.getNodeInfo()
-    //}
-    if (socketClients.has(newSenderInfo.publicKey)) {
-      const response = await P2P.postJson(
-        `http://${newSenderInfo.ip}:${newSenderInfo.port}/requestdata`,
-        taggedDataRequest
-      )
-      Logger.mainLogger.debug('/requestdata response', response)
-    }
+emitter.on('selectNewDataSender', async (newSenderInfo: NodeList.ConsensusNodeInfo, taggedDataRequest: object) => {
+  //let request = {
+  //...dataRequest,
+  //nodeInfo: State.getNodeInfo()
+  //}
+  if (socketClients.has(newSenderInfo.publicKey)) {
+    const response = await P2P.postJson(
+      `http://${newSenderInfo.ip}:${newSenderInfo.port}/requestdata`,
+      taggedDataRequest
+    )
+    Logger.mainLogger.debug('/requestdata response', response)
   }
-)
+})

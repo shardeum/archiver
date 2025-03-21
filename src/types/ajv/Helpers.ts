@@ -9,7 +9,6 @@ export function initAjvSchemas(): void {
   initAccounts()
   initReceipts()
   initOriginalTxData()
-
 }
 
 export function verifyPayload<T>(name: string, payload: T): string[] | null {

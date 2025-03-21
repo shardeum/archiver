@@ -30,11 +30,7 @@ export async function initStorage(config: Config): Promise<void> {
 }
 
 export async function insertArchivedCycle(archivedCycle: StateMetaData.ArchivedCycle): Promise<void> {
-  Logger.mainLogger.debug(
-    'Inserting archived cycle',
-    archivedCycle.cycleRecord.counter,
-    archivedCycle.cycleMarker
-  )
+  Logger.mainLogger.debug('Inserting archived cycle', archivedCycle.cycleRecord.counter, archivedCycle.cycleMarker)
   try {
     await Collection.insert([StateMetaData.ArchivedCycle.new(archivedCycle)])
     Logger.mainLogger.debug('Successfully inserted archivedCycle', archivedCycle.cycleRecord.counter)
