@@ -47,14 +47,9 @@ describe('Crypto', () => {
     describe('hash and hashObj', () => {
         it('should hash a string correctly', () => {
             const input = 'test'
-            try {
-                const hash = Crypto.hash(input)
-                console.log("Received hash: ", hash)
-                expect(typeof hash).toBe('string')
-                expect(hash.length).toBeGreaterThan(0)
-            } catch (error) {
-                console.error("Error in hash function: ", error)
-            }
+            const hash = Crypto.hash(input)
+            expect(typeof hash).toBe('string')
+            expect(hash.length).toBeGreaterThan(0)
         })
 
         it('should hash an object correctly', () => {
@@ -116,12 +111,12 @@ describe('Crypto', () => {
 
         it('should handle different public keys', () => {
             const pk1 = mockPublicKey as publicKey
-            const pk2 = mockPublicKey as publicKey // Using same key to avoid conversion error
+            const pk2 = 'e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94' as publicKey
 
             const curvePk1 = Crypto.getOrCreateCurvePk(pk1)
             const curvePk2 = Crypto.getOrCreateCurvePk(pk2)
 
-            expect(curvePk1).toBe(curvePk2) // Same key should give same curve pk
+            expect(curvePk1).not.toBe(curvePk2) // Different keys should give different curve pk
         })
     })
 
@@ -137,12 +132,12 @@ describe('Crypto', () => {
 
         it('should handle different recipient public keys', () => {
             const pk1 = mockPublicKey as publicKey
-            const pk2 = mockPublicKey as publicKey // Using same key to avoid conversion error
+            const pk2 = 'e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94' as publicKey
 
             const sharedKey1 = Crypto.getOrCreateSharedKey(pk1)
             const sharedKey2 = Crypto.getOrCreateSharedKey(pk2)
 
-            expect(sharedKey1).toEqual(sharedKey2) // Same key should give same shared key
+            expect(sharedKey1).not.toEqual(sharedKey2) // Different keys should give different shared keys
         })
     })
 
