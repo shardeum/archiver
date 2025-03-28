@@ -36,9 +36,8 @@ async function generateSignature(): Promise<void> {
     // Output signature in format needed for verification
     console.log('Signature object:', {
       owner: address,
-      sig: signature
+      sig: signature,
     })
-
   } catch (error) {
     console.error('Error generating signature:', error)
     process.exit(1)
