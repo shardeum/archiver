@@ -209,7 +209,7 @@ export function isInternalTx(timestampedTx: any): boolean {
 
 export function validateTransferFromSecureAccount(tx: any): { success: boolean; reason: string } {
   try {
-    if (tx.internalTXType === InternalTXType.TransferFromSecureAccount) {
+    if (tx.internalTXType !== InternalTXType.TransferFromSecureAccount) {
       return { success: false, reason: 'Invalid Secure Account Transaction type' }
     }
 
