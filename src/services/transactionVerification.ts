@@ -229,6 +229,10 @@ export function validateTransferFromSecureAccount(tx: any): { success: boolean; 
       return { success: false, reason: 'Invalid nonce' }
     }
 
+    if (!tx.chainId || typeof tx.chainId !== 'string') {
+      return { success: false, reason: 'Invalid chainId' }
+    }
+
     const secureAccounts = getSecureAccounts()
     const secureAccountData = secureAccounts.get(tx.accountName)
 
@@ -250,6 +254,7 @@ export function validateTransferFromSecureAccount(tx: any): { success: boolean; 
       account: tx.amount,
       accountName: tx.accountName,
       nonce: tx.nonce,
+      chainId: tx.chainId,
     }
 
     const allowedPublicKeys = getMultisigPublicKeys()
