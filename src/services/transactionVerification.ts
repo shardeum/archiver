@@ -209,7 +209,7 @@ export function isInternalTx(timestampedTx: any): boolean {
 
 export function validateTransferFromSecureAccount(tx: any): { success: boolean; reason: string } {
   try {
-    if (tx.internalTXType === InternalTXType.TransferFromSecureAccount) {
+    if (tx.internalTXType !== InternalTXType.TransferFromSecureAccount) {
       return { success: false, reason: 'Invalid Secure Account Transaction type' }
     }
 
@@ -227,6 +227,10 @@ export function validateTransferFromSecureAccount(tx: any): { success: boolean; 
 
     if (typeof tx.nonce !== 'number' || tx.nonce < 0) {
       return { success: false, reason: 'Invalid nonce' }
+    }
+
+    if (!tx.chainId || typeof tx.chainId !== 'string') {
+      return { success: false, reason: 'Invalid chainId' }
     }
 
     const secureAccounts = getSecureAccounts()
@@ -250,6 +254,7 @@ export function validateTransferFromSecureAccount(tx: any): { success: boolean; 
       account: tx.amount,
       accountName: tx.accountName,
       nonce: tx.nonce,
+      chainId: tx.chainId,
     }
 
     const allowedPublicKeys = getMultisigPublicKeys()
