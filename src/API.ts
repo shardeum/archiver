@@ -1517,7 +1517,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       Logger.mainLogger.error(
         `Error processing shareCheckpointRadixDigests for checkpoint type ${req.body.checkpointType}: ${err.message}`
       )
-      reply.status(500).send('Server error')
+      reply.status(500).send({ success: false, error: 'Server error' })
     }
   })
 
@@ -1545,7 +1545,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
             `Bucket not found: No bucket with ID=${bucketID} for checkpoint type ${checkpointType}.`
           )
         }
-        reply.status(404).send(`Bucket not found for ID=${bucketID}.`)
+        reply.status(404).send({ success: false, error: `Bucket not found for ID=${bucketID}.` })
         return
       }
 
@@ -1576,7 +1576,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       Logger.mainLogger.error(
         `Error processing exchangeCheckpointRadixEntries for checkpoint type ${req.body.checkpointType}: ${err.message}`
       )
-      reply.status(500).send(`Server error in exchangeCheckpointRadixEntries for type ${req.body.checkpointType}`)
+      reply.status(500).send({ success: false, error: `Server error in exchangeCheckpointRadixEntries for type ${req.body.checkpointType}` })
     }
   })
 
