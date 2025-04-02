@@ -356,6 +356,10 @@ export function collectCycleData(
   senderInfo: string,
   source: string
 ): void {
+  Logger.mainLogger.debug(
+    `collectCycleData: Processing ${cycleData.length} cycles from ${senderInfo}, source: ${source}`
+  )
+
   // check if the sender is in the nodelists
   if (NodeList.activeListByIdSorted.length > 0) {
     const [ip, port] = senderInfo.split(':')
@@ -365,15 +369,27 @@ export function collectCycleData(
     const isInActiveArchivers = State.activeArchivers.some(
       (archiver) => archiver.ip === ip && archiver.port.toString() === port
     )
-    if (!isInActiveNodes && !isInActiveArchivers) return
+    if (!isInActiveNodes && !isInActiveArchivers) {
+      Logger.mainLogger.warn(`collectCycleData: Ignoring cycle data from non-active node: ${senderInfo}`)
+      return
+    }
   }
 
   for (const cycle of cycleData) {
-    if (receivedCycleTracker[cycle.counter]?.saved === true) break
+    Logger.mainLogger.debug(`collectCycleData: Processing cycle ${cycle.counter}, marker: ${cycle.marker}`)
 
+    if (receivedCycleTracker[cycle.counter]?.saved === true) {
+      Logger.mainLogger.debug(`collectCycleData: Cycle ${cycle.counter} already saved, skipping`)
+      break
+    }
+
+
+    nestedCountersInstance.countEvent('collectCycleData', 'process_cycle_from_' + source + ' - ' + cycle.counter)
+    nestedCountersInstance.countEvent('collectCycleData', 'process_cycle_from_' + source + ' - ' + cycle.mode)
     // since we can trust archivers and archiver only gossip after they have verified the cycleData
     // we can just call processCycles here
     if (source === 'archiver') {
+      Logger.mainLogger.debug(`collectCycleData: Processing cycle ${cycle.counter} from archiver directly`)
       processCycles([cycle as P2PTypes.CycleCreatorTypes.CycleData])
       continue
     }
@@ -381,34 +397,82 @@ export function collectCycleData(
     let receivedCertSigners = []
     if (NodeList.activeListByIdSorted.length > 0) {
       const certSigners = receivedCycleTracker[cycle.counter]?.[cycle.marker]?.['certSigners'] ?? new Set()
-      // need to get the hash(marker) of the cycle as it was in q3/q4 when the certs were made and compared
-      const cycleCopy = getRecordWithoutPostQ3Changes(cycle)
-      const validateCertsResult = validateCerts(
-        (cycle as subscriptionCycleData).certificates,
-        certSigners,
-        Cycles.computeCycleMarker(cycleCopy)
-      )
-      if (validateCertsResult === false) break
+
+      try {
+        // need to get the hash(marker) of the cycle as it was in q3/q4 when the certs were made and compared
+        const cycleCopy = getRecordWithoutPostQ3Changes(cycle)
+        const computedMarker = Cycles.computeCycleMarker(cycleCopy)
+
+        Logger.mainLogger.debug(
+          `collectCycleData: Computed marker for cycle ${cycle.counter}: ${computedMarker}, original marker: ${cycle.marker}`
+        )
+        Logger.mainLogger.debug(
+          `collectCycleData: Validating ${(cycle as subscriptionCycleData).certificates?.length || 0} certificates for cycle ${cycle.counter}`
+        )
+
+        const validateCertsResult = validateCerts(
+          (cycle as subscriptionCycleData).certificates,
+          certSigners,
+          computedMarker
+        )
+
+        if (validateCertsResult === false) {
+          nestedCountersInstance.countEvent('archiver', 'certificate_validation_failed - ' + cycle.counter + ' - ' + senderInfo)
+          Logger.mainLogger.warn(
+            `collectCycleData: Certificate validation failed for cycle ${cycle.counter} from ${senderInfo}`
+          )
+          break
+        }
+
+        Logger.mainLogger.debug(`collectCycleData: Certificate validation successful for cycle ${cycle.counter}`)
+      } catch (error) {
+        nestedCountersInstance.countEvent('archiver', 'certificate_validation_error - ' + cycle.counter + ' - ' + senderInfo)
+        Logger.mainLogger.error(
+          `collectCycleData: Error during certificate validation for cycle ${cycle.counter}: ${error}`
+        )
+        break
+      }
     }
 
     receivedCertSigners = (cycle as subscriptionCycleData).certificates.map((cert) => cert.sign.owner)
+    Logger.mainLogger.debug(
+      `collectCycleData: Received ${receivedCertSigners.length} certificate signers for cycle ${cycle.counter}`
+    )
     delete (cycle as subscriptionCycleData).certificates
 
     if (receivedCycleTracker[cycle.counter]) {
       if (receivedCycleTracker[cycle.counter][cycle.marker]) {
+        Logger.mainLogger.debug(`collectCycleData: Adding signers to existing marker for cycle ${cycle.counter}`)
         for (const signer of receivedCertSigners)
           receivedCycleTracker[cycle.counter][cycle.marker]['certSigners'].add(signer)
       } else {
-        if (!validateCycleData(cycle)) continue
+        if (!validateCycleData(cycle)) {
+          Logger.mainLogger.warn(
+            `collectCycleData: Cycle data validation failed for cycle ${cycle.counter} with marker ${cycle.marker}`
+          )
+          continue
+        }
+        Logger.mainLogger.debug(
+          `collectCycleData: Creating new marker entry for cycle ${cycle.counter} with marker ${cycle.marker}`
+        )
         receivedCycleTracker[cycle.counter][cycle.marker] = {
           cycleInfo: cycle,
           certSigners: new Set(receivedCertSigners),
         }
-        if (config.VERBOSE) Logger.mainLogger.debug('Different Cycle Record received', cycle.counter)
+        Logger.mainLogger.debug('Different Cycle Record received', cycle.counter)
       }
       receivedCycleTracker[cycle.counter]['received']++
+      Logger.mainLogger.debug(
+        `collectCycleData: Cycle ${cycle.counter} received count: ${receivedCycleTracker[cycle.counter]['received']}`
+      )
     } else {
-      if (!validateCycleData(cycle)) continue
+      if (!validateCycleData(cycle)) {
+        Logger.mainLogger.warn(
+          `collectCycleData: Cycle data validation failed for cycle ${cycle.counter} with marker ${cycle.marker}`
+        )
+        continue
+      }
+      Logger.mainLogger.debug(`collectCycleData: Creating new cycle tracker entry for cycle ${cycle.counter}`)
       receivedCycleTracker[cycle.counter] = {
         [cycle.marker]: {
           cycleInfo: cycle,
@@ -421,44 +485,66 @@ export function collectCycleData(
     if (config.VERBOSE) Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
 
     if (NodeList.activeListByIdSorted.length === 0) {
+      nestedCountersInstance.countEvent('archiver', 'no_active_nodes - ' + cycle.counter)
+      Logger.mainLogger.debug(`collectCycleData: No active nodes, processing cycle ${cycle.counter} directly`)
       processCycles([receivedCycleTracker[cycle.counter][cycle.marker].cycleInfo])
       continue
     }
 
     const requiredSenders = dataSenders.size ? Math.ceil(dataSenders.size / 2) : 1
+    Logger.mainLogger.debug(
+      `collectCycleData: Cycle ${cycle.counter} requires ${requiredSenders} senders, current count: ${receivedCycleTracker[cycle.counter]['received']}`
+    )
 
     if (receivedCycleTracker[cycle.counter]['received'] >= requiredSenders) {
+      Logger.mainLogger.debug(`collectCycleData: Cycle ${cycle.counter} has enough senders, processing`)
+
       let bestScore = 0
       let bestMarker = ''
 
       const prevMarker = cachedCycleRecords[0].marker
+      Logger.mainLogger.debug(`collectCycleData: Previous marker for scoring: ${prevMarker}`)
 
       // find the marker with largest sum of its top 3 cert scores
       const markers = Object.entries(receivedCycleTracker[cycle.counter])
         .filter(([key]) => key !== 'saved' && key !== 'received')
         .map(([, value]) => value)
 
+      Logger.mainLogger.debug(`collectCycleData: Found ${markers.length} different markers for cycle ${cycle.counter}`)
+
       for (const marker of markers) {
         const scores = []
         for (const signer of marker['certSigners']) {
-          scores.push(scoreCert(signer as string, prevMarker))
+          const score = scoreCert(signer as string, prevMarker)
+          scores.push(score)
+          Logger.mainLogger.debug(`collectCycleData: Cert from ${signer} scored ${score}`)
         }
         // get sum of top 3 scores: sort scores in desc order, then slice off first 3 elements, and add them
         const sum = scores
           .sort((a, b) => b - a)
           .slice(0, 3)
           .reduce((sum, score) => (sum += score), 0)
+
+        Logger.mainLogger.debug(`collectCycleData: Marker ${marker['cycleInfo'].marker} scored ${sum}`)
+
         if (sum > bestScore) {
           bestScore = sum
           bestMarker = marker['cycleInfo'].marker
+          Logger.mainLogger.debug(`collectCycleData: New best marker: ${bestMarker} with score ${bestScore}`)
         }
       }
 
+      Logger.mainLogger.debug(
+        `collectCycleData: Processing cycle ${cycle.counter} with best marker ${bestMarker}, score: ${bestScore}`
+      )
       processCycles([receivedCycleTracker[cycle.counter][bestMarker].cycleInfo])
       receivedCycleTracker[cycle.counter]['saved'] = true
     }
   }
   if (Object.keys(receivedCycleTracker).length > maxCyclesInCycleTracker) {
+    Logger.mainLogger.debug(
+      `collectCycleData: Cleaning up old cycles, current count: ${Object.keys(receivedCycleTracker).length}`
+    )
     for (const counter of Object.keys(receivedCycleTracker)) {
       // Clear cycles that are older than last maxCyclesInCycleTracker cycles
       if (parseInt(counter) < getCurrentCycleCounter() - maxCyclesInCycleTracker) {
@@ -2389,8 +2475,13 @@ export async function syncCycleData(cycle: number): Promise<boolean> {
   let retryCount = 0
   let success = false
 
+  Logger.mainLogger.debug(`syncCycleData: Starting sync for cycle ${cycle}`)
+  Logger.mainLogger.debug(`syncCycleData: Active nodes count: ${NodeList.activeListByIdSorted.length}`)
+
   while (!success && retryCount < MAX_RETRIES) {
     try {
+      Logger.mainLogger.debug(`syncCycleData: Attempt ${retryCount + 1} for cycle ${cycle}`)
+
       const res = (await queryFromArchivers(
         RequestDataType.CYCLE,
         {
@@ -2402,28 +2493,43 @@ export async function syncCycleData(cycle: number): Promise<boolean> {
 
       if (res && res.cycleInfo && res.cycleInfo.length > 0) {
         const cycleData = res.cycleInfo[0]
+        Logger.mainLogger.debug(`syncCycleData: Received data for cycle ${cycle}, marker: ${cycleData.marker}`)
 
         if (!validateCycleData(cycleData)) {
-          Logger.mainLogger.error(`Invalid cycle data for cycle ${cycle}`)
+          Logger.mainLogger.error(`syncCycleData: Invalid cycle data for cycle ${cycle}`)
+          Logger.mainLogger.error(`syncCycleData: Cycle validation failed, checking marker computation...`)
+          nestedCountersInstance.countEvent('archiver', 'cycle_validation_failed - ' + cycle)
+
+          // Debug marker computation
+          const cycleDataCopy = { ...cycleData }
+          delete cycleDataCopy.marker
+          const computedMarker = Cycles.computeCycleMarker(cycleDataCopy)
+          Logger.mainLogger.error(
+            `syncCycleData: Computed marker: ${computedMarker}, received marker: ${cycleData.marker}`
+          )
+
           retryCount++
           continue
         }
 
         await processCycles([cycleData])
+        Logger.mainLogger.debug(`syncCycleData: Successfully synced and processed cycle ${cycle}`)
         // Successfully synced cycle data for cycle
         success = true
         return true
       } else {
         Logger.mainLogger.error(
-          `Failed to get cycle data for cycle ${cycle}, attempt ${retryCount + 1} of ${MAX_RETRIES}`
+          `syncCycleData: Failed to get cycle data for cycle ${cycle}, attempt ${retryCount + 1} of ${MAX_RETRIES}`
         )
         retryCount++
       }
     } catch (error) {
-      Logger.mainLogger.error(`Error syncing cycle data for cycle ${cycle}: ${error}`)
+      Logger.mainLogger.error(`syncCycleData: Error syncing cycle data for cycle ${cycle}: ${error}`)
       retryCount++
     }
   }
+
+  Logger.mainLogger.error(`syncCycleData: All attempts to sync cycle ${cycle} failed`)
   return false
 }
 
@@ -2435,25 +2541,38 @@ export async function syncCycleData(cycle: number): Promise<boolean> {
 // it will also have to make sure the inpMarker is the same as the markers as it is in the certs. If it
 // does this, then the validateCycleData() function that gets called later will fail
 function validateCerts(certs: P2PTypes.CycleCreatorTypes.CycleCert[], certSigners: Set<string>, inpMarker: string) {
+  nestedCountersInstance.countEvent('data', 'validateCerts', 1)
+  Logger.mainLogger.debug(`validateCerts: Validating ${certs.length} certificates against marker ${inpMarker}`)
+
   for (const cert of certs) {
     const cleanCert: P2PTypes.CycleCreatorTypes.CycleCert = {
       marker: cert.marker,
       sign: cert.sign,
     }
     if (cleanCert.marker !== inpMarker) {
-      Logger.mainLogger.warn('validateCerts: cleanCert.marker did not match inpMarker')
+      nestedCountersInstance.countEvent('data', 'validateCerts:markerMismatch', 1)
+      Logger.mainLogger.warn(`validateCerts: cleanCert.marker ${cleanCert.marker} did not match inpMarker ${inpMarker}`)
       return false
     }
     if (NodeList.activeListByIdSorted.some((node) => node.publicKey === cleanCert.sign.owner) === false) {
-      Logger.mainLogger.warn('validateCerts: bad owner')
+      nestedCountersInstance.countEvent('data', 'validateCerts:badOwner', 1)
+      Logger.mainLogger.warn(`validateCerts: bad owner ${cleanCert.sign.owner} not found in active nodes`)
       return false
     }
-    if (certSigners.has(cert.sign.owner)) continue
+    if (certSigners.has(cert.sign.owner)) {
+      nestedCountersInstance.countEvent('data', 'validateCerts:skipExistingSigner', 1)
+      Logger.mainLogger.debug(`validateCerts: Skipping already verified cert from ${cert.sign.owner}`)
+      continue
+    }
     if (!Crypto.verify(cleanCert)) {
-      Logger.mainLogger.warn('validateCerts: bad sig')
+      nestedCountersInstance.countEvent('data', 'validateCerts:badSignature', 1)
+      Logger.mainLogger.warn(`validateCerts: bad signature from ${cleanCert.sign.owner}`)
       return false
     }
+    nestedCountersInstance.countEvent('data', 'validateCerts:validCert', 1)
   }
+
+  Logger.mainLogger.debug(`validateCerts: All certificates validated successfully`)
   return true
 }
 
@@ -2485,6 +2604,8 @@ export function scoreCert(pubKey: string, prevMarker: P2PTypes.CycleCreatorTypes
 // the markers inside the certs, the validation will obviously fail. So we want to revert those changes on a
 // deep copy so that we can get the original record
 function getRecordWithoutPostQ3Changes(cycle: P2PTypes.CycleCreatorTypes.CycleRecord) {
+  Logger.mainLogger.debug(`getRecordWithoutPostQ3Changes: Processing cycle ${cycle.counter}`)
+
   const cycleCopy = StringUtils.safeJsonParse(StringUtils.safeStringify(cycle))
   delete cycleCopy.marker
   delete cycleCopy.certificates
