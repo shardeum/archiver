@@ -6,6 +6,7 @@ import { config } from './Config'
 import * as Crypto from './Crypto'
 import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import { SignedObject } from '@shardeum-foundation/lib-crypto-utils'
+import { Utils as UtilsTypes } from '@shardeum-foundation/lib-types'
 // TYPES
 
 export enum NodeStatus {
@@ -386,6 +387,7 @@ export function changeNodeListInRestore(): void {
   if (activeList.size === 0) return
   // change the active status nodes to syncing status in all the nodelist
   const activatedPublicKeys = activeListByIdSorted.map((node) => node.publicKey)
+  Logger.mainLogger.debug('changeNodeListInRestore: Changing node list in restore mode: ', UtilsTypes.safeStringify(activatedPublicKeys))
   setStatus(NodeStatus.SYNCING, activatedPublicKeys)
 }
 
