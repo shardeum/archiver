@@ -6,7 +6,7 @@ import * as NodeList from '../NodeList'
 import { robustQuery, verifyMultiSigs } from '../Utils'
 import { DevSecurityLevel } from '../types/security'
 import { join } from 'path'
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { Transaction, TransactionFactory, TransactionType, TypedTransaction } from '@ethereumjs/tx'
 import { Address } from '@ethereumjs/util'
 import { getSenderAddress } from '@shardeum-foundation/lib-net'
@@ -20,8 +20,26 @@ interface SecureAccountData {
   SecureAccountAddress: string
 }
 
-const secureAccountsFilePath = join(__dirname, '..', '..', 'static', 'genesis-secure-accounts.json')
+let secureAccountsFilePath = join(__dirname, '..', '..', 'static', 'genesis-secure-accounts.json')
 let secureAccountDataMap: Map<string, SecureAccountData> | null = null
+
+console.log('got here so far')
+
+if (process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS) {
+  const GSAFilePath = process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS
+  GSAFilePath.trim()
+
+  try {
+    if (existsSync(join(__dirname, '..', '..', 'static', GSAFilePath))) {
+      secureAccountsFilePath = join(__dirname, '..', '..', 'static', GSAFilePath)
+      console.log('secureAccounts: genesis secure path set to:', GSAFilePath)
+    } else {
+      throw new Error('secureAccounts: path to the following genesis secure accounts file is incorrect:' + GSAFilePath)
+    }
+  } catch (e) {
+    throw new Error('secureAccounts: error setting genesis secure accounts file path: ' + e)
+  }
+}
 
 const getSecureAccounts = (): Map<string, SecureAccountData> => {
   if (!secureAccountDataMap) {
