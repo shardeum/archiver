@@ -23,7 +23,6 @@ interface SecureAccountData {
 let secureAccountsFilePath = join(__dirname, '..', '..', 'static', 'genesis-secure-accounts.json')
 let secureAccountDataMap: Map<string, SecureAccountData> | null = null
 
-console.log('got here so far')
 
 if (process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS) {
   const GSAFilePath = process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS
