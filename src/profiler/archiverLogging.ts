@@ -61,6 +61,7 @@ export class ArchiverLogging {
     Logger.mainLogger.info('Data Sync', log)
 
     nestedCountersInstance.countEvent('sync', `data_sync_${log.status}`, 1)
+    nestedCountersInstance.countEvent('sync', `data_type_${log.dataType}`, 1)
     nestedCountersInstance.countEvent('sync', 'data_size', log.metrics.dataSize)
   }
 }
