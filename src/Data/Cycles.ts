@@ -8,6 +8,7 @@ import { profilerInstance } from '../profiler/profiler'
 import { nestedCountersInstance } from '../profiler/nestedCounters'
 import * as cycleDataCache from '../cache/cycleRecordsCache'
 import * as ServiceQueue from '../ServiceQueue'
+import { ArchiverLogging } from '../profiler/archiverLogging'
 
 import {
   clearDataSenders,
@@ -398,7 +399,8 @@ async function updateNetworkTxsList(cycle: P2PTypes.CycleCreatorTypes.CycleData)
 
   if (calculatedTxListHash !== cycle.txlisthash) {
     console.error('txList hash from cycle record does not match the calculated txList hash')
-    const syncTxListResult = await syncTxList(NodeList.getActiveList())
+    const operationId = ArchiverLogging.generateOperationId()
+    const syncTxListResult = await syncTxList(NodeList.getActiveList(), operationId)
 
     syncTxListResult.match(
       (txList) => {

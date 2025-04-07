@@ -507,7 +507,8 @@ export function collectCycleData(
         const validateCertsResult = validateCerts(
           (cycle as subscriptionCycleData).certificates,
           certSigners,
-          computedMarker
+          computedMarker,
+          cycleCopy as P2PTypes.CycleCreatorTypes.CycleData
         )
 
         if (validateCertsResult === false) {
