@@ -383,10 +383,12 @@ export function collectCycleData(
       break
     }
 
+
+    nestedCountersInstance.countEvent('collectCycleData', 'process_cycle_from_' + source + ' - ' + cycle.counter)
+    nestedCountersInstance.countEvent('collectCycleData', 'process_cycle_from_' + source + ' - ' + cycle.mode)
     // since we can trust archivers and archiver only gossip after they have verified the cycleData
     // we can just call processCycles here
     if (source === 'archiver') {
-      nestedCountersInstance.countEvent('archiver', 'process_cycle_from_archiver - ' + cycle.mode + ' - ' + cycle.counter)
       Logger.mainLogger.debug(`collectCycleData: Processing cycle ${cycle.counter} from archiver directly`)
       processCycles([cycle as P2PTypes.CycleCreatorTypes.CycleData])
       continue
