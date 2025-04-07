@@ -86,7 +86,7 @@ describe('Config Module', () => {
           allowCheckpointUpdates: false,
           allowCheckpointStorage: false,
         },
-        batchSize: 100,
+        batchSize: 1000,
         updateInterval: 60000,
         syncInterval: 10000,
         maxCyclesToSync: 100,
@@ -242,9 +242,7 @@ describe('Config Module', () => {
       jest.mocked(StringUtils.safeJsonParse).mockReturnValue(configWithEmptyValues)
       await overrideDefaultConfig(tempConfigFile)
       expect(config.ARCHIVER_IP).toBe('')
-      expect(config.ARCHIVER_HASH_KEY).toBe(
-        '69fa4195670576c0160d660c3be36556ff8d504725be8a59b5a96509e0c994bc'
-      )
+      expect(config.ARCHIVER_HASH_KEY).toBe('69fa4195670576c0160d660c3be36556ff8d504725be8a59b5a96509e0c994bc')
     })
 
     // Test undefined value handling
