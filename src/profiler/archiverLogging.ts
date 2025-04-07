@@ -35,9 +35,16 @@ export interface DataSyncLog {
     dataSize: number
   }
   error?: string
+  operationId?: string
 }
 
+export type OperationType = 'CYCLE_SYNC' | 'VALIDATOR_SYNC' | 'TX_SYNC' | 'REGISTRATION' | 'CONNECTION'
+
 export class ArchiverLogging {
+  static generateOperationId(): string {
+    return `op-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  }
+
   static logArchiverRegistration(log: ArchiverRegistrationLog): void {
     Logger.mainLogger.info('Archiver Registration', log)
 

@@ -358,6 +358,8 @@ export function collectCycleData(
   source: string
 ): void {
   const startTime = Date.now()
+  const operationId = ArchiverLogging.generateOperationId()
+
   Logger.mainLogger.debug(
     `collectCycleData: Processing ${cycleData.length} cycles from ${senderInfo}, source: ${source}`
   )
@@ -372,6 +374,7 @@ export function collectCycleData(
     dataType: 'CYCLE_RECORD',
     dataHash: '',
     status: 'STARTED',
+    operationId,
     metrics: {
       duration: 0,
       dataSize: JSON.stringify(cycleData).length,
@@ -397,6 +400,7 @@ export function collectCycleData(
         dataType: 'CYCLE_RECORD',
         dataHash: '',
         status: 'ERROR',
+        operationId,
         metrics: {
           duration: Date.now() - startTime,
           dataSize: JSON.stringify(cycleData).length,
@@ -420,6 +424,7 @@ export function collectCycleData(
         dataType: 'CYCLE_RECORD',
         dataHash: cycle.marker,
         status: 'COMPLETE',
+        operationId,
         metrics: {
           duration: Date.now() - startTime,
           dataSize: JSON.stringify(cycle).length,
@@ -477,6 +482,7 @@ export function collectCycleData(
             dataType: 'CYCLE_RECORD',
             dataHash: cycle.marker,
             status: 'ERROR',
+            operationId,
             metrics: {
               duration: Date.now() - startTime,
               dataSize: JSON.stringify(cycle).length,
@@ -506,6 +512,7 @@ export function collectCycleData(
           dataType: 'CYCLE_RECORD',
           dataHash: cycle.marker,
           status: 'ERROR',
+          operationId,
           metrics: {
             duration: Date.now() - startTime,
             dataSize: JSON.stringify(cycle).length,
@@ -551,6 +558,7 @@ export function collectCycleData(
             dataType: 'CYCLE_RECORD',
             dataHash: cycle.marker,
             status: 'ERROR',
+            operationId,
             metrics: {
               duration: Date.now() - startTime,
               dataSize: JSON.stringify(cycle).length,
@@ -586,6 +594,7 @@ export function collectCycleData(
           dataType: 'CYCLE_RECORD',
           dataHash: cycle.marker,
           status: 'ERROR',
+          operationId,
           metrics: {
             duration: Date.now() - startTime,
             dataSize: JSON.stringify(cycle).length,
@@ -635,7 +644,9 @@ export function collectCycleData(
         .filter(([key]) => key !== 'saved' && key !== 'received')
         .map(([, value]) => value)
 
-      Logger.mainLogger.debug(`collectCycleData: Found ${markers.length} different markers for cycle ${cycle.counter}`)
+      Logger.mainLogger.debug(
+        `collectCycleData: Found ${markers.length} different markers for cycle ${cycle.counter}`
+      )
 
       for (const marker of markers) {
         const scores = []
@@ -674,6 +685,7 @@ export function collectCycleData(
         dataType: 'CYCLE_RECORD',
         dataHash: bestMarker,
         status: 'COMPLETE',
+        operationId,
         metrics: {
           duration: Date.now() - startTime,
           dataSize: JSON.stringify(receivedCycleTracker[cycle.counter][bestMarker].cycleInfo).length,
