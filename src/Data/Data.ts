@@ -44,6 +44,51 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { cachedCycleRecords } from '../cache/cycleRecordsCache'
 import { XOR } from '../utils/general'
 import { customFetch } from '../utils/customHttpFunctions'
+import { ArchiverLogging } from '../profiler/archiverLogging'
+
+interface ValidationBreadcrumb {
+  certMarker: string
+  expectedMarker: string
+  previousMarker: string
+  nodeListHash: string
+  archiverListHash: string
+  standbyNodeListHash: string
+  cycleNumber: number
+}
+
+class ValidationTracker {
+  private seen = new Set<string>()
+  private breadcrumbs: ValidationBreadcrumb[] = []
+  private readonly MAX_ENTRIES = 1000
+
+  add(breadcrumb: ValidationBreadcrumb): void {
+    const key = `${breadcrumb.certMarker}:${breadcrumb.expectedMarker}`
+
+    if (this.seen.has(key)) {
+      return
+    }
+
+    if (this.breadcrumbs.length >= this.MAX_ENTRIES) {
+      const oldest = this.breadcrumbs.shift()!
+      this.seen.delete(`${oldest.certMarker}:${oldest.expectedMarker}`)
+    }
+
+    Logger.mainLogger.warn('Certificate validation failed', {
+      certMarker: breadcrumb.certMarker,
+      expectedMarker: breadcrumb.expectedMarker,
+      previousMarker: breadcrumb.previousMarker,
+      cycleNumber: breadcrumb.cycleNumber,
+      nodeListHash: breadcrumb.nodeListHash,
+      archiverListHash: breadcrumb.archiverListHash,
+      standbyNodeListHash: breadcrumb.standbyNodeListHash,
+    })
+
+    this.seen.add(key)
+    this.breadcrumbs.push(breadcrumb)
+  }
+}
+
+const validationTracker = new ValidationTracker()
 
 export const socketClients: Map<string, SocketIOClientStatic['Socket']> = new Map()
 export let combineAccountsData = {
@@ -356,9 +401,29 @@ export function collectCycleData(
   senderInfo: string,
   source: string
 ): void {
+  const startTime = Date.now()
+  const operationId = ArchiverLogging.generateOperationId()
+
   Logger.mainLogger.debug(
     `collectCycleData: Processing ${cycleData.length} cycles from ${senderInfo}, source: ${source}`
   )
+
+  nestedCountersInstance.countEvent('collectCycleData', 'cycles_received', cycleData.length)
+  nestedCountersInstance.countEvent('collectCycleData', 'source_' + source, 1)
+
+  ArchiverLogging.logDataSync({
+    sourceArchiver: senderInfo,
+    targetArchiver: config.ARCHIVER_IP,
+    cycle: 0,
+    dataType: 'CYCLE_RECORD',
+    dataHash: '',
+    status: 'STARTED',
+    operationId,
+    metrics: {
+      duration: 0,
+      dataSize: JSON.stringify(cycleData).length,
+    },
+  })
 
   // check if the sender is in the nodelists
   if (NodeList.activeListByIdSorted.length > 0) {
@@ -370,7 +435,22 @@ export function collectCycleData(
       (archiver) => archiver.ip === ip && archiver.port.toString() === port
     )
     if (!isInActiveNodes && !isInActiveArchivers) {
+      nestedCountersInstance.countEvent('collectCycleData', 'sender_not_active', 1)
       Logger.mainLogger.warn(`collectCycleData: Ignoring cycle data from non-active node: ${senderInfo}`)
+      ArchiverLogging.logDataSync({
+        sourceArchiver: senderInfo,
+        targetArchiver: config.ARCHIVER_IP,
+        cycle: 0,
+        dataType: 'CYCLE_RECORD',
+        dataHash: '',
+        status: 'ERROR',
+        operationId,
+        metrics: {
+          duration: Date.now() - startTime,
+          dataSize: JSON.stringify(cycleData).length,
+        },
+        error: 'Sender not in active nodes or archivers',
+      })
       return
     }
   }
@@ -379,16 +459,30 @@ export function collectCycleData(
     Logger.mainLogger.debug(`collectCycleData: Processing cycle ${cycle.counter}, marker: ${cycle.marker}`)
 
     if (receivedCycleTracker[cycle.counter]?.saved === true) {
+      nestedCountersInstance.countEvent('collectCycleData', 'cycle_already_saved_' + cycle.mode, 1)
       Logger.mainLogger.debug(`collectCycleData: Cycle ${cycle.counter} already saved, skipping`)
+      ArchiverLogging.logDataSync({
+        sourceArchiver: senderInfo,
+        targetArchiver: config.ARCHIVER_IP,
+        cycle: cycle.counter,
+        dataType: 'CYCLE_RECORD',
+        dataHash: cycle.marker,
+        status: 'COMPLETE',
+        operationId,
+        metrics: {
+          duration: Date.now() - startTime,
+          dataSize: JSON.stringify(cycle).length,
+        },
+      })
       break
     }
 
+    nestedCountersInstance.countEvent('collectCycleData', 'process_cycle_' + cycle.mode, 1)
 
-    nestedCountersInstance.countEvent('collectCycleData', 'process_cycle_from_' + source + ' - ' + cycle.counter)
-    nestedCountersInstance.countEvent('collectCycleData', 'process_cycle_from_' + source + ' - ' + cycle.mode)
     // since we can trust archivers and archiver only gossip after they have verified the cycleData
     // we can just call processCycles here
     if (source === 'archiver') {
+      nestedCountersInstance.countEvent('collectCycleData', 'direct_process_from_archiver', 1)
       Logger.mainLogger.debug(`collectCycleData: Processing cycle ${cycle.counter} from archiver directly`)
       processCycles([cycle as P2PTypes.CycleCreatorTypes.CycleData])
       continue
@@ -413,23 +507,63 @@ export function collectCycleData(
         const validateCertsResult = validateCerts(
           (cycle as subscriptionCycleData).certificates,
           certSigners,
-          computedMarker
+          computedMarker,
+          cycleCopy as P2PTypes.CycleCreatorTypes.CycleData
         )
 
         if (validateCertsResult === false) {
-          nestedCountersInstance.countEvent('archiver', 'certificate_validation_failed - ' + cycle.counter + ' - ' + senderInfo)
+          nestedCountersInstance.countEvent(
+            'collectCycleData',
+            'certificate_validation_failed_' + cycle.mode,
+            1
+          )
           Logger.mainLogger.warn(
             `collectCycleData: Certificate validation failed for cycle ${cycle.counter} from ${senderInfo}`
           )
+          ArchiverLogging.logDataSync({
+            sourceArchiver: senderInfo,
+            targetArchiver: config.ARCHIVER_IP,
+            cycle: cycle.counter,
+            dataType: 'CYCLE_RECORD',
+            dataHash: cycle.marker,
+            status: 'ERROR',
+            operationId,
+            metrics: {
+              duration: Date.now() - startTime,
+              dataSize: JSON.stringify(cycle).length,
+            },
+            error: 'Certificate validation failed',
+          })
           break
         }
 
-        Logger.mainLogger.debug(`collectCycleData: Certificate validation successful for cycle ${cycle.counter}`)
+        nestedCountersInstance.countEvent(
+          'collectCycleData',
+          'certificate_validation_success_' + cycle.mode,
+          1
+        )
+        Logger.mainLogger.debug(
+          `collectCycleData: Certificate validation successful for cycle ${cycle.counter}`
+        )
       } catch (error) {
-        nestedCountersInstance.countEvent('archiver', 'certificate_validation_error - ' + cycle.counter + ' - ' + senderInfo)
+        nestedCountersInstance.countEvent('collectCycleData', 'certificate_validation_error_' + cycle.mode, 1)
         Logger.mainLogger.error(
           `collectCycleData: Error during certificate validation for cycle ${cycle.counter}: ${error}`
         )
+        ArchiverLogging.logDataSync({
+          sourceArchiver: senderInfo,
+          targetArchiver: config.ARCHIVER_IP,
+          cycle: cycle.counter,
+          dataType: 'CYCLE_RECORD',
+          dataHash: cycle.marker,
+          status: 'ERROR',
+          operationId,
+          metrics: {
+            duration: Date.now() - startTime,
+            dataSize: JSON.stringify(cycle).length,
+          },
+          error: `Certificate validation error: ${error.message}`,
+        })
         break
       }
     }
@@ -442,16 +576,43 @@ export function collectCycleData(
 
     if (receivedCycleTracker[cycle.counter]) {
       if (receivedCycleTracker[cycle.counter][cycle.marker]) {
-        Logger.mainLogger.debug(`collectCycleData: Adding signers to existing marker for cycle ${cycle.counter}`)
+        nestedCountersInstance.countEvent(
+          'collectCycleData',
+          'add_signers_to_existing_marker_' + cycle.mode,
+          1
+        )
+        Logger.mainLogger.debug(
+          `collectCycleData: Adding signers to existing marker for cycle ${cycle.counter}`
+        )
         for (const signer of receivedCertSigners)
           receivedCycleTracker[cycle.counter][cycle.marker]['certSigners'].add(signer)
       } else {
         if (!validateCycleData(cycle)) {
+          nestedCountersInstance.countEvent(
+            'collectCycleData',
+            'cycle_data_validation_failed_' + cycle.mode,
+            1
+          )
           Logger.mainLogger.warn(
             `collectCycleData: Cycle data validation failed for cycle ${cycle.counter} with marker ${cycle.marker}`
           )
+          ArchiverLogging.logDataSync({
+            sourceArchiver: senderInfo,
+            targetArchiver: config.ARCHIVER_IP,
+            cycle: cycle.counter,
+            dataType: 'CYCLE_RECORD',
+            dataHash: cycle.marker,
+            status: 'ERROR',
+            operationId,
+            metrics: {
+              duration: Date.now() - startTime,
+              dataSize: JSON.stringify(cycle).length,
+            },
+            error: 'Cycle data validation failed',
+          })
           continue
         }
+        nestedCountersInstance.countEvent('collectCycleData', 'create_new_marker_entry_' + cycle.mode, 1)
         Logger.mainLogger.debug(
           `collectCycleData: Creating new marker entry for cycle ${cycle.counter} with marker ${cycle.marker}`
         )
@@ -467,11 +628,27 @@ export function collectCycleData(
       )
     } else {
       if (!validateCycleData(cycle)) {
+        nestedCountersInstance.countEvent('collectCycleData', 'cycle_data_validation_failed_' + cycle.mode, 1)
         Logger.mainLogger.warn(
           `collectCycleData: Cycle data validation failed for cycle ${cycle.counter} with marker ${cycle.marker}`
         )
+        ArchiverLogging.logDataSync({
+          sourceArchiver: senderInfo,
+          targetArchiver: config.ARCHIVER_IP,
+          cycle: cycle.counter,
+          dataType: 'CYCLE_RECORD',
+          dataHash: cycle.marker,
+          status: 'ERROR',
+          operationId,
+          metrics: {
+            duration: Date.now() - startTime,
+            dataSize: JSON.stringify(cycle).length,
+          },
+          error: 'Cycle data validation failed',
+        })
         continue
       }
+      nestedCountersInstance.countEvent('collectCycleData', 'create_new_cycle_tracker_' + cycle.mode, 1)
       Logger.mainLogger.debug(`collectCycleData: Creating new cycle tracker entry for cycle ${cycle.counter}`)
       receivedCycleTracker[cycle.counter] = {
         [cycle.marker]: {
@@ -482,10 +659,11 @@ export function collectCycleData(
         saved: false,
       }
     }
-    if (config.VERBOSE) Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
+    if (config.VERBOSE)
+      Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
 
     if (NodeList.activeListByIdSorted.length === 0) {
-      nestedCountersInstance.countEvent('archiver', 'no_active_nodes - ' + cycle.counter)
+      nestedCountersInstance.countEvent('collectCycleData', 'no_active_nodes_direct_process_' + cycle.mode, 1)
       Logger.mainLogger.debug(`collectCycleData: No active nodes, processing cycle ${cycle.counter} directly`)
       processCycles([receivedCycleTracker[cycle.counter][cycle.marker].cycleInfo])
       continue
@@ -497,6 +675,7 @@ export function collectCycleData(
     )
 
     if (receivedCycleTracker[cycle.counter]['received'] >= requiredSenders) {
+      nestedCountersInstance.countEvent('collectCycleData', 'enough_senders_process_' + cycle.mode, 1)
       Logger.mainLogger.debug(`collectCycleData: Cycle ${cycle.counter} has enough senders, processing`)
 
       let bestScore = 0
@@ -510,7 +689,9 @@ export function collectCycleData(
         .filter(([key]) => key !== 'saved' && key !== 'received')
         .map(([, value]) => value)
 
-      Logger.mainLogger.debug(`collectCycleData: Found ${markers.length} different markers for cycle ${cycle.counter}`)
+      Logger.mainLogger.debug(
+        `collectCycleData: Found ${markers.length} different markers for cycle ${cycle.counter}`
+      )
 
       for (const marker of markers) {
         const scores = []
@@ -539,9 +720,27 @@ export function collectCycleData(
       )
       processCycles([receivedCycleTracker[cycle.counter][bestMarker].cycleInfo])
       receivedCycleTracker[cycle.counter]['saved'] = true
+
+      nestedCountersInstance.countEvent('collectCycleData', 'cycle_processed_successfully_' + cycle.mode, 1)
+
+      ArchiverLogging.logDataSync({
+        sourceArchiver: senderInfo,
+        targetArchiver: config.ARCHIVER_IP,
+        cycle: cycle.counter,
+        dataType: 'CYCLE_RECORD',
+        dataHash: bestMarker,
+        status: 'COMPLETE',
+        operationId,
+        metrics: {
+          duration: Date.now() - startTime,
+          dataSize: JSON.stringify(receivedCycleTracker[cycle.counter][bestMarker].cycleInfo).length,
+        },
+      })
     }
   }
+
   if (Object.keys(receivedCycleTracker).length > maxCyclesInCycleTracker) {
+    nestedCountersInstance.countEvent('collectCycleData', 'cleanup_old_cycles', 1)
     Logger.mainLogger.debug(
       `collectCycleData: Cleaning up old cycles, current count: ${Object.keys(receivedCycleTracker).length}`
     )
@@ -556,7 +755,10 @@ export function collectCycleData(
           .map(([, value]) => value)
 
         // If there is more than one marker for this cycle, output the cycle log
-        if (markers.length > 1) logCycle = true
+        if (markers.length > 1) {
+          logCycle = true
+          nestedCountersInstance.countEvent('collectCycleData', 'multiple_markers_for_cycle', 1)
+        }
 
         for (const marker of markers) {
           Logger.mainLogger.debug(
@@ -2540,9 +2742,16 @@ export async function syncCycleData(cycle: number): Promise<boolean> {
 // malicious node to use valid certs from a honest record to get this function to return true. However,
 // it will also have to make sure the inpMarker is the same as the markers as it is in the certs. If it
 // does this, then the validateCycleData() function that gets called later will fail
-function validateCerts(certs: P2PTypes.CycleCreatorTypes.CycleCert[], certSigners: Set<string>, inpMarker: string) {
-  nestedCountersInstance.countEvent('data', 'validateCerts', 1)
-  Logger.mainLogger.debug(`validateCerts: Validating ${certs.length} certificates against marker ${inpMarker}`)
+function validateCerts(
+  certs: P2PTypes.CycleCreatorTypes.CycleCert[],
+  certSigners: Set<string>,
+  inpMarker: string,
+  cycleData: P2PTypes.CycleCreatorTypes.CycleData
+) {
+  nestedCountersInstance.countEvent('validateCerts', 'validation', 1)
+  Logger.mainLogger.debug(
+    `validateCerts: Validating ${certs.length} certificates against marker ${inpMarker}`
+  )
 
   for (const cert of certs) {
     const cleanCert: P2PTypes.CycleCreatorTypes.CycleCert = {
@@ -2550,26 +2759,36 @@ function validateCerts(certs: P2PTypes.CycleCreatorTypes.CycleCert[], certSigner
       sign: cert.sign,
     }
     if (cleanCert.marker !== inpMarker) {
-      nestedCountersInstance.countEvent('data', 'validateCerts:markerMismatch', 1)
-      Logger.mainLogger.warn(`validateCerts: cleanCert.marker ${cleanCert.marker} did not match inpMarker ${inpMarker}`)
+      nestedCountersInstance.countEvent('validateCerts', 'markerMismatch', 1)
+
+      validationTracker.add({
+        certMarker: cleanCert.marker,
+        previousMarker: cycleData.previous,
+        expectedMarker: inpMarker,
+        nodeListHash: cycleData.nodeListHash,
+        archiverListHash: cycleData.archiverListHash,
+        standbyNodeListHash: cycleData.standbyNodeListHash,
+        cycleNumber: cycleData.counter,
+      })
+
       return false
     }
     if (NodeList.activeListByIdSorted.some((node) => node.publicKey === cleanCert.sign.owner) === false) {
-      nestedCountersInstance.countEvent('data', 'validateCerts:badOwner', 1)
+      nestedCountersInstance.countEvent('validateCerts', 'badOwner', 1)
       Logger.mainLogger.warn(`validateCerts: bad owner ${cleanCert.sign.owner} not found in active nodes`)
       return false
     }
     if (certSigners.has(cert.sign.owner)) {
-      nestedCountersInstance.countEvent('data', 'validateCerts:skipExistingSigner', 1)
+      nestedCountersInstance.countEvent('validateCerts', 'skipExistingSigner', 1)
       Logger.mainLogger.debug(`validateCerts: Skipping already verified cert from ${cert.sign.owner}`)
       continue
     }
     if (!Crypto.verify(cleanCert)) {
-      nestedCountersInstance.countEvent('data', 'validateCerts:badSignature', 1)
+      nestedCountersInstance.countEvent('validateCerts', 'badSignature', 1)
       Logger.mainLogger.warn(`validateCerts: bad signature from ${cleanCert.sign.owner}`)
       return false
     }
-    nestedCountersInstance.countEvent('data', 'validateCerts:validCert', 1)
+    nestedCountersInstance.countEvent('validateCerts', 'validCert', 1)
   }
 
   Logger.mainLogger.debug(`validateCerts: All certificates validated successfully`)
