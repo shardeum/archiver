@@ -235,8 +235,7 @@ export const validateCycleData = (
   delete cycleRecordWithoutMarker.marker
 
   const computedMarker = computeCycleMarker(cycleRecordWithoutMarker)
-  Logger.mainLogger.debug('validateCycleData: Computed marker', computedMarker)
-  Logger.mainLogger.debug('validateCycleData: Provided marker', cycleRecord.marker)
+  Logger.mainLogger.debug('validateCycleData: Computed marker: ', computedMarker, ' Provided marker: ', cycleRecord.marker)
 
   if (computedMarker !== cycleRecord.marker) {
     Logger.mainLogger.error('Invalid Cycle Record: cycle marker does not match with the computed marker')
