@@ -56,8 +56,9 @@ export async function bulkInsertAccounts(accounts: AccountsCopy[]): Promise<void
     const MAX_RETRIES = 3
 
     // Process accounts in batches
-    for (let i = 0; i < accounts.length; i += BATCH_SIZE) {
-      const batch = accounts.slice(i, i + BATCH_SIZE)
+    for (let i = 0; i < accounts.length; ) {
+      let currentBatchSize = BATCH_SIZE
+      let batch = accounts.slice(i, i + currentBatchSize)
       let retryCount = 0
       let success = false
 
@@ -82,17 +83,23 @@ export async function bulkInsertAccounts(accounts: AccountsCopy[]): Promise<void
 
           if (config.VERBOSE) {
             Logger.mainLogger.debug(
-              `Successfully inserted batch of ${batch.length} accounts (${i + 1}-${i + batch.length}/${accounts.length})`
+              `Successfully inserted batch of ${batch.length} accounts (${i + 1}-${Math.min(i + batch.length, accounts.length)}/${accounts.length})`
             )
           }
+
+          // Only advance the index if we had success
+          i = i + batch.length
         } catch (err) {
           retryCount++
           // Reduce batch size on failure
           if (retryCount < MAX_RETRIES) {
-            const newBatchSize = Math.max(1, Math.floor(batch.length / 2))
-            i = i - batch.length + newBatchSize // Correctly adjust i for the next iteration
+            // Calculate new batch size - reduce by half
+            currentBatchSize = Math.max(1, Math.floor(batch.length / 2))
+            // Recreate batch with the new size
+            batch = accounts.slice(i, i + currentBatchSize)
+
             Logger.mainLogger.warn(
-              `Retrying account batch insertion with reduced size (${newBatchSize}). Retry ${retryCount}/${MAX_RETRIES}`
+              `Retrying account batch insertion with reduced size (${currentBatchSize}). Retry ${retryCount}/${MAX_RETRIES}`
             )
           } else {
             Logger.mainLogger.error(`Failed to insert batch of accounts after ${MAX_RETRIES} retries:`, err)
@@ -103,7 +110,7 @@ export async function bulkInsertAccounts(accounts: AccountsCopy[]): Promise<void
     }
 
     if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted Accounts', accounts.length)
+      Logger.mainLogger.debug(`Successfully inserted Accounts`, accounts.length)
     }
   } catch (err) {
     Logger.mainLogger.error(err)
