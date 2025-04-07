@@ -2697,9 +2697,16 @@ export async function syncCycleData(cycle: number): Promise<boolean> {
 // malicious node to use valid certs from a honest record to get this function to return true. However,
 // it will also have to make sure the inpMarker is the same as the markers as it is in the certs. If it
 // does this, then the validateCycleData() function that gets called later will fail
-function validateCerts(certs: P2PTypes.CycleCreatorTypes.CycleCert[], certSigners: Set<string>, inpMarker: string) {
-  nestedCountersInstance.countEvent('data', 'validateCerts', 1)
-  Logger.mainLogger.debug(`validateCerts: Validating ${certs.length} certificates against marker ${inpMarker}`)
+function validateCerts(
+  certs: P2PTypes.CycleCreatorTypes.CycleCert[],
+  certSigners: Set<string>,
+  inpMarker: string,
+  cycleData: P2PTypes.CycleCreatorTypes.CycleData
+) {
+  nestedCountersInstance.countEvent('validateCerts', 'validation', 1)
+  Logger.mainLogger.debug(
+    `validateCerts: Validating ${certs.length} certificates against marker ${inpMarker}`
+  )
 
   for (const cert of certs) {
     const cleanCert: P2PTypes.CycleCreatorTypes.CycleCert = {
@@ -2707,26 +2714,36 @@ function validateCerts(certs: P2PTypes.CycleCreatorTypes.CycleCert[], certSigner
       sign: cert.sign,
     }
     if (cleanCert.marker !== inpMarker) {
-      nestedCountersInstance.countEvent('data', 'validateCerts:markerMismatch', 1)
-      Logger.mainLogger.warn(`validateCerts: cleanCert.marker ${cleanCert.marker} did not match inpMarker ${inpMarker}`)
+      nestedCountersInstance.countEvent('validateCerts', 'markerMismatch', 1)
+
+      validationTracker.add({
+        certMarker: cleanCert.marker,
+        previousMarker: cycleData.previous,
+        expectedMarker: inpMarker,
+        nodeListHash: cycleData.nodeListHash,
+        archiverListHash: cycleData.archiverListHash,
+        standbyNodeListHash: cycleData.standbyNodeListHash,
+        cycleNumber: cycleData.counter,
+      })
+
       return false
     }
     if (NodeList.activeListByIdSorted.some((node) => node.publicKey === cleanCert.sign.owner) === false) {
-      nestedCountersInstance.countEvent('data', 'validateCerts:badOwner', 1)
+      nestedCountersInstance.countEvent('validateCerts', 'badOwner', 1)
       Logger.mainLogger.warn(`validateCerts: bad owner ${cleanCert.sign.owner} not found in active nodes`)
       return false
     }
     if (certSigners.has(cert.sign.owner)) {
-      nestedCountersInstance.countEvent('data', 'validateCerts:skipExistingSigner', 1)
+      nestedCountersInstance.countEvent('validateCerts', 'skipExistingSigner', 1)
       Logger.mainLogger.debug(`validateCerts: Skipping already verified cert from ${cert.sign.owner}`)
       continue
     }
     if (!Crypto.verify(cleanCert)) {
-      nestedCountersInstance.countEvent('data', 'validateCerts:badSignature', 1)
+      nestedCountersInstance.countEvent('validateCerts', 'badSignature', 1)
       Logger.mainLogger.warn(`validateCerts: bad signature from ${cleanCert.sign.owner}`)
       return false
     }
-    nestedCountersInstance.countEvent('data', 'validateCerts:validCert', 1)
+    nestedCountersInstance.countEvent('validateCerts', 'validCert', 1)
   }
 
   Logger.mainLogger.debug(`validateCerts: All certificates validated successfully`)
