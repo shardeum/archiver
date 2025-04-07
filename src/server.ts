@@ -51,6 +51,7 @@ import { createDirectories } from './Utils'
 import { syncMissingCheckpoints } from './checkpoint/CheckpointV2'
 import { RequestDataType } from './API'
 import { getOldestPendingOrFailedCheckpointStatus } from './dbstore/checkpointStatus'
+import { ArchiverLogging } from './profiler/archiverLogging'
 
 const configFile = resolve(__dirname, '../archiver-config.json')
 const allowedArchiversConfigPath = join(__dirname, '../allowed-archivers.json')
@@ -141,6 +142,16 @@ async function start(): Promise<void> {
     Logger.mainLogger.debug('We are first archiver. Starting archive-server')
     const lastStoredCycle = await CycleDB.queryLatestCycleRecords(1)
     if (lastStoredCycle && lastStoredCycle.length > 0) {
+      ArchiverLogging.logArchiverRegistration({
+        archiverId: config.ARCHIVER_IP,
+        timestamp: Date.now(),
+        validators: {
+          discovered: 0,
+          connected: 0,
+        },
+        state: 'REGISTERING',
+      })
+
       // Load global account from db
       await loadGlobalAccounts()
       // Seems you got restarted, and there are no other archivers to check; build nodelists and send join request to the nodes first
@@ -156,11 +167,35 @@ async function start(): Promise<void> {
 
           // try to join the network
           isJoined = await Data.joinNetwork(nodeList, firstTime)
+
+          if (isJoined) {
+            ArchiverLogging.logArchiverRegistration({
+              archiverId: config.ARCHIVER_IP,
+              timestamp: Date.now(),
+              validators: {
+                discovered: nodeList.length,
+                connected: nodeList.length,
+              },
+              state: 'REGISTERED',
+            })
+          }
         } catch (err: unknown) {
           Logger.mainLogger.error('Error while joining network:')
           Logger.mainLogger.error(err as Error)
           Logger.mainLogger.error((err as Error).stack)
           Logger.mainLogger.debug(`Trying to join again in ${cycleDuration} seconds...`)
+
+          const nodeList = NodeList.getActiveList()
+          ArchiverLogging.logArchiverRegistration({
+            archiverId: config.ARCHIVER_IP,
+            timestamp: Date.now(),
+            validators: {
+              discovered: nodeList.length,
+              connected: 0,
+            },
+            state: 'ERROR',
+          })
+
           await Utils.sleep(cycleDuration)
         }
         firstTime = false

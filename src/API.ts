@@ -36,6 +36,7 @@ import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
 import { CheckpointBucket, CheckpointRadixEntry, CheckpointType } from './checkpoint/CheckpointData'
 import { getCheckpointManager } from './checkpoint/Utils'
 import { CheckpointStatusType, isBucketVerified } from './dbstore/checkpointStatus'
+import { ArchiverLogging } from './profiler/archiverLogging'
 const { version } = require('../package.json') // eslint-disable-line @typescript-eslint/no-var-requires
 const TXID_LENGTH = 64
 const {
@@ -80,6 +81,17 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     nestedCountersInstance.countEvent('consensor', 'POST_nodelist', 1)
     const signedFirstNodeInfo = request.body
 
+    ArchiverLogging.logValidatorConnection({
+      validatorId: signedFirstNodeInfo.nodeInfo.publicKey,
+      archiverId: config.ARCHIVER_IP,
+      timestamp: Date.now(),
+      status: 'CONNECTING',
+      handshake: {
+        success: false,
+        duration: 0,
+      },
+    })
+
     if (State.isFirst && NodeList.isEmpty() && !NodeList.foundFirstNode) {
       try {
         let err = Utils.validateTypes(signedFirstNodeInfo, {
@@ -87,6 +99,17 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
           sign: 'o',
         })
         if (err) {
+          ArchiverLogging.logValidatorConnection({
+            validatorId: signedFirstNodeInfo.nodeInfo.publicKey,
+            archiverId: config.ARCHIVER_IP,
+            timestamp: Date.now(),
+            status: 'ERROR',
+            handshake: {
+              success: false,
+              duration: Date.now() - request.raw.socket.remotePort,
+              error: err,
+            },
+          })
           reply.send({ success: false, error: err })
           return
         }
@@ -147,6 +170,17 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
       Data.initSocketClient(firstNode)
 
+      ArchiverLogging.logValidatorConnection({
+        validatorId: signedFirstNodeInfo.nodeInfo.publicKey,
+        archiverId: config.ARCHIVER_IP,
+        timestamp: Date.now(),
+        status: 'CONNECTED',
+        handshake: {
+          success: true,
+          duration: Date.now() - request.raw.socket.remotePort,
+        },
+      })
+
       // Add first node to NodeList
       NodeList.addNodes(NodeList.NodeStatus.SYNCING, [firstNode])
       // Setting current time for realUpdatedTimes to refresh the nodelist and full-nodelist cache
@@ -156,7 +190,10 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const firstDataSender: Data.DataSender = {
         nodeInfo: firstNode,
         types: [P2PTypes.SnapshotTypes.TypeNames.CYCLE, P2PTypes.SnapshotTypes.TypeNames.STATE_METADATA],
-        contactTimeout: Data.createContactTimeout(firstNode.publicKey, 'This timeout is created for the first node'),
+        contactTimeout: Data.createContactTimeout(
+          firstNode.publicKey,
+          'This timeout is created for the first node'
+        ),
       }
       Data.addDataSender(firstDataSender)
       let res: P2P.FirstNodeResponse
@@ -361,7 +398,9 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const cycleCount = to - from
       if (cycleCount > MAX_CYCLES_PER_REQUEST) {
         Logger.mainLogger.error(`Exceed maximum limit of ${MAX_CYCLES_PER_REQUEST} cycles`)
-        reply.send(Crypto.sign({ success: false, error: `Exceed maximum limit of ${MAX_CYCLES_PER_REQUEST} cycles` }))
+        reply.send(
+          Crypto.sign({ success: false, error: `Exceed maximum limit of ${MAX_CYCLES_PER_REQUEST} cycles` })
+        )
         return
       }
       cycleInfo = await CycleDB.queryCycleRecordsBetween(from, to)
@@ -986,7 +1025,8 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   server.post('/gossip-data', async (_request: GossipDataRequest, reply) => {
     const gossipPayload = _request.body
-    if (config.VERBOSE) Logger.mainLogger.debug('Gossip Data received', StringUtils.safeStringify(gossipPayload))
+    if (config.VERBOSE)
+      Logger.mainLogger.debug('Gossip Data received', StringUtils.safeStringify(gossipPayload))
     const result = Collector.validateGossipData(gossipPayload)
     if (!result.success) {
       reply.send({ success: false, error: result.error })
@@ -1033,7 +1073,8 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   server.post('/get_account_data_by_list_archiver', async (_request: AccountDataRequest, reply) => {
     const payload = _request.body as AccountDataProvider.AccountDataByListRequestSchema
-    if (config.VERBOSE) Logger.mainLogger.debug('Account Data By List received', StringUtils.safeStringify(payload))
+    if (config.VERBOSE)
+      Logger.mainLogger.debug('Account Data By List received', StringUtils.safeStringify(payload))
     const result = AccountDataProvider.validateAccountDataByListRequest(payload)
     // Logger.mainLogger.debug('Account Data By List validation result', result)
     if (!result.success) {
@@ -1051,7 +1092,8 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   server.post('/get_globalaccountreport_archiver', async (_request: AccountDataRequest, reply) => {
     const payload = _request.body as AccountDataProvider.GlobalAccountReportRequestSchema
-    if (config.VERBOSE) Logger.mainLogger.debug('Global Account Report received', StringUtils.safeStringify(payload))
+    if (config.VERBOSE)
+      Logger.mainLogger.debug('Global Account Report received', StringUtils.safeStringify(payload))
     const result = AccountDataProvider.validateGlobalAccountReportRequest(payload)
     // Logger.mainLogger.debug('Global Account Report validation result', result)
     if (!result.success) {
@@ -1087,12 +1129,15 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
         const { sign, ...newConfig } = _request.body
         const validKeys = new Set(Object.keys(config))
         const payloadKeys = Object.keys(newConfig)
-        const invalidKeys = payloadKeys.filter((key) => !validKeys.has(key) || RESTRICTED_PARAMS.includes(key))
+        const invalidKeys = payloadKeys.filter(
+          (key) => !validKeys.has(key) || RESTRICTED_PARAMS.includes(key)
+        )
 
         if (invalidKeys.length > 0)
           throw new Error(`Invalid/Unauthorised config properties provided: ${invalidKeys.join(', ')}`)
 
-        if (config.VERBOSE) Logger.mainLogger.debug('Archiver config update executed: ', JSON.stringify(newConfig))
+        if (config.VERBOSE)
+          Logger.mainLogger.debug('Archiver config update executed: ', JSON.stringify(newConfig))
 
         const updatedConfig = updateConfig(newConfig)
         reply.send({ success: true, ...updatedConfig, ARCHIVER_SECRET_KEY: '' })
@@ -1465,7 +1510,9 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       Logger.mainLogger.error(
         `Error processing exchangeCheckpointRadixEntries for checkpoint type ${req.body.checkpointType}: ${err.message}`
       )
-      reply.status(500).send(`Server error in exchangeCheckpointRadixEntries for type ${req.body.checkpointType}`)
+      reply
+        .status(500)
+        .send(`Server error in exchangeCheckpointRadixEntries for type ${req.body.checkpointType}`)
     }
   })
 
@@ -1476,7 +1523,12 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   server.post('/bucket-verification', async (request: BucketVerificationRequest & Request, reply) => {
     try {
       const requestData = request.body
-      const result = validateRequestData(requestData, { bucketID: 's', endBucketID: '?s', sender: 's', sign: 'o' })
+      const result = validateRequestData(requestData, {
+        bucketID: 's',
+        endBucketID: '?s',
+        sender: 's',
+        sign: 'o',
+      })
       if (!result.success) {
         reply.code(400).send({
           success: false,
