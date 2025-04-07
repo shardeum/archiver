@@ -688,6 +688,14 @@ export const storeReceiptData = async (
   let originalTxDataList: TxData[] = [] // this is kind of duplicate of 'txDataList' but have created to avoid confusion
   if (saveOnlyGossipData) return
   for (let receipt of receipts) {
+    // TODO : needs to be addressed on the validator side, post mainnet
+    if (receipt == null || receipt == undefined) {
+      Logger.mainLogger.error('storeReceiptData : Invalid incoming receipt, Receipt is ', receipt)
+      if (nestedCountersInstance)
+        nestedCountersInstance.countEvent('storeReceiptData', 'invalid_receipt_null_or_undefined')
+      continue
+    }
+
     let txId: string
     try {
       if (receipt.globalModification) {
@@ -954,8 +962,8 @@ export const storeReceiptData = async (
       Logger.mainLogger.error(
         'storeReceiptData: something went wrong while processing receipt:',
         txId,
-        'cycle:',
-        receipt.cycle,
+        'receipt:',
+        receipt,
         'err:',
         e
       )
