@@ -51,21 +51,56 @@ export async function bulkInsertAccounts(accounts: AccountsCopy[]): Promise<void
     // Define the table columns based on schema
     const columns = ['accountId', 'data', 'timestamp', 'hash', 'cycleNumber', 'isGlobal']
 
-    // Construct the SQL query for bulk insertion with all placeholders
-    const placeholders = accounts.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ')
-    const sql = `INSERT OR REPLACE INTO accounts (${columns.join(', ')}) VALUES ${placeholders}`
+    // Get batch size from config or use a default value
+    const BATCH_SIZE = config.checkpoint?.batchSize || 100
+    const MAX_RETRIES = 3
 
-    // Flatten the `accounts` array into a single list of values
-    const values = accounts.flatMap((account) =>
-      columns.map((column) =>
-        typeof account[column] === 'object'
-          ? SerializeToJsonString(account[column]) // Serialize objects to JSON
-          : account[column]
-      )
-    )
+    // Process accounts in batches
+    for (let i = 0; i < accounts.length; i += BATCH_SIZE) {
+      const batch = accounts.slice(i, i + BATCH_SIZE)
+      let retryCount = 0
+      let success = false
 
-    // Execute the single query for all accounts
-    await db.run(accountDatabase, sql, values)
+      while (retryCount < MAX_RETRIES && !success) {
+        try {
+          // Construct the SQL query for this batch
+          const placeholders = batch.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ')
+          const sql = `INSERT OR REPLACE INTO accounts (${columns.join(', ')}) VALUES ${placeholders}`
+
+          // Flatten the batch into a single list of values
+          const values = batch.flatMap((account) =>
+            columns.map((column) =>
+              typeof account[column] === 'object'
+                ? SerializeToJsonString(account[column]) // Serialize objects to JSON
+                : account[column]
+            )
+          )
+
+          // Execute the query for this batch
+          await db.run(accountDatabase, sql, values)
+          success = true
+
+          if (config.VERBOSE) {
+            Logger.mainLogger.debug(
+              `Successfully inserted batch of ${batch.length} accounts (${i + 1}-${i + batch.length}/${accounts.length})`
+            )
+          }
+        } catch (err) {
+          retryCount++
+          // Reduce batch size on failure
+          if (retryCount < MAX_RETRIES) {
+            const newBatchSize = Math.max(1, Math.floor(batch.length / 2))
+            i = i - batch.length + newBatchSize // Correctly adjust i for the next iteration
+            Logger.mainLogger.warn(
+              `Retrying account batch insertion with reduced size (${newBatchSize}). Retry ${retryCount}/${MAX_RETRIES}`
+            )
+          } else {
+            Logger.mainLogger.error(`Failed to insert batch of accounts after ${MAX_RETRIES} retries:`, err)
+            throw err // Re-throw to be caught by outer try-catch
+          }
+        }
+      }
+    }
 
     if (config.VERBOSE) {
       Logger.mainLogger.debug('Successfully inserted Accounts', accounts.length)
