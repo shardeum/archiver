@@ -46,6 +46,50 @@ import { XOR } from '../utils/general'
 import { customFetch } from '../utils/customHttpFunctions'
 import { ArchiverLogging } from '../profiler/archiverLogging'
 
+interface ValidationBreadcrumb {
+  certMarker: string
+  expectedMarker: string
+  previousMarker: string
+  nodeListHash: string
+  archiverListHash: string
+  standbyNodeListHash: string
+  cycleNumber: number
+}
+
+class ValidationTracker {
+  private seen = new Set<string>()
+  private breadcrumbs: ValidationBreadcrumb[] = []
+  private readonly MAX_ENTRIES = 1000
+
+  add(breadcrumb: ValidationBreadcrumb): void {
+    const key = `${breadcrumb.certMarker}:${breadcrumb.expectedMarker}`
+
+    if (this.seen.has(key)) {
+      return
+    }
+
+    if (this.breadcrumbs.length >= this.MAX_ENTRIES) {
+      const oldest = this.breadcrumbs.shift()!
+      this.seen.delete(`${oldest.certMarker}:${oldest.expectedMarker}`)
+    }
+
+    Logger.mainLogger.warn('Certificate validation failed', {
+      certMarker: breadcrumb.certMarker,
+      expectedMarker: breadcrumb.expectedMarker,
+      previousMarker: breadcrumb.previousMarker,
+      cycleNumber: breadcrumb.cycleNumber,
+      nodeListHash: breadcrumb.nodeListHash,
+      archiverListHash: breadcrumb.archiverListHash,
+      standbyNodeListHash: breadcrumb.standbyNodeListHash,
+    })
+
+    this.seen.add(key)
+    this.breadcrumbs.push(breadcrumb)
+  }
+}
+
+const validationTracker = new ValidationTracker()
+
 export const socketClients: Map<string, SocketIOClientStatic['Socket']> = new Map()
 export let combineAccountsData = {
   accounts: [],
