@@ -90,7 +90,7 @@ export async function bulkInsertAccounts(accounts: AccountsCopy[]): Promise<void
           // Reduce batch size on failure
           if (retryCount < MAX_RETRIES) {
             const newBatchSize = Math.max(1, Math.floor(batch.length / 2))
-            i -= batch.length - newBatchSize // Adjust i to retry with smaller batch
+            i = i - batch.length + newBatchSize // Correctly adjust i for the next iteration
             Logger.mainLogger.warn(
               `Retrying account batch insertion with reduced size (${newBatchSize}). Retry ${retryCount}/${MAX_RETRIES}`
             )
