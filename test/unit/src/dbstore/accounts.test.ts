@@ -113,7 +113,7 @@ describe('Accounts Module', () => {
 
       // Verify
       expect(Logger.mainLogger.debug).toHaveBeenCalledWith('Successfully inserted Account', sampleAccount.accountId)
-      
+
       // Restore config
       // @ts-ignore - Restoring config.VERBOSE
       config.VERBOSE = false
@@ -182,10 +182,7 @@ describe('Accounts Module', () => {
       // Verify
       expect(db.run).toHaveBeenCalledTimes(1)
       expect(Logger.mainLogger.error).toHaveBeenCalledWith(error)
-      expect(Logger.mainLogger.error).toHaveBeenCalledWith(
-        'Unable to bulk insert Accounts',
-        sampleAccounts.length
-      )
+      expect(Logger.mainLogger.error).toHaveBeenCalledWith('Unable to bulk insert Accounts', sampleAccounts.length)
     })
 
     it('should log debug message when VERBOSE is true', async () => {
@@ -199,7 +196,7 @@ describe('Accounts Module', () => {
 
       // Verify
       expect(Logger.mainLogger.debug).toHaveBeenCalledWith('Successfully inserted Accounts', sampleAccounts.length)
-      
+
       // Restore config
       // @ts-ignore - Restoring config.VERBOSE
       config.VERBOSE = false
@@ -254,7 +251,7 @@ describe('Accounts Module', () => {
 
       // Verify
       expect(Logger.mainLogger.debug).toHaveBeenCalledWith('Successfully updated Account', sampleAccount.accountId)
-      
+
       // Restore config
       // @ts-ignore - Restoring config.VERBOSE
       config.VERBOSE = false
@@ -271,11 +268,9 @@ describe('Accounts Module', () => {
 
       // Verify
       expect(db.get).toHaveBeenCalledTimes(1)
-      expect(db.get).toHaveBeenCalledWith(
-        accountDatabase,
-        'SELECT * FROM accounts WHERE accountId=?',
-        [sampleAccount.accountId]
-      )
+      expect(db.get).toHaveBeenCalledWith(accountDatabase, 'SELECT * FROM accounts WHERE accountId=?', [
+        sampleAccount.accountId,
+      ])
       expect(DeSerializeFromJsonString).toHaveBeenCalledWith(sampleDbAccount.data)
       expect(result).toEqual(sampleAccount)
     })
@@ -317,7 +312,7 @@ describe('Accounts Module', () => {
 
       // Verify
       expect(Logger.mainLogger.debug).toHaveBeenCalledWith('Account accountId', sampleAccount)
-      
+
       // Restore config
       // @ts-ignore - Restoring config.VERBOSE
       config.VERBOSE = false
@@ -325,15 +320,9 @@ describe('Accounts Module', () => {
   })
 
   describe('queryLatestAccounts', () => {
-    const sampleDbAccounts = [
-      sampleDbAccount,
-      { ...sampleDbAccount, accountId: 'test-account-2', hash: 'test-hash-2' },
-    ]
+    const sampleDbAccounts = [sampleDbAccount, { ...sampleDbAccount, accountId: 'test-account-2', hash: 'test-hash-2' }]
 
-    const sampleAccounts = [
-      sampleAccount,
-      { ...sampleAccount, accountId: 'test-account-2', hash: 'test-hash-2' },
-    ]
+    const sampleAccounts = [sampleAccount, { ...sampleAccount, accountId: 'test-account-2', hash: 'test-hash-2' }]
 
     it('should return latest accounts', async () => {
       // Setup
@@ -413,7 +402,7 @@ describe('Accounts Module', () => {
 
       // Verify
       expect(Logger.mainLogger.debug).toHaveBeenCalledWith('Account latest', sampleAccounts)
-      
+
       // Restore config
       // @ts-ignore - Restoring config.VERBOSE
       config.VERBOSE = false
@@ -421,15 +410,9 @@ describe('Accounts Module', () => {
   })
 
   describe('queryAccounts', () => {
-    const sampleDbAccounts = [
-      sampleDbAccount,
-      { ...sampleDbAccount, accountId: 'test-account-2', hash: 'test-hash-2' },
-    ]
+    const sampleDbAccounts = [sampleDbAccount, { ...sampleDbAccount, accountId: 'test-account-2', hash: 'test-hash-2' }]
 
-    const sampleAccounts = [
-      sampleAccount,
-      { ...sampleAccount, accountId: 'test-account-2', hash: 'test-hash-2' },
-    ]
+    const sampleAccounts = [sampleAccount, { ...sampleAccount, accountId: 'test-account-2', hash: 'test-hash-2' }]
 
     it('should return accounts with pagination', async () => {
       // Setup
@@ -494,13 +477,8 @@ describe('Accounts Module', () => {
       await accounts.queryAccounts(0, 10)
 
       // Verify
-      expect(Logger.mainLogger.debug).toHaveBeenCalledWith(
-        'Account accounts',
-        sampleAccounts.length,
-        'skip',
-        0
-      )
-      
+      expect(Logger.mainLogger.debug).toHaveBeenCalledWith('Account accounts', sampleAccounts.length, 'skip', 0)
+
       // Restore config
       // @ts-ignore - Restoring config.VERBOSE
       config.VERBOSE = false
@@ -559,7 +537,7 @@ describe('Accounts Module', () => {
 
       // Verify
       expect(Logger.mainLogger.debug).toHaveBeenCalledWith('Account count', countObj)
-      
+
       // Restore config
       // @ts-ignore - Restoring config.VERBOSE
       config.VERBOSE = false
@@ -622,7 +600,7 @@ describe('Accounts Module', () => {
 
       // Verify
       expect(Logger.mainLogger.debug).toHaveBeenCalledWith('Account count between cycles', countObj)
-      
+
       // Restore config
       // @ts-ignore - Restoring config.VERBOSE
       config.VERBOSE = false
@@ -630,15 +608,9 @@ describe('Accounts Module', () => {
   })
 
   describe('queryAccountsBetweenCycles', () => {
-    const sampleDbAccounts = [
-      sampleDbAccount,
-      { ...sampleDbAccount, accountId: 'test-account-2', hash: 'test-hash-2' },
-    ]
+    const sampleDbAccounts = [sampleDbAccount, { ...sampleDbAccount, accountId: 'test-account-2', hash: 'test-hash-2' }]
 
-    const sampleAccounts = [
-      sampleAccount,
-      { ...sampleAccount, accountId: 'test-account-2', hash: 'test-hash-2' },
-    ]
+    const sampleAccounts = [sampleAccount, { ...sampleAccount, accountId: 'test-account-2', hash: 'test-hash-2' }]
 
     it('should return accounts between cycles with pagination', async () => {
       // Setup
@@ -710,7 +682,7 @@ describe('Accounts Module', () => {
         'skip',
         0
       )
-      
+
       // Restore config
       // @ts-ignore - Restoring config.VERBOSE
       config.VERBOSE = false
@@ -718,15 +690,9 @@ describe('Accounts Module', () => {
   })
 
   describe('fetchAccountsBySqlQuery', () => {
-    const sampleDbAccounts = [
-      sampleDbAccount,
-      { ...sampleDbAccount, accountId: 'test-account-2', hash: 'test-hash-2' },
-    ]
+    const sampleDbAccounts = [sampleDbAccount, { ...sampleDbAccount, accountId: 'test-account-2', hash: 'test-hash-2' }]
 
-    const sampleAccounts = [
-      sampleAccount,
-      { ...sampleAccount, accountId: 'test-account-2', hash: 'test-hash-2' },
-    ]
+    const sampleAccounts = [sampleAccount, { ...sampleAccount, accountId: 'test-account-2', hash: 'test-hash-2' }]
 
     it('should return accounts matching custom SQL query', async () => {
       // Setup
@@ -787,10 +753,10 @@ describe('Accounts Module', () => {
 
       // Verify
       expect(Logger.mainLogger.debug).toHaveBeenCalledWith('fetchAccountsBySqlQuery', sampleAccounts.length)
-      
+
       // Restore config
       // @ts-ignore - Restoring config.VERBOSE
       config.VERBOSE = false
     })
   })
-}) 
+})

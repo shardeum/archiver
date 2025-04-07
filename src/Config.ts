@@ -205,7 +205,7 @@ let config: Config = {
       allowCheckpointUpdates: false,
       allowCheckpointStorage: false,
     },
-    batchSize: 100,
+    batchSize: 1000,
     updateInterval: 60 * 1000, // 1 minute in milliseconds  in milliseconds
     syncInterval: 10000, // 10 seconds in milliseconds
     maxCyclesToSync: 100, // Maximum number of cycles to sync in one go

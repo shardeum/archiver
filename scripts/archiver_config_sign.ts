@@ -19,7 +19,7 @@ async function generateSignature(): Promise<void> {
     }
 
     // Read and parse config file
-    const configData: ConfigData = StringUtils.safeJsonParse(fs.readFileSync('../allowed-archivers.json', 'utf8'))
+    const configData: ConfigData = StringUtils.safeJsonParse(fs.readFileSync('./allowed-archivers.json', 'utf8'))
 
     // Create payload
     const rawPayload: SignaturePayload = {
@@ -36,9 +36,8 @@ async function generateSignature(): Promise<void> {
     // Output signature in format needed for verification
     console.log('Signature object:', {
       owner: address,
-      sig: signature
+      sig: signature,
     })
-
   } catch (error) {
     console.error('Error generating signature:', error)
     process.exit(1)
