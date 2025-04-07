@@ -422,6 +422,8 @@ export class CheckpointBucket<T> {
               radixDigests: StringUtils.safeStringify(digests),
               checkpointType: this.checkpointType,
               sender: State.getNodeInfo().publicKey, // for signature verification
+              startTime: this.startTime,
+              endTime: this.endTime,
             }
 
             const response = await postJson(`http://${peerAddress}/shareCheckpointRadixDigests`, Crypto.sign(body))
