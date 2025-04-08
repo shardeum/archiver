@@ -78,6 +78,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   server.post('/nodelist', (request: NodeListRequest, reply) => {
     profilerInstance.profileSectionStart('POST_nodelist')
+    try{
     nestedCountersInstance.countEvent('consensor', 'POST_nodelist', 1)
     const signedFirstNodeInfo = request.body
 
@@ -236,25 +237,33 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       const res = NodeList.getCachedNodeList()
       reply.send(res)
     }
+    }finally {
     profilerInstance.profileSectionEnd('POST_nodelist')
+    }
   })
 
   server.get('/nodelist', (_request, reply) => {
     profilerInstance.profileSectionStart('GET_nodelist')
+    try{
     nestedCountersInstance.countEvent('consensor', 'GET_nodelist')
 
     const res = NodeList.getCachedNodeList()
     reply.send(res)
+    }finally{
     profilerInstance.profileSectionEnd('GET_nodelist')
+    }
   })
 
   server.get('/network-txs-list', (_request, reply) => {
-    profilerInstance.profileSectionStart('network-txs-list')
+    profilerInstance.profileSectionStart('GET_network-txs-list')
+    try{
     nestedCountersInstance.countEvent('consensor', 'network-txs-list')
 
     const res = ServiceQueue.getTxList()
     reply.send(res)
-    profilerInstance.profileSectionEnd('network-txs-list')
+    }finally{
+    profilerInstance.profileSectionEnd('GET_network-txs-list')
+    }
   })
 
   type FullNodeListRequest = FastifyRequest<{
@@ -267,6 +276,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   server.get('/full-nodelist', (_request: FullNodeListRequest, reply) => {
     profilerInstance.profileSectionStart('FULL_nodelist')
+    try{
     nestedCountersInstance.countEvent('consensor', 'FULL_nodelist')
     const query = _request.query
     let activeOnly = false
@@ -277,7 +287,9 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     if (query.standbyOnly === 'true') standbyOnly = true
     const res = NodeList.getCachedFullNodeList(activeOnly, syncingOnly, standbyOnly)
     reply.send(res)
+    }finally{
     profilerInstance.profileSectionEnd('FULL_nodelist')
+    }
   })
 
   server.get(
@@ -297,6 +309,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   server.get('/archivers', (_request, reply) => {
     profilerInstance.profileSectionStart('GET_archivers')
+    try{
     nestedCountersInstance.countEvent('consensor', 'GET_archivers')
     const activeArchivers = State.activeArchivers
       .filter(
@@ -305,11 +318,14 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
           State.archiversReputation.get(archiver.publicKey) === 'up'
       )
       .map(({ publicKey, ip, port }) => ({ publicKey, ip, port }))
-    profilerInstance.profileSectionEnd('GET_archivers')
+
     const res = Crypto.sign({
       activeArchivers,
     })
     reply.send(res)
+    }finally{
+    profilerInstance.profileSectionEnd('GET_archivers')
+    }    
   })
 
   server.get('/allowed-archivers', async (_request, reply) => {
@@ -356,6 +372,8 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   }>
 
   server.post('/cycleinfo', async (_request: CycleInfoRequest & Request, reply) => {
+    profilerInstance.profileSectionStart('POST_cycleinfo')
+    try {
     const requestData = _request.body
     const result = validateRequestData(
       requestData,
@@ -432,6 +450,9 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       cycleInfo,
     })
     reply.send(res)
+    } finally {
+      profilerInstance.profileSectionEnd('POST_cycleinfo')
+    }
   })
 
   type CycleInfoCountRequest = FastifyRequest<{
@@ -439,6 +460,8 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   }>
 
   server.get('/cycleinfo/:count', async (_request: CycleInfoCountRequest, reply) => {
+    profilerInstance.profileSectionStart('GET_cycleinfo')
+    try {    
     const err = Utils.validateTypes(_request.params, { count: 's' })
     if (err) {
       reply.send({ success: false, error: err })
@@ -452,6 +475,9 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     if (count > MAX_CYCLES_PER_REQUEST) count = MAX_CYCLES_PER_REQUEST
     const res = await Cycles.getLatestCycleRecords(count)
     reply.send(res)
+    } finally {
+      profilerInstance.profileSectionEnd('GET_cycleinfo')
+    }    
   })
 
   type ReceiptRequest = FastifyRequest<{
@@ -469,6 +495,8 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   }>
 
   server.post('/originalTx', async (_request: ReceiptRequest & Request, reply) => {
+    profilerInstance.profileSectionStart('POST_originalTx')
+    try { 
     const requestData = _request.body
     const result = validateRequestData(requestData, {
       count: 'n?',
@@ -602,9 +630,14 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       originalTxs,
     })
     reply.send(res)
+    } finally {
+      profilerInstance.profileSectionEnd('POST_originalTx')
+    } 
   })
 
   server.post('/receipt', async (_request: ReceiptRequest & Request, reply) => {
+    profilerInstance.profileSectionStart('POST_receipt')
+    try { 
     const requestData = _request.body
     const result = validateRequestData(requestData, {
       count: 'n?',
@@ -737,6 +770,9 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       receipts,
     })
     reply.send(res)
+    } finally {
+      profilerInstance.profileSectionEnd('POST_receipt')
+    } 
   })
 
   type AccountRequest = FastifyRequest<{
@@ -752,6 +788,8 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   }>
 
   server.post('/account', async (_request: AccountRequest & Request, reply) => {
+    profilerInstance.profileSectionStart('POST_account')
+    try { 
     const requestData = _request.body
     const result = validateRequestData(requestData, {
       count: 'n?',
@@ -856,6 +894,9 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       return
     }
     reply.send(Crypto.sign(res))
+    } finally {
+      profilerInstance.profileSectionEnd('POST_account')
+    } 
   })
 
   type TransactionRequest = FastifyRequest<{
@@ -872,6 +913,8 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   }>
 
   server.post('/transaction', async (_request: TransactionRequest & Request, reply) => {
+    profilerInstance.profileSectionStart('POST_transaction')
+    try {
     const requestData = _request.body
     const result = validateRequestData(requestData, {
       count: 'n?',
@@ -979,9 +1022,14 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       return
     }
     reply.send(Crypto.sign(res))
+    } finally {
+      profilerInstance.profileSectionEnd('POST_transaction')
+    } 
   })
 
   server.post('/totalData', async (_request: Request, reply) => {
+    profilerInstance.profileSectionStart('POST_totalData')
+    try {
     const requestData = _request.body
     const result = validateRequestData(requestData, {
       sender: 's',
@@ -1020,6 +1068,9 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
         receiptLastFiveMinutesGiveUpBucketStatus,
       })
     )
+    } finally {
+      profilerInstance.profileSectionEnd('POST_totalData')
+    } 
   })
 
   type GossipDataRequest = FastifyRequest<{
@@ -1027,6 +1078,8 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   }>
 
   server.post('/gossip-data', async (_request: GossipDataRequest, reply) => {
+    profilerInstance.profileSectionStart('POST_gossip-data')
+    try {
     const gossipPayload = _request.body
     if (config.VERBOSE)
       Logger.mainLogger.debug('Gossip Data received', StringUtils.safeStringify(gossipPayload))
@@ -1040,6 +1093,9 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     })
     reply.send(res)
     Collector.processGossipData(gossipPayload)
+    } finally {
+      profilerInstance.profileSectionEnd('POST_gossip-data')
+    } 
   })
 
   type AccountDataRequest = FastifyRequest<{
@@ -1051,6 +1107,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
   server.post('/get_account_data_archiver', async (_request: AccountDataRequest, reply) => {
     profilerInstance.profileSectionStart('POST_get_account_data')
+    try {
     const payload = _request.body as AccountDataProvider.AccountDataRequestSchema
     if (config.VERBOSE) Logger.mainLogger.debug('Account Data received', StringUtils.safeStringify(payload))
     const result = AccountDataProvider.validateAccountDataRequest(payload)
@@ -1073,11 +1130,14 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       data,
     })
     reply.send(res)
+    }finally{
     profilerInstance.profileSectionEnd('POST_get_account_data')
+    }
   })
 
   server.post('/get_account_data_by_list_archiver', async (_request: AccountDataRequest, reply) => {
     profilerInstance.profileSectionStart('POST_get_account_data_by_list')
+    try{
     const payload = _request.body as AccountDataProvider.AccountDataByListRequestSchema
     if (config.VERBOSE)
       Logger.mainLogger.debug('Account Data By List received', StringUtils.safeStringify(payload))
@@ -1094,10 +1154,14 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       accountData,
     })
     reply.send(res)
+    }finally{
     profilerInstance.profileSectionEnd('POST_get_account_data_by_list')
+    }
   })
 
   server.post('/get_globalaccountreport_archiver', async (_request: AccountDataRequest, reply) => {
+    profilerInstance.profileSectionStart('GET_globalaccountreport_archiver')
+    try{
     const payload = _request.body as AccountDataProvider.GlobalAccountReportRequestSchema
     if (config.VERBOSE)
       Logger.mainLogger.debug('Global Account Report received', StringUtils.safeStringify(payload))
@@ -1111,6 +1175,9 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     // Logger.mainLogger.debug('Global Account Report result', report)
     const res = Crypto.sign(report)
     reply.send(res)
+    }finally{
+    profilerInstance.profileSectionEnd('GET_globalaccountreport_archiver')
+    }
   })
 
   /**
