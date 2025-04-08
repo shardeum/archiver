@@ -48,13 +48,7 @@ import { ArchiverLogging } from '../profiler/archiverLogging'
 import { Utils as UtilsTypes } from '@shardeum-foundation/lib-types'
 
 interface ValidationBreadcrumb {
-  certMarker: string
-  expectedMarker: string
-  previousMarker: string
-  nodeListHash: string
-  archiverListHash: string
-  standbyNodeListHash: string
-  cycleNumber: number
+  cycle: P2PTypes.CycleCreatorTypes.CycleData
 }
 
 class ValidationTracker {
@@ -63,7 +57,7 @@ class ValidationTracker {
   private readonly MAX_ENTRIES = 1000
 
   add(breadcrumb: ValidationBreadcrumb): void {
-    const key = `${breadcrumb.certMarker}:${breadcrumb.expectedMarker}`
+    const key = `${breadcrumb.cycle.marker}:${breadcrumb.cycle.previous}`
 
     if (this.seen.has(key)) {
       return
@@ -71,17 +65,11 @@ class ValidationTracker {
 
     if (this.breadcrumbs.length >= this.MAX_ENTRIES) {
       const oldest = this.breadcrumbs.shift()!
-      this.seen.delete(`${oldest.certMarker}:${oldest.expectedMarker}`)
+      this.seen.delete(`${oldest.cycle.marker}:${oldest.cycle.previous}`)
     }
 
     Logger.mainLogger.warn('Certificate validation failed', {
-      certMarker: breadcrumb.certMarker,
-      expectedMarker: breadcrumb.expectedMarker,
-      previousMarker: breadcrumb.previousMarker,
-      cycleNumber: breadcrumb.cycleNumber,
-      nodeListHash: breadcrumb.nodeListHash,
-      archiverListHash: breadcrumb.archiverListHash,
-      standbyNodeListHash: breadcrumb.standbyNodeListHash,
+      cycle: breadcrumb.cycle,
     })
 
     this.seen.add(key)
@@ -2763,15 +2751,7 @@ function validateCerts(
     if (cleanCert.marker !== inpMarker) {
       nestedCountersInstance.countEvent('validateCerts', 'markerMismatch', 1)
 
-      validationTracker.add({
-        certMarker: cleanCert.marker,
-        previousMarker: cycleData.previous,
-        expectedMarker: inpMarker,
-        nodeListHash: cycleData.nodeListHash,
-        archiverListHash: cycleData.archiverListHash,
-        standbyNodeListHash: cycleData.standbyNodeListHash,
-        cycleNumber: cycleData.counter,
-      })
+      validationTracker.add({ cycle: cycleData })
 
       return false
     }
