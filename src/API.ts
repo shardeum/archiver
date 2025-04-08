@@ -33,7 +33,7 @@ import * as ServiceQueue from './ServiceQueue'
 import ticketRoutes from './routes/tickets'
 import { Cycle } from './dbstore/types'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
-import { CheckpointRadixEntry, CheckpointType } from './checkpoint/CheckpointData'
+import { CheckpointBucket, CheckpointRadixEntry, CheckpointType } from './checkpoint/CheckpointData'
 import { getCheckpointManager } from './checkpoint/Utils'
 import { CheckpointStatusType, isBucketVerified } from './dbstore/checkpointStatus'
 const { version } = require('../package.json') // eslint-disable-line @typescript-eslint/no-var-requires
@@ -1358,6 +1358,8 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
         bucketID: 's',
         radixDigests: 's',
         checkpointType: 'n',
+        startTime: 'n',
+        endTime: 'n',
       })
       if (!result.success) {
         reply.send({ success: false, error: result.error })
@@ -1367,15 +1369,30 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
 
       // Identify the correct manager based on the checkpoint type
       const manager = getCheckpointManager(checkpointType)
-      const bucket = manager.checkpointBuckets.get(bucketID)
+      let bucket = manager.checkpointBuckets.get(bucketID)
       if (!bucket) {
+        Logger.mainLogger.info(`missing bucket for bucketID=${bucketID}, checkpoint type ${checkpointType}`)
+        nestedCountersInstance.countEvent(
+          'checkpoint',
+          `missing bucket for bucketID=${bucketID}, checkpoint type ${checkpointType}`
+        )
         if (config.VERBOSE) {
           Logger.mainLogger.debug(
             `Bucket not found: No bucket with ID=${bucketID} for checkpoint type ${checkpointType}.`
           )
         }
-        reply.status(404).send(`Bucket not found for ID=${bucketID}.`)
-        return
+        const startTime = req.body.startTime
+        const endTime = req.body.endTime
+        bucket = new CheckpointBucket(
+          startTime,
+          endTime,
+          bucketID,
+          manager.validateData,
+          manager.updateData,
+          manager.checkpointType
+        )
+        manager.checkpointBuckets.set(bucketID, bucket)
+        Logger.mainLogger.info(`Successfully created missing bucket with ID=${bucketID} for checkpoint type ${checkpointType}`)
       }
 
       // Process received digests
