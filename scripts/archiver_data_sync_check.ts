@@ -31,8 +31,8 @@ const devAccount = {
   secretKey: '',
 }
 
-const startCycle = 0
-const endCycle = 0
+const startCycle = process.env.TEST_START_CYCLE ? parseInt(process.env.TEST_START_CYCLE) : 0
+const endCycle = process.env.TEST_END_CYCLE ? parseInt(process.env.TEST_END_CYCLE) : 0
 
 // const URL = 'originalTx'
 const URL = 'receipt'
@@ -79,4 +79,9 @@ const runProgram = async (): Promise<void> => {
   }
 }
 
-runProgram()
+// Only run if this is the main module
+if (require.main === module) {
+  runProgram()
+}
+
+export { runProgram }
