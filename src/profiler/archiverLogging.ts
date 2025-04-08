@@ -48,27 +48,33 @@ export class ArchiverLogging {
   static logArchiverRegistration(log: ArchiverRegistrationLog): void {
     Logger.mainLogger.info('Archiver Registration', log)
 
-    nestedCountersInstance.countEvent('archiver', `registration_${log.state}`, 1)
-    nestedCountersInstance.countEvent('archiver', 'validators_discovered', log.validators.discovered)
-    nestedCountersInstance.countEvent('archiver', 'validators_connected', log.validators.connected)
+    if (nestedCountersInstance) {
+      nestedCountersInstance.countEvent('archiver', `registration_${log?.state}`, 1)
+      nestedCountersInstance.countEvent('archiver', 'validators_discovered', log?.validators?.discovered)
+      nestedCountersInstance.countEvent('archiver', 'validators_connected', log?.validators?.connected)
+    }
   }
 
   static logValidatorConnection(log: ValidatorConnectionLog): void {
     Logger.mainLogger.info('Validator Connection', log)
 
-    nestedCountersInstance.countEvent('validator', `connection_${log.status}`, 1)
-    if (log.handshake.success) {
-      nestedCountersInstance.countEvent('validator', 'handshake_success', 1)
-    } else {
-      nestedCountersInstance.countEvent('validator', 'handshake_failure', 1)
+    if (nestedCountersInstance) {
+      nestedCountersInstance.countEvent('validator', `connection_${log?.status}`, 1)
+      if (log?.handshake?.success) {
+        nestedCountersInstance.countEvent('validator', 'handshake_success', 1)
+      } else {
+        nestedCountersInstance.countEvent('validator', 'handshake_failure', 1)
+      }
     }
   }
 
   static logDataSync(log: DataSyncLog): void {
     Logger.mainLogger.info('Data Sync', log)
 
-    nestedCountersInstance.countEvent('sync', `data_sync_${log.status}`, 1)
-    nestedCountersInstance.countEvent('sync', `data_type_${log.dataType}`, 1)
-    nestedCountersInstance.countEvent('sync', 'data_size', log.metrics.dataSize)
+    if (nestedCountersInstance) {
+      nestedCountersInstance.countEvent('sync', `data_sync_${log?.status}`, 1)
+      nestedCountersInstance.countEvent('sync', `data_type_${log?.dataType}`, 1)
+      nestedCountersInstance.countEvent('sync', 'data_size', log?.metrics?.dataSize)
+    }
   }
 }
