@@ -45,6 +45,7 @@ import { cachedCycleRecords } from '../cache/cycleRecordsCache'
 import { XOR } from '../utils/general'
 import { customFetch } from '../utils/customHttpFunctions'
 import { ArchiverLogging } from '../profiler/archiverLogging'
+import { Utils as UtilsTypes } from '@shardeum-foundation/lib-types'
 
 interface ValidationBreadcrumb {
   certMarker: string
@@ -494,9 +495,10 @@ export function collectCycleData(
 
       try {
         // need to get the hash(marker) of the cycle as it was in q3/q4 when the certs were made and compared
+        Logger.mainLogger.debug(`collectCycleData: Original cycle data: ${UtilsTypes.safeStringify(cycle)}`)
         const cycleCopy = getRecordWithoutPostQ3Changes(cycle)
         const computedMarker = Cycles.computeCycleMarker(cycleCopy)
-
+        Logger.mainLogger.debug(`collectCycleData: cycle copy ${UtilsTypes.safeStringify(cycleCopy)}`)
         Logger.mainLogger.debug(
           `collectCycleData: Computed marker for cycle ${cycle.counter}: ${computedMarker}, original marker: ${cycle.marker}`
         )
@@ -518,7 +520,7 @@ export function collectCycleData(
             1
           )
           Logger.mainLogger.warn(
-            `collectCycleData: Certificate validation failed for cycle ${cycle.counter} from ${senderInfo}`
+            `collectCycleData: Certificate validation failed for cycle ${cycle.counter} from ${senderInfo} in ${cycle.mode} mode`
           )
           ArchiverLogging.logDataSync({
             sourceArchiver: senderInfo,
