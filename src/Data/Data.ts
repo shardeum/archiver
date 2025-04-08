@@ -498,7 +498,7 @@ export function collectCycleData(
         Logger.mainLogger.debug(`collectCycleData: Original cycle data: ${UtilsTypes.safeStringify(cycle)}`)
         const cycleCopy = getRecordWithoutPostQ3Changes(cycle)
         const computedMarker = Cycles.computeCycleMarker(cycleCopy)
-
+        Logger.mainLogger.debug(`collectCycleData: cycle copy ${UtilsTypes.safeStringify(cycleCopy)}`)
         Logger.mainLogger.debug(
           `collectCycleData: Computed marker for cycle ${cycle.counter}: ${computedMarker}, original marker: ${cycle.marker}`
         )
