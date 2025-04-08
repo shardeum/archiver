@@ -1392,7 +1392,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
           manager.checkpointType
         )
         manager.checkpointBuckets.set(bucketID, bucket)
-        Logger.mainLogger.info(`Successfully created bucket with ID=${bucketID} for checkpoint type ${checkpointType}`)
+        Logger.mainLogger.info(`Successfully created missing bucket with ID=${bucketID} for checkpoint type ${checkpointType}`)
       }
 
       // Process received digests
