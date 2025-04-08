@@ -313,6 +313,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   })
 
   server.get('/allowed-archivers', async (_request, reply) => {
+    profilerInstance.profileSectionStart('GET_allowed_archivers')
     try {
       const config = allowedArchiversManager.getCurrentConfig()
       if (!config) {
@@ -326,6 +327,8 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       return reply.status(500).send({
         error: 'Internal server error',
       })
+    } finally {
+      profilerInstance.profileSectionEnd('GET_allowed_archivers')
     }
   })
 
@@ -1047,6 +1050,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   }>
 
   server.post('/get_account_data_archiver', async (_request: AccountDataRequest, reply) => {
+    profilerInstance.profileSectionStart('POST_get_account_data')
     const payload = _request.body as AccountDataProvider.AccountDataRequestSchema
     if (config.VERBOSE) Logger.mainLogger.debug('Account Data received', StringUtils.safeStringify(payload))
     const result = AccountDataProvider.validateAccountDataRequest(payload)
@@ -1069,9 +1073,11 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       data,
     })
     reply.send(res)
+    profilerInstance.profileSectionEnd('POST_get_account_data')
   })
 
   server.post('/get_account_data_by_list_archiver', async (_request: AccountDataRequest, reply) => {
+    profilerInstance.profileSectionStart('POST_get_account_data_by_list')
     const payload = _request.body as AccountDataProvider.AccountDataByListRequestSchema
     if (config.VERBOSE)
       Logger.mainLogger.debug('Account Data By List received', StringUtils.safeStringify(payload))
@@ -1088,6 +1094,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       accountData,
     })
     reply.send(res)
+    profilerInstance.profileSectionEnd('POST_get_account_data_by_list')
   })
 
   server.post('/get_globalaccountreport_archiver', async (_request: AccountDataRequest, reply) => {
