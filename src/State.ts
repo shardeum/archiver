@@ -218,6 +218,8 @@ export async function compareCycleRecordWithOtherArchivers(
   archivers: ArchiverNodeInfo[],
   ourCycleRecord: P2PTypes.CycleCreatorTypes.CycleRecord
 ): Promise<boolean> {
+  // Remove after testing
+  Logger.mainLogger.debug("[restore-409] activeArchivers: ", JSON.stringify(activeArchivers))
   const promises = archivers.map((archiver) =>
     customFetch(`http://${archiver.ip}:${archiver.port}/cycleinfo/1`, {
       method: 'get',
@@ -236,7 +238,7 @@ export async function compareCycleRecordWithOtherArchivers(
           if (res && res.cycleInfo && res.cycleInfo.length > 0) {
             const cycleInfo = res.cycleInfo[0] as P2PTypes.CycleCreatorTypes.CycleRecord
             if (cycleInfo.counter > ourCycleRecord.counter || cycleInfo.mode !== ourCycleRecord.mode) {
-              Logger.mainLogger.debug(`Our cycle record does not match with archiver ${archiver.ip}:${archiver.port}`)
+              Logger.mainLogger.debug(`Our cycle record does not match with archiver ${archiver?.ip}:${archiver?.port}`)
               // If our cycle record does not match with any of the archivers, maybe we are behind the network
               foundMatch = false
               break
