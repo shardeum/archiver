@@ -55,6 +55,9 @@ export function setGlobalNetworkAccount(account: AccountDB.AccountsCopy): void {
     // Exit early if both values are found
     if (multisigKeys && minSigRequired) break
   }
+
+  //Remove this after testing
+  Logger.mainLogger.debug('[restore-409] setGlobalNetworkAccount() - multisigKeys: ', multisigKeys, ', minSigRequired: ', minSigRequired)
   allowedArchiversManager.setGlobalAccountConfig(multisigKeys, minSigRequired)
 }
 

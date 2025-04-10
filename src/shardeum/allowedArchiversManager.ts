@@ -116,6 +116,13 @@ class AllowedArchiversManager {
       const payload = {
         allowedArchivers: getArchiverConfig.allowedArchivers,
       }
+
+      //Remove this after testing
+      Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - payload: ', payload)
+      Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - signatures: ', getArchiverConfig.signatures)
+      Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - globalAccountAllowedSigners: ', this.globalAccountAllowedSigners)
+      Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - globalAccountMinSigRequired: ', this.globalAccountMinSigRequired)
+
       const isValidList = verifyMultiSigs(
         payload,
         getArchiverConfig.signatures,
@@ -128,6 +135,8 @@ class AllowedArchiversManager {
         return
       }
       this.currentConfig = getArchiverConfig
+      //Remove this after testing
+      Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - currentConfig: ', this.currentConfig)
     } catch (error) {
       Logger.mainLogger.error('Error loading/verifying config:', error)
     }
