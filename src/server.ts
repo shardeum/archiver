@@ -104,6 +104,16 @@ async function start(): Promise<void> {
     return
   }
 
+  try {
+    await setupArchiverDiscovery({
+      hashKey,
+      customConfigPath: configFile.toString(),
+      archiverTimeoutInMilliSeconds: 2000, // 2 seconds
+    })
+  } catch (e) {
+    console.log('Error setting up archiver discovery: ', e)
+  }
+
   const lastStoredCycle = await CycleDB.queryLatestCycleRecords(1)
   if (lastStoredCycle && lastStoredCycle.length > 0) {
     const lastStoredCycleMode = lastStoredCycle[0].mode
@@ -126,15 +136,6 @@ async function start(): Promise<void> {
     }
   }
 
-  try {
-    await setupArchiverDiscovery({
-      hashKey,
-      customConfigPath: configFile.toString(),
-      archiverTimeoutInMilliSeconds: 2000, // 2 seconds
-    })
-  } catch (e) {
-    console.log('Error setting up archiver discovery: ', e)
-  }
   // Initialize state from config
   await State.initFromConfig(config)
 
