@@ -205,7 +205,7 @@ let config: Config = {
       allowCheckpointUpdates: false,
       allowCheckpointStorage: false,
     },
-    batchSize: 1000,
+    batchSize: 100,
     updateInterval: 60 * 1000, // 1 minute in milliseconds  in milliseconds
     syncInterval: 10000, // 10 seconds in milliseconds
     maxCyclesToSync: 100, // Maximum number of cycles to sync in one go
@@ -405,8 +405,7 @@ export function updateConfig(newConfig: Partial<Config>): Config {
   for (const key in newConfig) {
     if (typeof newConfig[key] !== typeof config[key])
       throw new Error(
-        `Value with incorrect type passed to update the Archiver Config: ${key}:${
-          newConfig[key]
+        `Value with incorrect type passed to update the Archiver Config: ${key}:${newConfig[key]
         } of type ${typeof newConfig[key]}`
       )
   }

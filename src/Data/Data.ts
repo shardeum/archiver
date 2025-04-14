@@ -68,7 +68,7 @@ class ValidationTracker {
       this.seen.delete(`${oldest.cycle.marker}:${oldest.cycle.previous}`)
     }
 
-    Logger.mainLogger.warn('Certificate validation failed', {
+    Logger.mainLogger.warn('[ValidationTracker] Certificate validation failed', {
       cycle: breadcrumb.cycle,
     })
 
@@ -1331,11 +1331,16 @@ export async function checkActiveStatus(): Promise<boolean> {
 }
 
 export async function getTotalDataFromArchivers(): Promise<ArchiverTotalDataResponse | null> {
-  return (await queryFromArchivers(
+  const res = (await queryFromArchivers(
     RequestDataType.TOTALDATA,
     {},
     QUERY_TIMEOUT_MAX
   )) as ArchiverTotalDataResponse | null
+  // @ts-ignore
+  if (!res || (res.success !== undefined && res.success === false)) {
+    return null
+  }
+  return res
 }
 
 export async function syncGenesisAccountsFromArchiver(): Promise<void> {
