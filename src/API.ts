@@ -1678,12 +1678,12 @@ export const validateRequestData = (
       // Check if the sender is in the active archiver list or is the devPublicKey
       const isActiveArchiver = State.activeArchivers.some((archiver) => archiver.publicKey === data.sender)
 
-      const approvedSender = (isAllowedArchiver && isActiveArchiver) || config.DevPublicKey === data.sender
+      const approvedSender = isAllowedArchiver || (isAllowedArchiver && isActiveArchiver) || config.DevPublicKey === data.sender
 
       if (!approvedSender) {
         return {
           success: false,
-          error: isAllowedArchiver ? 'Archiver is not active' : 'Data request sender is not an authorized archiver',
+          error: isAllowedArchiver ? 'Archiver is not in the allowed archiver list' : 'Data request sender is not an authorized archiver',
         }
       }
     }
