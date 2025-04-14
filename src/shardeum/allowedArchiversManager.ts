@@ -5,6 +5,7 @@ import * as Logger from '../Logger'
 import { verifyMultiSigs } from '../services/ticketVerification'
 import { DevSecurityLevel } from '../types/security'
 import { Sign } from '../schemas/ticketSchema'
+import { config } from './../Config'
 
 interface AllowedArchiversConfig {
   allowedArchivers: Array<{
@@ -117,12 +118,13 @@ class AllowedArchiversManager {
         allowedArchivers: getArchiverConfig.allowedArchivers,
       }
 
-      //Remove this after testing
-      Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - payload: ', payload)
-      Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - signatures: ', getArchiverConfig.signatures)
-      Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - globalAccountAllowedSigners: ', this.globalAccountAllowedSigners)
-      Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - globalAccountMinSigRequired: ', this.globalAccountMinSigRequired)
-
+      if (config.VERBOSE) {
+        Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - payload: ', payload)
+        Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - signatures: ', getArchiverConfig.signatures)
+        Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - globalAccountAllowedSigners: ', this.globalAccountAllowedSigners)
+        Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - globalAccountMinSigRequired: ', this.globalAccountMinSigRequired)
+      }
+      
       const isValidList = verifyMultiSigs(
         payload,
         getArchiverConfig.signatures,
@@ -135,8 +137,7 @@ class AllowedArchiversManager {
         return
       }
       this.currentConfig = getArchiverConfig
-      //Remove this after testing
-      Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - currentConfig: ', this.currentConfig)
+      if (config.VERBOSE) Logger.mainLogger.debug('[restore-409] loadAndVerifyConfig() - currentConfig: ', this.currentConfig)
     } catch (error) {
       Logger.mainLogger.error('Error loading/verifying config:', error)
     }

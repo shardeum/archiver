@@ -1359,7 +1359,7 @@ export async function syncGenesisAccountsFromArchiver(): Promise<void> {
     { startCycle: GENESIS_ACCOUNTS_CYCLE_RANGE.startCycle, endCycle: GENESIS_ACCOUNTS_CYCLE_RANGE.endCycle },
     QUERY_TIMEOUT_MAX
   )) as ArchiverAccountResponse
-  Logger.mainLogger.error('Genesis Total Accounts Response', StringUtils.safeStringify(res))
+  if (config.VERBOSE) Logger.mainLogger.error('Genesis Total Accounts Response', StringUtils.safeStringify(res))
   if (res && (res.totalAccounts || res.totalAccounts === 0)) {
     totalGenesisAccounts = res.totalAccounts
     Logger.mainLogger.debug('TotalGenesis Accounts', totalGenesisAccounts)
@@ -1412,7 +1412,7 @@ export async function syncGenesisTransactionsFromArchiver(): Promise<void> {
     },
     QUERY_TIMEOUT_MAX
   )) as ArchiverTransactionResponse
-  Logger.mainLogger.error('Genesis Total Transaction Response', StringUtils.safeStringify(res))
+  if (config.VERBOSE) Logger.mainLogger.error('Genesis Total Transaction Response', StringUtils.safeStringify(res))
   if (res && (res.totalTransactions || res.totalTransactions === 0)) {
     totalGenesisTransactions = res.totalTransactions
     Logger.mainLogger.debug('TotalGenesis Transactions', totalGenesisTransactions)
