@@ -349,22 +349,22 @@ describe('calculateAccountHash', () => {
         expect(failedReasons[0]).toContain('Account hash does not match')
         expect(nestedCounterMessages[0]).toContain('Account hash does not match')
       })
+    })
 
-      it('should verify account hashes successfully when all conditions are met', () => {
-        // GIVEN correct hash calculations
-        jest.spyOn(crypto, 'hashObj').mockImplementation((obj: any) => {
-          if (obj.EVMAccountInfo?.balance === '100') return 'hash3'
-          if (obj.EVMAccountInfo?.balance === '200') return 'hash4'
-          return 'unknown-hash'
-        })
-
-        // WHEN verifying the receipt
-        const result = verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
-
-        // THEN it should succeed
-        expect(result).toBe(true)
-        expect(failedReasons).toHaveLength(0)
+    it('should verify account hashes successfully when all conditions are met', () => {
+      // GIVEN correct hash calculations
+      jest.spyOn(crypto, 'hashObj').mockImplementation((obj: any) => {
+        if (obj.EVMAccountInfo?.balance === '100') return 'hash3'
+        if (obj.EVMAccountInfo?.balance === '200') return 'hash4'
+        return 'unknown-hash'
       })
+
+      // WHEN verifying the receipt
+      const result = verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
+
+      // THEN it should succeed
+      expect(result).toBe(true)
+      expect(failedReasons).toHaveLength(0)
     })
 
     it('should handle other exceptions during verification', () => {

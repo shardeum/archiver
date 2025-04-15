@@ -851,9 +851,9 @@ export const storeReceiptData = async (
       //   continue
       for (const account of afterStates) {
         const accObj: Account.AccountsCopy = {
-          accountId: account.accountId,
+          accountId: account.data.id,
           data: account.data,
-          timestamp: account.timestamp,
+          timestamp: account.data.timestamp,
           hash: account.hash,
           cycleNumber: cycle,
           isGlobal: account.isGlobal || false,
