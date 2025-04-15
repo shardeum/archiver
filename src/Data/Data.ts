@@ -46,7 +46,6 @@ import { XOR } from '../utils/general'
 import { customFetch } from '../utils/customHttpFunctions'
 import { ArchiverLogging } from '../profiler/archiverLogging'
 import { Utils as UtilsTypes } from '@shardeum-foundation/lib-types'
-import { safeStringify } from '@shardeum-foundation/lib-types/build/src/utils/functions/stringify'
 
 interface ValidationBreadcrumb {
   cycle: P2PTypes.CycleCreatorTypes.CycleData
@@ -230,7 +229,7 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
   try {
     const socketClient = ioclient.connect(`http://${node.ip}:${node.port}`, {
       query: {
-        data: safeStringify(
+        data: StringUtils.safeStringify(
           Crypto.sign({
             publicKey: State.getNodeInfo().publicKey,
             timestamp: Date.now(),
@@ -411,7 +410,7 @@ export function collectCycleData(
     operationId,
     metrics: {
       duration: 0,
-      dataSize: safeStringify(cycleData).length,
+      dataSize: StringUtils.safeStringify(cycleData).length,
     },
   })
 
@@ -437,7 +436,7 @@ export function collectCycleData(
         operationId,
         metrics: {
           duration: Date.now() - startTime,
-          dataSize: safeStringify(cycleData).length,
+          dataSize: StringUtils.safeStringify(cycleData).length,
         },
         error: 'Sender not in active nodes or archivers',
       })
@@ -461,7 +460,7 @@ export function collectCycleData(
         operationId,
         metrics: {
           duration: Date.now() - startTime,
-          dataSize: safeStringify(cycle).length,
+          dataSize: StringUtils.safeStringify(cycle).length,
         },
       })
       break
@@ -517,7 +516,7 @@ export function collectCycleData(
             operationId,
             metrics: {
               duration: Date.now() - startTime,
-              dataSize: safeStringify(cycle).length,
+              dataSize: StringUtils.safeStringify(cycle).length,
             },
             error: 'Certificate validation failed',
           })
@@ -541,7 +540,7 @@ export function collectCycleData(
           operationId,
           metrics: {
             duration: Date.now() - startTime,
-            dataSize: safeStringify(cycle).length,
+            dataSize: StringUtils.safeStringify(cycle).length,
           },
           error: `Certificate validation error: ${error.message}`,
         })
@@ -577,7 +576,7 @@ export function collectCycleData(
             operationId,
             metrics: {
               duration: Date.now() - startTime,
-              dataSize: safeStringify(cycle).length,
+              dataSize: StringUtils.safeStringify(cycle).length,
             },
             error: 'Cycle data validation failed',
           })
@@ -613,7 +612,7 @@ export function collectCycleData(
           operationId,
           metrics: {
             duration: Date.now() - startTime,
-            dataSize: safeStringify(cycle).length,
+            dataSize: StringUtils.safeStringify(cycle).length,
           },
           error: 'Cycle data validation failed',
         })
@@ -701,7 +700,7 @@ export function collectCycleData(
         operationId,
         metrics: {
           duration: Date.now() - startTime,
-          dataSize: safeStringify(receivedCycleTracker[cycle.counter][bestMarker].cycleInfo).length,
+          dataSize: StringUtils.safeStringify(receivedCycleTracker[cycle.counter][bestMarker].cycleInfo).length,
         },
       })
     }

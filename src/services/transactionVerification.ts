@@ -12,7 +12,6 @@ import { Address } from '@ethereumjs/util'
 import { getSenderAddress } from '@shardeum-foundation/lib-net'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { config } from '../Config'
-import { safeStringify } from '@shardeum-foundation/lib-types/build/src/utils/functions/stringify'
 
 interface SecureAccountData {
   Name: string
@@ -90,10 +89,10 @@ export const syncKeysFromNetworkConfig = async (): Promise<void> => {
 
     const equalityFn = (responseA, responseB): boolean => {
       return (
-        safeStringify(responseA?.config?.debug?.multisigKeys) ===
-          safeStringify(responseB?.config?.debug?.multisigKeys) &&
-        safeStringify(responseA?.config?.debug?.minMultiSigRequiredForGlobalTxs) ===
-          safeStringify(responseB?.config?.debug?.minMultiSigRequiredForGlobalTxs)
+        StringUtils.safeStringify(responseA?.config?.debug?.multisigKeys) ===
+          StringUtils.safeStringify(responseB?.config?.debug?.multisigKeys) &&
+        StringUtils.safeStringify(responseA?.config?.debug?.minMultiSigRequiredForGlobalTxs) ===
+          StringUtils.safeStringify(responseB?.config?.debug?.minMultiSigRequiredForGlobalTxs)
       )
     }
 
@@ -114,7 +113,7 @@ export const syncKeysFromNetworkConfig = async (): Promise<void> => {
       if (
         newMultisigKeys &&
         typeof newMultisigKeys === 'object' &&
-        safeStringify(newMultisigKeys) !== safeStringify(multisigKeys)
+        StringUtils.safeStringify(newMultisigKeys) !== StringUtils.safeStringify(multisigKeys)
       ) {
         multisigKeys = newMultisigKeys
       }
@@ -150,7 +149,9 @@ export const verifyTransaction = (tx: any): Response => {
         const authorized = verifyMultiSigs(txWithoutSign, sigs, multiSigPublicKeys, requiredSigs, DevSecurityLevel.HIGH)
 
         if (!authorized) {
-          Logger.mainLogger.info(`ChangeConfig or ChangeNetworkParam failed verification ${safeStringify(tx)}`)
+          Logger.mainLogger.info(
+            `ChangeConfig or ChangeNetworkParam failed verification ${StringUtils.safeStringify(tx)}`
+          )
           return { result: 'fail', reason: 'Invalid Signature' }
         }
         return { result: 'pass', reason: 'valid' }
@@ -159,10 +160,10 @@ export const verifyTransaction = (tx: any): Response => {
       } else if (tx.internalTXType === InternalTXType.InitRewardTimes) {
         const isValid = crypto.verifyObj(tx)
         if (!isValid) {
-          Logger.mainLogger.info(`Init reward tx failed verification ${safeStringify(tx)}`)
+          Logger.mainLogger.info(`Init reward tx failed verification ${StringUtils.safeStringify(tx)}`)
           return { result: 'fail', reason: 'Invalid Signature' }
         }
-        Logger.mainLogger.info(`Init reward tx passed ${safeStringify(tx)}`)
+        Logger.mainLogger.info(`Init reward tx passed ${StringUtils.safeStringify(tx)}`)
         return { result: 'pass', reason: 'valid' }
       } else if (tx.internalTXType === InternalTXType.TransferFromSecureAccount) {
         const verifyResult = validateTransferFromSecureAccount(tx)
@@ -170,7 +171,7 @@ export const verifyTransaction = (tx: any): Response => {
       } else {
         const isValid = crypto.verifyObj(tx)
         if (!isValid) {
-          Logger.mainLogger.info(`Single signed tx failed ${safeStringify(tx)}`)
+          Logger.mainLogger.info(`Single signed tx failed ${StringUtils.safeStringify(tx)}`)
           return { result: 'fail', reason: 'Invalid Signature' }
         }
 
@@ -179,7 +180,7 @@ export const verifyTransaction = (tx: any): Response => {
     }
 
     if (tx?.isDebugTx === true) {
-      Logger.mainLogger.info(`Debug tx allowed ${safeStringify(tx)}`)
+      Logger.mainLogger.info(`Debug tx allowed ${StringUtils.safeStringify(tx)}`)
       return { result: 'pass', reason: 'all_allowed' }
     }
 
