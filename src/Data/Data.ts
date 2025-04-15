@@ -229,7 +229,7 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
   try {
     const socketClient = ioclient.connect(`http://${node.ip}:${node.port}`, {
       query: {
-        data: JSON.stringify(
+        data: StringUtils.safeStringify(
           Crypto.sign({
             publicKey: State.getNodeInfo().publicKey,
             timestamp: Date.now(),
@@ -410,7 +410,7 @@ export function collectCycleData(
     operationId,
     metrics: {
       duration: 0,
-      dataSize: JSON.stringify(cycleData).length,
+      dataSize: StringUtils.safeStringify(cycleData).length,
     },
   })
 
@@ -436,7 +436,7 @@ export function collectCycleData(
         operationId,
         metrics: {
           duration: Date.now() - startTime,
-          dataSize: JSON.stringify(cycleData).length,
+          dataSize: StringUtils.safeStringify(cycleData).length,
         },
         error: 'Sender not in active nodes or archivers',
       })
@@ -460,7 +460,7 @@ export function collectCycleData(
         operationId,
         metrics: {
           duration: Date.now() - startTime,
-          dataSize: JSON.stringify(cycle).length,
+          dataSize: StringUtils.safeStringify(cycle).length,
         },
       })
       break
@@ -516,7 +516,7 @@ export function collectCycleData(
             operationId,
             metrics: {
               duration: Date.now() - startTime,
-              dataSize: JSON.stringify(cycle).length,
+              dataSize: StringUtils.safeStringify(cycle).length,
             },
             error: 'Certificate validation failed',
           })
@@ -540,7 +540,7 @@ export function collectCycleData(
           operationId,
           metrics: {
             duration: Date.now() - startTime,
-            dataSize: JSON.stringify(cycle).length,
+            dataSize: StringUtils.safeStringify(cycle).length,
           },
           error: `Certificate validation error: ${error.message}`,
         })
@@ -576,7 +576,7 @@ export function collectCycleData(
             operationId,
             metrics: {
               duration: Date.now() - startTime,
-              dataSize: JSON.stringify(cycle).length,
+              dataSize: StringUtils.safeStringify(cycle).length,
             },
             error: 'Cycle data validation failed',
           })
@@ -612,7 +612,7 @@ export function collectCycleData(
           operationId,
           metrics: {
             duration: Date.now() - startTime,
-            dataSize: JSON.stringify(cycle).length,
+            dataSize: StringUtils.safeStringify(cycle).length,
           },
           error: 'Cycle data validation failed',
         })
@@ -700,7 +700,7 @@ export function collectCycleData(
         operationId,
         metrics: {
           duration: Date.now() - startTime,
-          dataSize: JSON.stringify(receivedCycleTracker[cycle.counter][bestMarker].cycleInfo).length,
+          dataSize: StringUtils.safeStringify(receivedCycleTracker[cycle.counter][bestMarker].cycleInfo).length,
         },
       })
     }

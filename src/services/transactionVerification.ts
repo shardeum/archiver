@@ -89,10 +89,10 @@ export const syncKeysFromNetworkConfig = async (): Promise<void> => {
 
     const equalityFn = (responseA, responseB): boolean => {
       return (
-        JSON.stringify(responseA?.config?.debug?.multisigKeys) ===
-          JSON.stringify(responseB?.config?.debug?.multisigKeys) &&
-        JSON.stringify(responseA?.config?.debug?.minMultiSigRequiredForGlobalTxs) ===
-          JSON.stringify(responseB?.config?.debug?.minMultiSigRequiredForGlobalTxs)
+        StringUtils.safeStringify(responseA?.config?.debug?.multisigKeys) ===
+          StringUtils.safeStringify(responseB?.config?.debug?.multisigKeys) &&
+        StringUtils.safeStringify(responseA?.config?.debug?.minMultiSigRequiredForGlobalTxs) ===
+          StringUtils.safeStringify(responseB?.config?.debug?.minMultiSigRequiredForGlobalTxs)
       )
     }
 
@@ -113,7 +113,7 @@ export const syncKeysFromNetworkConfig = async (): Promise<void> => {
       if (
         newMultisigKeys &&
         typeof newMultisigKeys === 'object' &&
-        JSON.stringify(newMultisigKeys) !== JSON.stringify(multisigKeys)
+        StringUtils.safeStringify(newMultisigKeys) !== StringUtils.safeStringify(multisigKeys)
       ) {
         multisigKeys = newMultisigKeys
       }
@@ -149,7 +149,9 @@ export const verifyTransaction = (tx: any): Response => {
         const authorized = verifyMultiSigs(txWithoutSign, sigs, multiSigPublicKeys, requiredSigs, DevSecurityLevel.HIGH)
 
         if (!authorized) {
-          Logger.mainLogger.info(`ChangeConfig or ChangeNetworkParam failed verification ${JSON.stringify(tx)}`)
+          Logger.mainLogger.info(
+            `ChangeConfig or ChangeNetworkParam failed verification ${StringUtils.safeStringify(tx)}`
+          )
           return { result: 'fail', reason: 'Invalid Signature' }
         }
         return { result: 'pass', reason: 'valid' }
@@ -158,10 +160,10 @@ export const verifyTransaction = (tx: any): Response => {
       } else if (tx.internalTXType === InternalTXType.InitRewardTimes) {
         const isValid = crypto.verifyObj(tx)
         if (!isValid) {
-          Logger.mainLogger.info(`Init reward tx failed verification ${JSON.stringify(tx)}`)
+          Logger.mainLogger.info(`Init reward tx failed verification ${StringUtils.safeStringify(tx)}`)
           return { result: 'fail', reason: 'Invalid Signature' }
         }
-        Logger.mainLogger.info(`Init reward tx passed ${JSON.stringify(tx)}`)
+        Logger.mainLogger.info(`Init reward tx passed ${StringUtils.safeStringify(tx)}`)
         return { result: 'pass', reason: 'valid' }
       } else if (tx.internalTXType === InternalTXType.TransferFromSecureAccount) {
         const verifyResult = validateTransferFromSecureAccount(tx)
@@ -169,7 +171,7 @@ export const verifyTransaction = (tx: any): Response => {
       } else {
         const isValid = crypto.verifyObj(tx)
         if (!isValid) {
-          Logger.mainLogger.info(`Single signed tx failed ${JSON.stringify(tx)}`)
+          Logger.mainLogger.info(`Single signed tx failed ${StringUtils.safeStringify(tx)}`)
           return { result: 'fail', reason: 'Invalid Signature' }
         }
 
@@ -178,7 +180,7 @@ export const verifyTransaction = (tx: any): Response => {
     }
 
     if (tx?.isDebugTx === true) {
-      Logger.mainLogger.info(`Debug tx allowed ${JSON.stringify(tx)}`)
+      Logger.mainLogger.info(`Debug tx allowed ${StringUtils.safeStringify(tx)}`)
       return { result: 'pass', reason: 'all_allowed' }
     }
 

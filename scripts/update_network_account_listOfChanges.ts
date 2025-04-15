@@ -96,7 +96,7 @@ const askConfigQuestions = async (): Promise<ConfigSchema> => {
           let isValid = false
           while (!isValid && attempts < maxAttempts) {
             const value = await askQuestion(
-              `Enter ${section}.${key} as JSON (default: ${JSON.stringify(propertyDefault)}): `
+              `Enter ${section}.${key} as JSON (default: ${StringUtils.safeStringify(propertyDefault)}): `
             )
             if (value === '') {
               userConfig[section][key] = propertyDefault
@@ -163,7 +163,9 @@ const askConfigQuestions = async (): Promise<ConfigSchema> => {
       let isValid = false
 
       while (!isValid && attempts < maxAttempts) {
-        const value = await askQuestion(`Enter ${section} as JSON (default: ${JSON.stringify(defaultValue)}): `)
+        const value = await askQuestion(
+          `Enter ${section} as JSON (default: ${StringUtils.safeStringify(defaultValue)}): `
+        )
         if (value === '') {
           userConfig[section] = defaultValue
           isValid = true
@@ -330,7 +332,7 @@ const runProgram = async (): Promise<void> => {
       cycle: cycleNumber,
     }
 
-    console.log('Proposed Changes:', JSON.stringify(changes, null, 2))
+    console.log('Proposed Changes:', StringUtils.safeStringify(changes))
 
     const confirmation = (await askQuestion('Are you sure you want to proceed with these changes? (yes/no): ')).trim()
     console.log(`User input: ${confirmation}`)

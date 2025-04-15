@@ -5,6 +5,7 @@
 
 import { okAsync, errAsync, ResultAsync } from 'neverthrow'
 import { hexstring, P2P as P2PTypes } from '@shardeum-foundation/lib-types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import {
   getCurrentCycleDataFromNode,
   robustQueryForCycleRecordHash,
@@ -25,6 +26,7 @@ import * as Logger from '../Logger'
 import * as ServiceQueue from '../ServiceQueue'
 import { ArchiverLogging } from '../profiler/archiverLogging'
 import { config } from '../Config'
+import { safeStringify } from '@shardeum-foundation/lib-types/build/src/utils/functions/stringify'
 
 /**
  * Given a list of archivers, queries each one until one returns an active node list.
@@ -65,7 +67,7 @@ async function getActiveListFromSomeArchiver(
           operationId,
           metrics: {
             duration: Date.now() - startTime,
-            dataSize: JSON.stringify(nodeList).length,
+            dataSize: StringUtils.safeStringify(nodeList).length,
           },
         })
         return nodeList
@@ -120,7 +122,7 @@ export function syncV2(activeArchivers: ArchiverNodeInfo[]): ResultAsync<P2PType
                   operationId,
                   metrics: {
                     duration: Date.now() - startTime,
-                    dataSize: JSON.stringify({
+                    dataSize: StringUtils.safeStringify({
                       validatorList,
                       archiverList,
                       standbyList,
@@ -143,7 +145,7 @@ export function syncV2(activeArchivers: ArchiverNodeInfo[]): ResultAsync<P2PType
                     operationId,
                     metrics: {
                       duration: Date.now() - startTime,
-                      dataSize: JSON.stringify(validatorList).length,
+                      dataSize: StringUtils.safeStringify(validatorList).length,
                     },
                     error: `validator list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`,
                   })
@@ -164,7 +166,7 @@ export function syncV2(activeArchivers: ArchiverNodeInfo[]): ResultAsync<P2PType
                     operationId,
                     metrics: {
                       duration: Date.now() - startTime,
-                      dataSize: JSON.stringify(standbyList).length,
+                      dataSize: StringUtils.safeStringify(standbyList).length,
                     },
                     error: `standby list hash from received cycle (${cycle.standbyNodeListHash}) does not match the hash received from robust query (${standbyListHash})`,
                   })
@@ -185,7 +187,7 @@ export function syncV2(activeArchivers: ArchiverNodeInfo[]): ResultAsync<P2PType
                     operationId,
                     metrics: {
                       duration: Date.now() - startTime,
-                      dataSize: JSON.stringify(archiverList).length,
+                      dataSize: StringUtils.safeStringify(archiverList).length,
                     },
                     error: `archiver list hash from received cycle (${cycle.archiverListHash}) does not match the hash received from robust query (${archiverListHash})`,
                   })
@@ -288,7 +290,7 @@ function syncValidatorList(
           operationId,
           metrics: {
             duration: Date.now() - startTime,
-            dataSize: JSON.stringify(validatorList).length,
+            dataSize: StringUtils.safeStringify(validatorList).length,
           },
         })
         return [validatorList, value.nodeListHash] as [P2PTypes.NodeListTypes.Node[], hexstring]
@@ -339,7 +341,7 @@ function syncStandbyNodeList(
         operationId,
         metrics: {
           duration: Date.now() - startTime,
-          dataSize: JSON.stringify(standbyList).length,
+          dataSize: StringUtils.safeStringify(standbyList).length,
         },
       })
       return okAsync([standbyList, value.standbyNodeListHash] as [P2PTypes.JoinTypes.JoinRequest[], hexstring])
@@ -379,7 +381,7 @@ export function syncTxList(
           operationId,
           metrics: {
             duration: Date.now() - startTime,
-            dataSize: JSON.stringify(txList).length,
+            dataSize: StringUtils.safeStringify(txList).length,
           },
         })
         return txList
@@ -431,7 +433,7 @@ function syncLatestCycleRecordAndMarker(
           operationId,
           metrics: {
             duration: Date.now() - startTime,
-            dataSize: JSON.stringify(cycle).length,
+            dataSize: StringUtils.safeStringify(cycle).length,
           },
         })
         return [cycle, value.currentCycleHash] as [
@@ -491,7 +493,7 @@ function syncArchiverList(
           operationId,
           metrics: {
             duration: Date.now() - startTime,
-            dataSize: JSON.stringify(archiverList).length,
+            dataSize: safeStringify(archiverList).length,
           },
         })
         return [archiverList, value.archiverListHash] as [P2PTypes.ArchiversTypes.JoinedArchiver[], hexstring]
