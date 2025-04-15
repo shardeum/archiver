@@ -109,12 +109,12 @@ export const verifyGlobalTxAccountChange = (
           return false
         }
 
-        // Get the hash from afterState array entry i.e the network account after state hash
-        const expectedAccountHash = networkAccountAfter.hash
+        // Calculate the afterStateHash
+        const calculatedAfterStateHash = accountSpecificHash(networkAccountAfter.data)
 
         // Compare the hash from the network account with the afterStateHash in the signed receipt
         // If they don't match, the transaction receipt is invalid
-        if (expectedAccountHash !== signedReceipt.tx.afterStateHash) {
+        if (calculatedAfterStateHash !== signedReceipt.tx.afterStateHash) {
           failedReasons.push(
             `Account afterStateHash does not match in globalModification tx - ${networkAccountAfter.accountId} , ${receipt.tx.txId} , ${receipt.cycle} , ${receipt.tx.timestamp}`
           )
