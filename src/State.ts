@@ -219,7 +219,7 @@ export async function compareCycleRecordWithOtherArchivers(
   ourCycleRecord: P2PTypes.CycleCreatorTypes.CycleRecord
 ): Promise<boolean> {
   // Remove after testing
-  Logger.mainLogger.debug("[restore-409] activeArchivers: ", JSON.stringify(activeArchivers))
+  Logger.mainLogger.debug('[restore-409] activeArchivers: ', JSON.stringify(activeArchivers))
   const promises = archivers.map((archiver) =>
     customFetch(`http://${archiver.ip}:${archiver.port}/cycleinfo/1`, {
       method: 'get',

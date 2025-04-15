@@ -387,7 +387,10 @@ export function changeNodeListInRestore(): void {
   if (activeList.size === 0) return
   // change the active status nodes to syncing status in all the nodelist
   const activatedPublicKeys = activeListByIdSorted.map((node) => node.publicKey)
-  Logger.mainLogger.debug('changeNodeListInRestore: Changing node list in restore mode: ', UtilsTypes.safeStringify(activatedPublicKeys))
+  Logger.mainLogger.debug(
+    'changeNodeListInRestore: Changing node list in restore mode: ',
+    UtilsTypes.safeStringify(activatedPublicKeys)
+  )
   setStatus(NodeStatus.SYNCING, activatedPublicKeys)
 }
 

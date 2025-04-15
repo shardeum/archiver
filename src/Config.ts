@@ -405,7 +405,8 @@ export function updateConfig(newConfig: Partial<Config>): Config {
   for (const key in newConfig) {
     if (typeof newConfig[key] !== typeof config[key])
       throw new Error(
-        `Value with incorrect type passed to update the Archiver Config: ${key}:${newConfig[key]
+        `Value with incorrect type passed to update the Archiver Config: ${key}:${
+          newConfig[key]
         } of type ${typeof newConfig[key]}`
       )
   }

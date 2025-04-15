@@ -97,155 +97,151 @@ async function getActiveListFromSomeArchiver(
 /**
  * Synchronizes the NodeList and gets the latest CycleRecord from other validators.
  */
-export function syncV2(
-  activeArchivers: ArchiverNodeInfo[]
-): ResultAsync<P2PTypes.CycleCreatorTypes.CycleData, Error> {
+export function syncV2(activeArchivers: ArchiverNodeInfo[]): ResultAsync<P2PTypes.CycleCreatorTypes.CycleData, Error> {
   const startTime = Date.now()
   const operationId = ArchiverLogging.generateOperationId()
 
-  return ResultAsync.fromPromise(
-    getActiveListFromSomeArchiver(activeArchivers, operationId),
-    (e: Error) => e
-  ).andThen((nodeList) =>
-    syncValidatorList(nodeList, operationId).andThen(([validatorList, validatorListHash]) =>
-      syncArchiverList(nodeList, operationId).andThen(([archiverList, archiverListHash]) =>
-        syncStandbyNodeList(nodeList, operationId).andThen(([standbyList, standbyListHash]) =>
-          syncTxList(nodeList, operationId).andThen((txList) =>
-            syncLatestCycleRecordAndMarker(nodeList, operationId).andThen(([cycle, cycleMarker]) => {
-              Logger.mainLogger.debug('syncV2: validatorList', validatorList)
+  return ResultAsync.fromPromise(getActiveListFromSomeArchiver(activeArchivers, operationId), (e: Error) => e).andThen(
+    (nodeList) =>
+      syncValidatorList(nodeList, operationId).andThen(([validatorList, validatorListHash]) =>
+        syncArchiverList(nodeList, operationId).andThen(([archiverList, archiverListHash]) =>
+          syncStandbyNodeList(nodeList, operationId).andThen(([standbyList, standbyListHash]) =>
+            syncTxList(nodeList, operationId).andThen((txList) =>
+              syncLatestCycleRecordAndMarker(nodeList, operationId).andThen(([cycle, cycleMarker]) => {
+                Logger.mainLogger.debug('syncV2: validatorList', validatorList)
 
-              ArchiverLogging.logDataSync({
-                sourceArchiver: nodeList[0].ip,
-                targetArchiver: config.ARCHIVER_IP,
-                cycle: cycle.counter,
-                dataType: 'CYCLE_RECORD',
-                dataHash: cycleMarker,
-                status: 'COMPLETE',
-                operationId,
-                metrics: {
-                  duration: Date.now() - startTime,
-                  dataSize: JSON.stringify({
-                    validatorList,
-                    archiverList,
-                    standbyList,
-                    txList,
-                    cycle,
-                  }).length,
-                },
-              })
-
-              // additional checks to make sure the list hashes in the cycle
-              // matches the hash for the validator list retrieved earlier
-              if (cycle.nodeListHash !== validatorListHash) {
                 ArchiverLogging.logDataSync({
                   sourceArchiver: nodeList[0].ip,
                   targetArchiver: config.ARCHIVER_IP,
                   cycle: cycle.counter,
-                  dataType: 'VALIDATOR_LIST',
-                  dataHash: validatorListHash,
-                  status: 'ERROR',
+                  dataType: 'CYCLE_RECORD',
+                  dataHash: cycleMarker,
+                  status: 'COMPLETE',
                   operationId,
                   metrics: {
                     duration: Date.now() - startTime,
-                    dataSize: JSON.stringify(validatorList).length,
+                    dataSize: JSON.stringify({
+                      validatorList,
+                      archiverList,
+                      standbyList,
+                      txList,
+                      cycle,
+                    }).length,
                   },
-                  error: `validator list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`,
                 })
-                return errAsync(
-                  new Error(
-                    `validator list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`
-                  )
-                )
-              }
-              if (cycle.standbyNodeListHash !== standbyListHash) {
-                ArchiverLogging.logDataSync({
-                  sourceArchiver: nodeList[0].ip,
-                  targetArchiver: config.ARCHIVER_IP,
-                  cycle: cycle.counter,
-                  dataType: 'STANDBY_LIST',
-                  dataHash: standbyListHash,
-                  status: 'ERROR',
-                  operationId,
-                  metrics: {
-                    duration: Date.now() - startTime,
-                    dataSize: JSON.stringify(standbyList).length,
-                  },
-                  error: `standby list hash from received cycle (${cycle.standbyNodeListHash}) does not match the hash received from robust query (${standbyListHash})`,
-                })
-                return errAsync(
-                  new Error(
-                    `standby list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`
-                  )
-                )
-              }
-              if (cycle.archiverListHash !== archiverListHash) {
-                ArchiverLogging.logDataSync({
-                  sourceArchiver: nodeList[0].ip,
-                  targetArchiver: config.ARCHIVER_IP,
-                  cycle: cycle.counter,
-                  dataType: 'ARCHIVER_LIST',
-                  dataHash: archiverListHash,
-                  status: 'ERROR',
-                  operationId,
-                  metrics: {
-                    duration: Date.now() - startTime,
-                    dataSize: JSON.stringify(archiverList).length,
-                  },
-                  error: `archiver list hash from received cycle (${cycle.archiverListHash}) does not match the hash received from robust query (${archiverListHash})`,
-                })
-                return errAsync(
-                  new Error(
-                    `archiver list hash from received cycle (${cycle.archiverListHash}) does not match the hash received from robust query (${archiverListHash})`
-                  )
-                )
-              }
 
-              // validatorList and standbyList need to be transformed into a ConsensusNodeInfo[]
-              const syncingNodeList: NodeList.ConsensusNodeInfo[] = []
-              const activeNodeList: NodeList.ConsensusNodeInfo[] = []
-
-              for (const node of validatorList) {
-                if (node.status === 'selected' || node.status === 'syncing' || node.status === 'ready') {
-                  syncingNodeList.push({
-                    publicKey: node.publicKey,
-                    ip: node.externalIp,
-                    port: node.externalPort,
-                    id: node.id,
+                // additional checks to make sure the list hashes in the cycle
+                // matches the hash for the validator list retrieved earlier
+                if (cycle.nodeListHash !== validatorListHash) {
+                  ArchiverLogging.logDataSync({
+                    sourceArchiver: nodeList[0].ip,
+                    targetArchiver: config.ARCHIVER_IP,
+                    cycle: cycle.counter,
+                    dataType: 'VALIDATOR_LIST',
+                    dataHash: validatorListHash,
+                    status: 'ERROR',
+                    operationId,
+                    metrics: {
+                      duration: Date.now() - startTime,
+                      dataSize: JSON.stringify(validatorList).length,
+                    },
+                    error: `validator list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`,
                   })
-                } else if (node.status === 'active') {
-                  activeNodeList.push({
-                    publicKey: node.publicKey,
-                    ip: node.externalIp,
-                    port: node.externalPort,
-                    id: node.id,
-                  })
+                  return errAsync(
+                    new Error(
+                      `validator list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`
+                    )
+                  )
                 }
-              }
-              const standbyNodeList: NodeList.ConsensusNodeInfo[] = standbyList.map((joinRequest) => ({
-                publicKey: joinRequest.nodeInfo.publicKey,
-                ip: joinRequest.nodeInfo.externalIp,
-                port: joinRequest.nodeInfo.externalPort,
-              }))
-              NodeList.addNodes(NodeList.NodeStatus.SYNCING, syncingNodeList)
-              NodeList.addNodes(NodeList.NodeStatus.ACTIVE, activeNodeList)
-              NodeList.addStandbyNodes(standbyNodeList)
+                if (cycle.standbyNodeListHash !== standbyListHash) {
+                  ArchiverLogging.logDataSync({
+                    sourceArchiver: nodeList[0].ip,
+                    targetArchiver: config.ARCHIVER_IP,
+                    cycle: cycle.counter,
+                    dataType: 'STANDBY_LIST',
+                    dataHash: standbyListHash,
+                    status: 'ERROR',
+                    operationId,
+                    metrics: {
+                      duration: Date.now() - startTime,
+                      dataSize: JSON.stringify(standbyList).length,
+                    },
+                    error: `standby list hash from received cycle (${cycle.standbyNodeListHash}) does not match the hash received from robust query (${standbyListHash})`,
+                  })
+                  return errAsync(
+                    new Error(
+                      `standby list hash from received cycle (${cycle.nodeListHash}) does not match the hash received from robust query (${validatorListHash})`
+                    )
+                  )
+                }
+                if (cycle.archiverListHash !== archiverListHash) {
+                  ArchiverLogging.logDataSync({
+                    sourceArchiver: nodeList[0].ip,
+                    targetArchiver: config.ARCHIVER_IP,
+                    cycle: cycle.counter,
+                    dataType: 'ARCHIVER_LIST',
+                    dataHash: archiverListHash,
+                    status: 'ERROR',
+                    operationId,
+                    metrics: {
+                      duration: Date.now() - startTime,
+                      dataSize: JSON.stringify(archiverList).length,
+                    },
+                    error: `archiver list hash from received cycle (${cycle.archiverListHash}) does not match the hash received from robust query (${archiverListHash})`,
+                  })
+                  return errAsync(
+                    new Error(
+                      `archiver list hash from received cycle (${cycle.archiverListHash}) does not match the hash received from robust query (${archiverListHash})`
+                    )
+                  )
+                }
 
-              // add txList
-              ServiceQueue.setTxList(txList)
+                // validatorList and standbyList need to be transformed into a ConsensusNodeInfo[]
+                const syncingNodeList: NodeList.ConsensusNodeInfo[] = []
+                const activeNodeList: NodeList.ConsensusNodeInfo[] = []
 
-              // reset the active archivers list with the new list
-              resetActiveArchivers(archiverList)
+                for (const node of validatorList) {
+                  if (node.status === 'selected' || node.status === 'syncing' || node.status === 'ready') {
+                    syncingNodeList.push({
+                      publicKey: node.publicKey,
+                      ip: node.externalIp,
+                      port: node.externalPort,
+                      id: node.id,
+                    })
+                  } else if (node.status === 'active') {
+                    activeNodeList.push({
+                      publicKey: node.publicKey,
+                      ip: node.externalIp,
+                      port: node.externalPort,
+                      id: node.id,
+                    })
+                  }
+                }
+                const standbyNodeList: NodeList.ConsensusNodeInfo[] = standbyList.map((joinRequest) => ({
+                  publicKey: joinRequest.nodeInfo.publicKey,
+                  ip: joinRequest.nodeInfo.externalIp,
+                  port: joinRequest.nodeInfo.externalPort,
+                }))
+                NodeList.addNodes(NodeList.NodeStatus.SYNCING, syncingNodeList)
+                NodeList.addNodes(NodeList.NodeStatus.ACTIVE, activeNodeList)
+                NodeList.addStandbyNodes(standbyNodeList)
 
-              // return a cycle that we'll store in the database
-              return okAsync({
-                ...cycle,
-                marker: cycleMarker,
+                // add txList
+                ServiceQueue.setTxList(txList)
+
+                // reset the active archivers list with the new list
+                resetActiveArchivers(archiverList)
+
+                // return a cycle that we'll store in the database
+                return okAsync({
+                  ...cycle,
+                  marker: cycleMarker,
+                })
               })
-            })
+            )
           )
         )
       )
-    )
   )
 }
 
@@ -346,10 +342,7 @@ function syncStandbyNodeList(
           dataSize: JSON.stringify(standbyList).length,
         },
       })
-      return okAsync([standbyList, value.standbyNodeListHash] as [
-        P2PTypes.JoinTypes.JoinRequest[],
-        hexstring,
-      ])
+      return okAsync([standbyList, value.standbyNodeListHash] as [P2PTypes.JoinTypes.JoinRequest[], hexstring])
     })
   )
 }

@@ -139,7 +139,7 @@ describe('Accounts Module', () => {
 
       // Verify
       expect(db.run).toHaveBeenCalledTimes(1)
-      // We don't need to verify the exact SQL and parameters since the implementation 
+      // We don't need to verify the exact SQL and parameters since the implementation
       // might change, just verify that db.run was called
       expect(db.run).toHaveBeenCalled()
     })
@@ -147,7 +147,7 @@ describe('Accounts Module', () => {
     it('should handle empty accounts array', async () => {
       // Setup - clear previous mocks
       jest.clearAllMocks()
-      
+
       // Execute
       await accounts.bulkInsertAccounts([])
 
@@ -160,7 +160,7 @@ describe('Accounts Module', () => {
       // Setup
       const error = new Error('DB error')
       jest.mocked(db.run).mockRejectedValue(error)
-      
+
       // Make sure Logger.mainLogger.warn is mocked
       if (!Logger.mainLogger.warn) {
         Logger.mainLogger.warn = jest.fn()
@@ -173,10 +173,7 @@ describe('Accounts Module', () => {
       expect(db.run).toHaveBeenCalled()
       // The error might be logged by either error or warn
       expect(Logger.mainLogger.error).toHaveBeenCalledWith(expect.any(Error))
-      expect(Logger.mainLogger.error).toHaveBeenCalledWith(
-        'Unable to bulk insert Accounts', 
-        expect.any(Number)
-      )
+      expect(Logger.mainLogger.error).toHaveBeenCalledWith('Unable to bulk insert Accounts', expect.any(Number))
     })
 
     it('should log debug message when VERBOSE is true', async () => {
@@ -190,7 +187,7 @@ describe('Accounts Module', () => {
 
       // Verify
       expect(Logger.mainLogger.debug).toHaveBeenCalled()
-      
+
       // Restore config
       // @ts-ignore - Restoring config.VERBOSE
       config.VERBOSE = false

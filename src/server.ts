@@ -383,7 +383,10 @@ async function syncAndStartServer(): Promise<void> {
 }
 
 // Helper functions for syncAndStartServer
-async function syncCycleDataWithCheckpoints(firstUnifiedCheckpointCycle: number, latestNetworkCycle: any): Promise<void> {
+async function syncCycleDataWithCheckpoints(
+  firstUnifiedCheckpointCycle: number,
+  latestNetworkCycle: any
+): Promise<void> {
   const response: any = await Data.getTotalDataFromArchivers()
   const { totalCycles } = response
 
@@ -404,11 +407,13 @@ async function syncCycleDataWithCheckpoints(firstUnifiedCheckpointCycle: number,
 async function validateAndSyncCycleData(lastStoredCycleCount: number, lastStoredCycleInfo: any): Promise<void> {
   const response: any = await Data.getTotalDataFromArchivers()
 
-  if (!response ||
+  if (
+    !response ||
     response.totalCycles < 0 ||
     response.totalAccounts < 0 ||
     response.totalTransactions < 0 ||
-    response.totalReceipts < 0) {
+    response.totalReceipts < 0
+  ) {
     throw Error(`Can't fetch total data from archivers`)
   }
 
@@ -424,7 +429,9 @@ async function validateAndSyncCycleData(lastStoredCycleCount: number, lastStored
     const cycleResult = await Data.compareWithOldCyclesData(lastStoredCycleInfo.counter)
 
     if (!cycleResult.success) {
-      throw Error('The last saved 10 cycles data does not match with the archiver data! Clear the DB and start the server again!')
+      throw Error(
+        'The last saved 10 cycles data does not match with the archiver data! Clear the DB and start the server again!'
+      )
     }
   }
 }
@@ -456,7 +463,7 @@ async function joinNetwork(cycleDuration: number): Promise<void> {
    * Since we've dealt with this problem in shardus-global-server, it might be
    * good to refactor this code to do what shardus-global-server does to join
    * the network.
-  */
+   */
   Logger.mainLogger.debug('We have successfully joined the network')
 }
 
@@ -483,7 +490,9 @@ async function handleReceiptSyncWithCheckpoints(
   const updatedCycleInfo = (await CycleDB.queryLatestCycleRecords(1))[0]
 
   if (updatedCycleCount - 1 !== updatedCycleInfo.counter) {
-    throw Error(`The archiver has ${updatedCycleCount} cycles but the latest stored cycle is ${updatedCycleInfo.counter}`)
+    throw Error(
+      `The archiver has ${updatedCycleCount} cycles but the latest stored cycle is ${updatedCycleInfo.counter}`
+    )
   }
 
   await Data.syncCyclesAndTxsData(updatedCycleCount, updatedReceiptCount)
@@ -502,7 +511,10 @@ async function handleReceiptSyncWithCheckpoints(
   }, config.checkpoint.syncInterval)
 }
 
-async function handleTraditionalReceiptSync(lastStoredReceiptCount: number, lastStoredCycleCount: number): Promise<void> {
+async function handleTraditionalReceiptSync(
+  lastStoredReceiptCount: number,
+  lastStoredCycleCount: number
+): Promise<void> {
   if (lastStoredReceiptCount === 0) {
     await Data.syncReceipts()
   } else {
@@ -519,7 +531,9 @@ async function handleTraditionalReceiptSync(lastStoredReceiptCount: number, last
   const updatedCycleInfo = (await CycleDB.queryLatestCycleRecords(1))[0]
 
   if (updatedCycleCount - 1 !== updatedCycleInfo.counter) {
-    throw Error(`The archiver has ${updatedCycleCount} cycles but the latest stored cycle is ${updatedCycleInfo.counter}`)
+    throw Error(
+      `The archiver has ${updatedCycleCount} cycles but the latest stored cycle is ${updatedCycleInfo.counter}`
+    )
   }
 
   await Data.syncCyclesAndTxsData(updatedCycleCount, updatedReceiptCount)

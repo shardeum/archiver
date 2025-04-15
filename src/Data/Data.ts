@@ -502,11 +502,7 @@ export function collectCycleData(
         )
 
         if (validateCertsResult === false) {
-          nestedCountersInstance.countEvent(
-            'collectCycleData',
-            'certificate_validation_failed_' + cycle.mode,
-            1
-          )
+          nestedCountersInstance.countEvent('collectCycleData', 'certificate_validation_failed_' + cycle.mode, 1)
           Logger.mainLogger.warn(
             `collectCycleData: Certificate validation failed for cycle ${cycle.counter} from ${senderInfo} in ${cycle.mode} mode`
           )
@@ -527,14 +523,8 @@ export function collectCycleData(
           break
         }
 
-        nestedCountersInstance.countEvent(
-          'collectCycleData',
-          'certificate_validation_success_' + cycle.mode,
-          1
-        )
-        Logger.mainLogger.debug(
-          `collectCycleData: Certificate validation successful for cycle ${cycle.counter}`
-        )
+        nestedCountersInstance.countEvent('collectCycleData', 'certificate_validation_success_' + cycle.mode, 1)
+        Logger.mainLogger.debug(`collectCycleData: Certificate validation successful for cycle ${cycle.counter}`)
       } catch (error) {
         nestedCountersInstance.countEvent('collectCycleData', 'certificate_validation_error_' + cycle.mode, 1)
         Logger.mainLogger.error(
@@ -566,23 +556,13 @@ export function collectCycleData(
 
     if (receivedCycleTracker[cycle.counter]) {
       if (receivedCycleTracker[cycle.counter][cycle.marker]) {
-        nestedCountersInstance.countEvent(
-          'collectCycleData',
-          'add_signers_to_existing_marker_' + cycle.mode,
-          1
-        )
-        Logger.mainLogger.debug(
-          `collectCycleData: Adding signers to existing marker for cycle ${cycle.counter}`
-        )
+        nestedCountersInstance.countEvent('collectCycleData', 'add_signers_to_existing_marker_' + cycle.mode, 1)
+        Logger.mainLogger.debug(`collectCycleData: Adding signers to existing marker for cycle ${cycle.counter}`)
         for (const signer of receivedCertSigners)
           receivedCycleTracker[cycle.counter][cycle.marker]['certSigners'].add(signer)
       } else {
         if (!validateCycleData(cycle)) {
-          nestedCountersInstance.countEvent(
-            'collectCycleData',
-            'cycle_data_validation_failed_' + cycle.mode,
-            1
-          )
+          nestedCountersInstance.countEvent('collectCycleData', 'cycle_data_validation_failed_' + cycle.mode, 1)
           Logger.mainLogger.warn(
             `collectCycleData: Cycle data validation failed for cycle ${cycle.counter} with marker ${cycle.marker}`
           )
@@ -649,8 +629,7 @@ export function collectCycleData(
         saved: false,
       }
     }
-    if (config.VERBOSE)
-      Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
+    if (config.VERBOSE) Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
 
     if (NodeList.activeListByIdSorted.length === 0) {
       nestedCountersInstance.countEvent('collectCycleData', 'no_active_nodes_direct_process_' + cycle.mode, 1)
@@ -679,9 +658,7 @@ export function collectCycleData(
         .filter(([key]) => key !== 'saved' && key !== 'received')
         .map(([, value]) => value)
 
-      Logger.mainLogger.debug(
-        `collectCycleData: Found ${markers.length} different markers for cycle ${cycle.counter}`
-      )
+      Logger.mainLogger.debug(`collectCycleData: Found ${markers.length} different markers for cycle ${cycle.counter}`)
 
       for (const marker of markers) {
         const scores = []
@@ -2746,9 +2723,7 @@ function validateCerts(
   cycleData: P2PTypes.CycleCreatorTypes.CycleData
 ) {
   nestedCountersInstance.countEvent('validateCerts', 'validation', 1)
-  Logger.mainLogger.debug(
-    `validateCerts: Validating ${certs.length} certificates against marker ${inpMarker}`
-  )
+  Logger.mainLogger.debug(`validateCerts: Validating ${certs.length} certificates against marker ${inpMarker}`)
 
   for (const cert of certs) {
     const cleanCert: P2PTypes.CycleCreatorTypes.CycleCert = {
