@@ -1,6 +1,7 @@
 import { P2P } from '@shardeum-foundation/lib-types'
 import { ArchiverReceipt, Receipt } from '../dbstore/receipts'
 import { accountSpecificHash } from './calculateAccountHash'
+import { config } from '../Config'
 
 // Refer to https://github.com/shardeum/shardeum/blob/89db23e1d4ffb86b4353b8f37fb360ea3cd93c5b/src/shardeum/shardeumTypes.ts#L242
 export interface SetGlobalTxValue {
@@ -58,9 +59,10 @@ export const verifyGlobalTxAccountChange = (
     const signedReceipt = receipt.signedReceipt as P2P.GlobalAccountsTypes.GlobalTxReceipt
     const internalTx = signedReceipt.tx.value as SetGlobalTxValue
 
-    if (internalTx.internalTXType === InternalTXType.InitNetwork) {
+    if (internalTx.internalTXType === InternalTXType.InitNetwork && config.allowInitNetworkReceipts) {
       // Refer to https://github.com/shardeum/shardeum/blob/89db23e1d4ffb86b4353b8f37fb360ea3cd93c5b/src/index.ts#L2334
       // no need to do anything, as it is network account creation
+      config.allowInitNetworkReceipts = false
       return true
     } else if (
       internalTx.internalTXType === InternalTXType.ApplyChangeConfig ||
