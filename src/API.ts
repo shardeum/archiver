@@ -37,6 +37,7 @@ import { CheckpointBucket, CheckpointRadixEntry, CheckpointType } from './checkp
 import { getCheckpointManager } from './checkpoint/Utils'
 import { CheckpointStatusType, isBucketVerified } from './dbstore/checkpointStatus'
 import { ArchiverLogging } from './profiler/archiverLogging'
+import { safeStringify } from '@shardeum-foundation/lib-types/build/src/utils/functions/stringify'
 const { version } = require('../package.json') // eslint-disable-line @typescript-eslint/no-var-requires
 const TXID_LENGTH = 64
 const {
@@ -1200,7 +1201,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
         if (invalidKeys.length > 0)
           throw new Error(`Invalid/Unauthorised config properties provided: ${invalidKeys.join(', ')}`)
 
-        if (config.VERBOSE) Logger.mainLogger.debug('Archiver config update executed: ', JSON.stringify(newConfig))
+        if (config.VERBOSE) Logger.mainLogger.debug('Archiver config update executed: ', safeStringify(newConfig))
 
         const updatedConfig = updateConfig(newConfig)
         reply.send({ success: true, ...updatedConfig, ARCHIVER_SECRET_KEY: '' })
@@ -1846,7 +1847,7 @@ export const queryFromArchivers = async (
       }
     } catch (e) {
       Logger.mainLogger.error(
-        `Error while querying ${randomArchiver.ip}:${randomArchiver.port}${url} for data ${JSON.stringify(queryParameters)}`,
+        `Error while querying ${randomArchiver.ip}:${randomArchiver.port}${url} for data ${safeStringify(queryParameters)}`,
         e
       )
     }

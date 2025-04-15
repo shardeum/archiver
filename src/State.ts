@@ -13,6 +13,7 @@ import { getAdjacentLeftAndRightArchivers } from './Data/GossipData'
 import { closeDatabase } from './dbstore'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
 import { customFetch } from './utils/customHttpFunctions'
+import { safeStringify } from '@shardeum-foundation/lib-types/build/src/utils/functions/stringify'
 
 export interface ArchiverNodeState {
   ip: string
@@ -219,7 +220,7 @@ export async function compareCycleRecordWithOtherArchivers(
   ourCycleRecord: P2PTypes.CycleCreatorTypes.CycleRecord
 ): Promise<boolean> {
   // Remove after testing
-  Logger.mainLogger.debug('[restore-409] activeArchivers: ', JSON.stringify(activeArchivers))
+  Logger.mainLogger.debug('[restore-409] activeArchivers: ', safeStringify(activeArchivers))
   const promises = archivers.map((archiver) =>
     customFetch(`http://${archiver.ip}:${archiver.port}/cycleinfo/1`, {
       method: 'get',
