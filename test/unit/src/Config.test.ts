@@ -86,7 +86,7 @@ describe('Config Module', () => {
           allowCheckpointUpdates: false,
           allowCheckpointStorage: false,
         },
-        batchSize: 1000,
+        batchSize: 100,
         updateInterval: 60000,
         syncInterval: 10000,
         maxCyclesToSync: 100,

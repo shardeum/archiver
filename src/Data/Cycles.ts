@@ -8,6 +8,7 @@ import { profilerInstance } from '../profiler/profiler'
 import { nestedCountersInstance } from '../profiler/nestedCounters'
 import * as cycleDataCache from '../cache/cycleRecordsCache'
 import * as ServiceQueue from '../ServiceQueue'
+import { ArchiverLogging } from '../profiler/archiverLogging'
 
 import {
   clearDataSenders,
@@ -35,6 +36,7 @@ import { queryLatestCycleRecords } from '../dbstore/cycles'
 import { updateGlobalNetworkAccount } from '../GlobalAccount'
 import { syncTxList } from '../sync-v2'
 import { customFetch } from '../utils/customHttpFunctions'
+import { Utils as UtilsTypes } from '@shardeum-foundation/lib-types'
 
 export interface ArchiverCycleResponse {
   cycleInfo: P2PTypes.CycleCreatorTypes.CycleData[]
@@ -140,16 +142,29 @@ export function setLastProcessedMetaDataCounter(value: number): void {
 
 export function changeNetworkMode(newMode: P2PTypes.ModesTypes.Record['mode']): void {
   if (newMode === currentNetworkMode) return
+
+  Logger.mainLogger.info(`Changing network mode from '${currentNetworkMode}' to '${newMode}'`)
+
   // If the network mode is changed from restore to processing, clear the serving validators interval
-  if (currentNetworkMode === 'restore' && newMode === 'processing') clearServingValidatorsInterval()
+  if (currentNetworkMode === 'restore' && newMode === 'processing') {
+    Logger.mainLogger.debug('Clearing serving validators interval when changing from restore to processing mode')
+    clearServingValidatorsInterval()
+  }
+
   if ((currentNetworkMode === 'restart' || currentNetworkMode === 'recovery') && newMode === 'restore') {
+    Logger.mainLogger.debug('Changing node list in restore mode')
     NodeList.changeNodeListInRestore()
+    Logger.mainLogger.debug('Initializing serving validators interval')
     initServingValidatorsInterval()
   }
+
   if (cycleRecordWithShutDownMode && newMode !== 'shutdown') {
+    Logger.mainLogger.debug('Clearing shutdown cycle record as mode is no longer shutdown')
     cycleRecordWithShutDownMode = null
   }
+
   currentNetworkMode = newMode
+  Logger.mainLogger.info(`Network mode successfully changed to '${newMode}'`)
 }
 
 export function computeCycleMarker(fields: P2PTypes.CycleCreatorTypes.CycleRecord): string {
@@ -171,6 +186,8 @@ export function validateCycle(
 export const validateCycleData = (
   cycleRecord: P2PTypes.CycleCreatorTypes.CycleData | subscriptionCycleData
 ): boolean => {
+  Logger.mainLogger.debug('validateCycleData: Validating cycle record', UtilsTypes.safeStringify(cycleRecord))
+
   const err = Utils.validateTypes(cycleRecord, {
     activated: 'a',
     activatedPublicKeys: 'a',
@@ -214,12 +231,24 @@ export const validateCycleData = (
     Logger.mainLogger.error('Invalid Cycle Record', err)
     return false
   }
+
   const cycleRecordWithoutMarker = { ...cycleRecord }
   delete cycleRecordWithoutMarker.marker
-  if (computeCycleMarker(cycleRecordWithoutMarker) !== cycleRecord.marker) {
+
+  const computedMarker = computeCycleMarker(cycleRecordWithoutMarker)
+  Logger.mainLogger.debug(
+    'validateCycleData: Computed marker: ',
+    computedMarker,
+    ' Provided marker: ',
+    cycleRecord.marker
+  )
+
+  if (computedMarker !== cycleRecord.marker) {
     Logger.mainLogger.error('Invalid Cycle Record: cycle marker does not match with the computed marker')
     return false
   }
+
+  Logger.mainLogger.debug('validateCycleData: Cycle record validated successfully')
   return true
 }
 
@@ -375,7 +404,8 @@ async function updateNetworkTxsList(cycle: P2PTypes.CycleCreatorTypes.CycleData)
 
   if (calculatedTxListHash !== cycle.txlisthash) {
     console.error('txList hash from cycle record does not match the calculated txList hash')
-    const syncTxListResult = await syncTxList(NodeList.getActiveList())
+    const operationId = ArchiverLogging.generateOperationId()
+    const syncTxListResult = await syncTxList(NodeList.getActiveList(), operationId)
 
     syncTxListResult.match(
       (txList) => {

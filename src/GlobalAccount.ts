@@ -36,12 +36,34 @@ export function getGlobalNetworkAccount(hash: boolean): object | string {
 export function setGlobalNetworkAccount(account: AccountDB.AccountsCopy): void {
   cachedGlobalNetworkAccount = rfdc()(account)
   cachedGlobalNetworkAccountHash = account.hash
-  // Get the latest change if any
-  allowedArchiversManager.setGlobalAccountConfig(
-    account.data?.listOfChanges?.[account.data?.listOfChanges?.length - 1]?.change?.debug?.multisigKeys,
-    account.data?.listOfChanges?.[account.data?.listOfChanges?.length - 1]?.change?.debug
-      ?.minSigRequiredForArchiverWhitelist
-  )
+
+  // Extract multisig keys and minSigRequired from the most recent changes
+  const changes = account.data?.listOfChanges || []
+  let multisigKeys = null
+  let minSigRequired = null
+
+  // Single reverse loop to find both values
+  for (let i = changes.length - 1; i >= 0; i--) {
+    const change = changes[i]?.change?.debug
+    if (!change) continue
+    if (!multisigKeys && change.multisigKeys) {
+      multisigKeys = change.multisigKeys
+    }
+    if (!minSigRequired && change.minSigRequiredForArchiverWhitelist) {
+      minSigRequired = change.minSigRequiredForArchiverWhitelist
+    }
+    // Exit early if both values are found
+    if (multisigKeys && minSigRequired) break
+  }
+
+  if (config.VERBOSE)
+    Logger.mainLogger.debug(
+      '[restore-409] setGlobalNetworkAccount() - multisigKeys: ',
+      multisigKeys,
+      ', minSigRequired: ',
+      minSigRequired
+    )
+  allowedArchiversManager.setGlobalAccountConfig(multisigKeys, minSigRequired)
 }
 
 interface NetworkConfigChanges {
