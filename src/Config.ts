@@ -134,7 +134,7 @@ export interface Config {
   nerfNonFoundationCertScores: boolean
   formingNetworkCycleThreshold: number // CODE REVIEW WARNING: never allow this to be set more than 30.  we have some trusted execution until this cycle is reached (specifically allowing global tx receipts) - will be refactored to be avoided
   maxResponseSize: number
-  allowInitNetworkReceipts: boolean
+
 }
 
 let config: Config = {
@@ -286,7 +286,6 @@ let config: Config = {
   nerfNonFoundationCertScores: true,
   formingNetworkCycleThreshold: 30,
   maxResponseSize: 15 * 1024 * 1024, // 15MB
-  allowInitNetworkReceipts: true,
 }
 // Override default config params from config file, env vars, and cli args
 export async function overrideDefaultConfig(file: string): Promise<void> {

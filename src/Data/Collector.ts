@@ -629,7 +629,7 @@ export const verifyArchiverReceipt = async (
       }
     }
     if (config.verifyAccountData) {
-      const result = verifyAccountHash(receipt, failedReasons, nestedCounterMessages)
+      const result = await verifyAccountHash(receipt, failedReasons, nestedCounterMessages)
       if (!result) {
         failedReasons.push(`Invalid receipt: Account Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`)
         nestedCounterMessages.push('Invalid_receipt_account_verification_failed')

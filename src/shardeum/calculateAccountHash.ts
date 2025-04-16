@@ -3,6 +3,7 @@ import { ArchiverReceipt, SignedReceipt, Receipt } from '../dbstore/receipts'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 import { verifyGlobalTxAccountChange } from './verifyGlobalTxReceipt'
+import * as ReceiptDB from '../dbstore/receipts'
 
 // account types in Shardeum
 export enum AccountType {
@@ -60,11 +61,11 @@ export const accountSpecificHash = (account: any): string => {
   return hash
 }
 
-export const verifyAccountHash = (
+export const verifyAccountHash = async(
   receipt: ArchiverReceipt | Receipt,
   failedReasons = [],
   nestedCounterMessages = []
-): boolean => {
+): Promise<boolean> => {
   try {
     let globalReceiptValidationErrors // This is used to store the validation errors of the globalTxReceipt
     try {
@@ -80,7 +81,7 @@ export const verifyAccountHash = (
       return false
     }
     if (!globalReceiptValidationErrors) {
-      const result = verifyGlobalTxAccountChange(receipt, failedReasons, nestedCounterMessages)
+      const result =  await verifyGlobalTxAccountChange(receipt, failedReasons, nestedCounterMessages)
       if (!result) return false
       return true
     }
