@@ -1,450 +1,399 @@
-import { P2P } from '@shardeum-foundation/lib-types'
-import { Receipt, SignedReceipt } from '../../../../src/dbstore/receipts'
-import { InternalTXType, verifyGlobalTxAccountChange } from '../../../../src/shardeum/verifyGlobalTxReceipt'
+import { describe, expect, it, beforeEach, jest } from '@jest/globals'
+import {
+  verifyGlobalTxAccountChange,
+  InternalTXType,
+  SetGlobalTxValue,
+} from '../../../../src/shardeum/verifyGlobalTxReceipt'
 import { accountSpecificHash } from '../../../../src/shardeum/calculateAccountHash'
+import { ArchiverReceipt, queryInitNetworkReceiptCountBetweenCycles } from '../../../../src/dbstore/receipts'
+import { GlobalTxReceipt } from '@shardeum-foundation/lib-types/build/src/p2p/GlobalAccountsTypes'
+
+// Mock the queryInitNetworkReceiptCountBetweenCycles function
+jest.mock('../../../../src/dbstore/receipts', () => ({
+  queryInitNetworkReceiptCountBetweenCycles: jest.fn(),
+}))
+
+// Mock the accountSpecificHash function
+jest.mock('../../../../src/shardeum/calculateAccountHash', () => ({
+  accountSpecificHash: jest.fn(),
+}))
+
 describe('verifyGlobalTxAccountChange', () => {
-  let mockReceipt: Receipt
-  let failedReasons: string[] = []
-  let nestedCounterMessages: string[] = []
+  // Common variables used across tests
+  let mockReceipt: ArchiverReceipt
+  let failedReasons: string[]
+  let nestedCounterMessages: string[]
+
   beforeEach(() => {
-    mockReceipt = {
-      receiptId: 'ad84863faee5bc2ad64cf490dfd6d275143d376b4925c8f00a2b3d6020768e85',
-      tx: {
-        originalTxData: {
-          tx: {
-            change: {
-              change: {
-                p2p: {
-                  minNodes: 7,
-                },
-              },
-              cycle: 23,
-            },
-            from: 'fromacc',
-            internalTXType: 4,
-            isInternalTx: true,
-            network: '1000000000000000000000000000000000000000000000000000000000000001',
-            timestamp: 1730101530472,
-          },
-        },
-        timestamp: 1730101530472,
-        txId: 'ad84863faee5bc2ad64cf490dfd6d275143d376b4925c8f00a2b3d6020768e85',
-      },
-      cycle: 20,
-      applyTimestamp: 1730101530472,
-      timestamp: 1730101530472,
-      signedReceipt: {
-        signs: [
-          {
-            owner: 'ed4aaf1a342740954d15cb8da44258a24751a0be9e318d9ff3284d98685fefa6',
-            sig: '8cec63f94d530b083dd3bbab6d4a190485e28a6f34c194de376de19d01c7fc16a1b65621692ddf60902126587b18897ab3e9f80a9bc3eee70b41933e56b5f10d55f84ac01d3d1d9aa03e05a69041c0959aaa64ef8cb5badbadf976656f2441ac',
-          },
-        ],
-        tx: {
-          address: '1000000000000000000000000000000000000000000000000000000000000001',
-          addressHash: 'bde86cbbd114082ab47894b39813b10ec0695ae56a154d598b089f273faae398',
-          source: 'fromacc',
-          value: {
-            change: {
-              change: {
-                p2p: {
-                  minNodes: 7,
-                },
-              },
-              cycle: 23,
-            },
-            from: 'fromacc',
-            internalTXType: 4,
-            isInternalTx: true,
-            network: '1000000000000000000000000000000000000000000000000000000000000001',
-            timestamp: 1730101530472,
-          },
-          when: 1730101530472,
-        },
-      } as SignedReceipt | P2P.GlobalAccountsTypes.GlobalTxReceipt,
-      afterStates: [
-        {
-          accountId: '1000000000000000000000000000000000000000000000000000000000000001',
-          data: {
-            accountType: 5,
-            current: {
-              activeVersion: '1.14.2',
-              archiver: {
-                activeVersion: '3.5.6',
-                latestVersion: '3.5.6',
-                minVersion: '3.5.6',
-              },
-              title: 'Initial parameters',
-              txPause: false,
-            },
-            hash: 'dcf777471e2b171edeb0fb4b4fc76a2a5124f52bdd8d76f9db3b2791b831e199',
-            id: '1000000000000000000000000000000000000000000000000000000000000001',
-            listOfChanges: [
-              {
-                change: {
-                  crypto: {
-                    hashKey: '69fa4195670576c0160d660c3be36556ff8d504725be8a59b5a96509e0c994bc',
-                    keyPairConfig: {
-                      keyPairJsonFile: 'secrets.json',
-                      useKeyPairFromFile: true,
-                    },
-                  },
-                  debug: {
-                    beforeStateFailChance: 0,
-                    canDataRepair: false,
-                    useShardusMemoryPatterns: true,
-                    voteFlipChance: 0,
-                  },
-                  features: {
-                    startInServiceMode: false,
-                  },
-                  globalAccount: '1000000000000000000000000000000000000000000000000000000000000001',
-                  heartbeatInterval: 5,
-                  loadDetection: {
-                    queueLimit: 320,
-                  },
-                  network: {
-                    timeout: 5,
-                  },
-                  nonceMode: true,
-                  p2p: {
-                    writeSyncProtocolV2: true,
-                  },
-                  transactionExpireTime: 5,
-                },
-                cycle: 1,
-              },
-              {
-                change: {
-                  p2p: {
-                    minNodes: 7,
-                  },
-                },
-                cycle: 23,
-              },
-            ],
-            mode: 'debug',
-            next: {},
-            timestamp: 1730101530472,
-          },
-          hash: 'dcf777471e2b171edeb0fb4b4fc76a2a5124f52bdd8d76f9db3b2791b831e199',
-          isGlobal: true,
-          timestamp: 1730101530472,
-        },
-      ],
-      beforeStates: [
-        {
-          accountId: '1000000000000000000000000000000000000000000000000000000000000001',
-          data: {
-            accountType: 5,
-            current: {
-              activeVersion: '1.14.2',
-              archiver: {
-                activeVersion: '3.5.6',
-                latestVersion: '3.5.6',
-                minVersion: '3.5.6',
-              },
-              title: 'Initial parameters',
-              txPause: false,
-            },
-            hash: 'dcf777471e2b171edeb0fb4b4fc76a2a5124f52bdd8d76f9db3b2791b831e199',
-            id: '1000000000000000000000000000000000000000000000000000000000000001',
-            listOfChanges: [
-              {
-                change: {
-                  crypto: {
-                    hashKey: '69fa4195670576c0160d660c3be36556ff8d504725be8a59b5a96509e0c994bc',
-                    keyPairConfig: {
-                      keyPairJsonFile: 'secrets.json',
-                      useKeyPairFromFile: true,
-                    },
-                  },
-                  debug: {
-                    beforeStateFailChance: 0,
-                    canDataRepair: false,
-                    useShardusMemoryPatterns: true,
-                    voteFlipChance: 0,
-                  },
-                  features: {
-                    startInServiceMode: false,
-                  },
-                  globalAccount: '1000000000000000000000000000000000000000000000000000000000000001',
-                  heartbeatInterval: 5,
-                  loadDetection: {
-                    queueLimit: 320,
-                  },
-                  network: {
-                    timeout: 5,
-                  },
-                  nonceMode: true,
-                  p2p: {
-                    writeSyncProtocolV2: true,
-                  },
-                  transactionExpireTime: 5,
-                },
-                cycle: 1,
-              },
-              {
-                change: {
-                  p2p: {
-                    minNodes: 7,
-                  },
-                },
-                cycle: 23,
-              },
-            ],
-            mode: 'debug',
-            next: {},
-            timestamp: 1730101530472,
-          },
-          hash: 'bde86cbbd114082ab47894b39813b10ec0695ae56a154d598b089f273faae398',
-          isGlobal: false,
-          timestamp: 1730100436585,
-        },
-      ],
-      appReceiptData: {
-        accountId: 'ad84863faee5bc2ad64cf490dfd6d275143d376b4925c8f00a2b3d6020768e85',
-        data: {
-          accountType: 12,
-          amountSpent: '0x0',
-          hash: '344fd275ba5fa8460a8164168725bd61f2b27dbf7f0a6e38434b3e9f35f39258',
-          readableReceipt: {
-            blockHash: '0x42b9f1e93e51007a9d8d41a0decd42c2f77eaff52192f6360c7d408233aa161c',
-            blockNumber: '0xd8',
-            contractAddress: null,
-            cumulativeGasUsed: '0x0',
-            data: '0x0',
-            from: 'fromacc',
-            gasRefund: '0x0',
-            gasUsed: '0x0',
-            internalTx: {
-              change: {
-                change: {
-                  p2p: {
-                    minNodes: 7,
-                  },
-                },
-                cycle: 23,
-              },
-              from: 'fromacc',
-              internalTXType: 4,
-              isInternalTx: true,
-              network: '1000000000000000000000000000000000000000000000000000000000000001',
-              sign: null,
-              timestamp: 1730101530472,
-            },
-            isInternalTx: true,
-            logs: [],
-            logsBloom: '',
-            nonce: '0x0',
-            status: 1,
-            to: '1000000000000000000000000000000000000000000000000000000000000001',
-            transactionHash: '0xad84863faee5bc2ad64cf490dfd6d275143d376b4925c8f00a2b3d6020768e85',
-            transactionIndex: '0x1',
-            value: '0x0',
-          },
-          receipt: null,
-          timestamp: 1730101530472,
-          txFrom: 'fromacc',
-          txId: 'ad84863faee5bc2ad64cf490dfd6d275143d376b4925c8f00a2b3d6020768e85',
-        },
-        stateId: '344fd275ba5fa8460a8164168725bd61f2b27dbf7f0a6e38434b3e9f35f39258',
-        timestamp: 1730101530472,
-      },
-      globalModification: true,
-    }
+    // Reset all mocks
+    jest.clearAllMocks()
+
+    // Reset arrays used for collecting error messages
     failedReasons = []
     nestedCounterMessages = []
+
+    // Setup base mock receipt that will be modified for specific tests
+    mockReceipt = {
+      signedReceipt: {
+        tx: {
+          value: {} as SetGlobalTxValue,
+          address: 'test-address',
+          addressHash: 'test-address-hash',
+          afterStateHash: 'test-after-state-hash',
+          txId: 'test-tx-id',
+        },
+      } as unknown as GlobalTxReceipt,
+      beforeStates: [],
+      afterStates: [],
+      tx: {
+        txId: 'test-tx-id',
+        timestamp: 123456789,
+      },
+      cycle: 5,
+    } as unknown as ArchiverReceipt
   })
 
-  it('should return true for InitNetwork internalTXType', async() => {
-    if ('tx' in mockReceipt.signedReceipt) {
-      const txValue = mockReceipt.signedReceipt.tx.value as { internalTXType: InternalTXType }
-      txValue.internalTXType = InternalTXType.InitNetwork
-      mockReceipt.signedReceipt.tx.value = txValue
-    }
+  describe('ApplyChangeConfig and ApplyNetworkParam transaction types', () => {
+    beforeEach(() => {
+      // Default account hash calculation mock
+      ;(accountSpecificHash as jest.Mock).mockImplementation((data: any) => {
+        return data?.hash || 'calculated-hash'
+      })
+    })
 
-    const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+    it('should verify account hash for ApplyChangeConfig transaction with matching hashes', async () => {
+      // Arrange
+      ;(mockReceipt.signedReceipt as any).tx.value = {
+        internalTXType: InternalTXType.ApplyChangeConfig,
+        isInternalTx: true,
+        timestamp: 123456789,
+        from: 'test-from',
+        change: { cycle: 1, change: {} },
+      } as SetGlobalTxValue
 
-    expect(result).toBe(true)
-    expect(failedReasons).toHaveLength(0)
-    expect(nestedCounterMessages).toHaveLength(0)
-  })
-
-  it('should return false if unexpected account found in beforeStates', async() => {
-    if ('tx' in mockReceipt.signedReceipt) {
-      const txValue = mockReceipt.signedReceipt.tx.value as { internalTXType: InternalTXType }
-      txValue.internalTXType = InternalTXType.ApplyChangeConfig
-      mockReceipt.signedReceipt.tx.value = txValue
-      mockReceipt.signedReceipt.tx.address = 'testAddress'
-      mockReceipt.signedReceipt.tx.addressHash = 'testHash'
-      mockReceipt.beforeStates = [{ accountId: 'unexpectedAddress', data: {}, timestamp: 0, hash: '', isGlobal: false }]
-      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
-
-      expect(result).toBe(false)
-      expect(failedReasons).toContain(
-        `Unexpected account found in before accounts ${mockReceipt.tx.txId} , ${mockReceipt.cycle} , ${mockReceipt.tx.timestamp}`
-      )
-      expect(nestedCounterMessages).toContain('Unexpected account found in before accounts')
-    }
-  })
-
-  it('should return false if account hash mismatch in beforeStates', async() => {
-    // Mock the accountSpecificHash function before modifying mockReceipt
-    jest
-      .spyOn(require('../../../../src/shardeum/calculateAccountHash'), 'accountSpecificHash')
-      .mockReturnValue('wrongHash')
-
-    // Modify mockReceipt for this test case
-    if ('tx' in mockReceipt.signedReceipt) {
-      const txValue = mockReceipt.signedReceipt.tx.value as { internalTXType: InternalTXType }
-      txValue.internalTXType = InternalTXType.ApplyChangeConfig
-      mockReceipt.signedReceipt.tx.value = txValue
-      mockReceipt.signedReceipt.tx.address = 'testAddress'
-      mockReceipt.signedReceipt.tx.addressHash = 'testHash'
-      const beforeStateData = { someData: 'test' }
-      const beforeStateTimestamp = 1730101530472
       mockReceipt.beforeStates = [
         {
-          accountId: 'testAddress',
-          data: beforeStateData,
-          timestamp: beforeStateTimestamp,
-          hash: 'actualHash',
+          accountId: 'test-address',
+          data: { hash: 'test-address-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
           isGlobal: false,
-        },
+        } as any,
       ]
 
-      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+      mockReceipt.afterStates = [
+        {
+          accountId: 'test-address',
+          data: { hash: 'test-after-state-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
+          isGlobal: false,
+        } as any,
+      ] as any
 
+      // Act
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons as any, nestedCounterMessages as any)
+
+      // Assert
+      expect(result).toBe(true)
+      expect(accountSpecificHash).toHaveBeenCalledTimes(2)
+      expect(failedReasons).toHaveLength(0)
+      expect(nestedCounterMessages).toHaveLength(0)
+    })
+
+    it('should verify account hash for ApplyNetworkParam transaction with matching hashes', async () => {
+      // Arrange
+      ;(mockReceipt.signedReceipt as any).tx.value = {
+        internalTXType: InternalTXType.ApplyNetworkParam,
+        isInternalTx: true,
+        timestamp: 123456789,
+        from: 'test-from',
+        change: { cycle: 1, change: {} },
+      } as SetGlobalTxValue
+
+      mockReceipt.beforeStates = [
+        {
+          accountId: 'test-address',
+          data: { hash: 'test-address-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
+          isGlobal: false,
+        } as any,
+      ]
+
+      mockReceipt.afterStates = [
+        {
+          accountId: 'test-address',
+          data: { hash: 'test-after-state-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
+          isGlobal: false,
+        } as any,
+      ] as any
+
+      // Act
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons as any, nestedCounterMessages as any)
+
+      // Assert
+      expect(result).toBe(true)
+      expect(accountSpecificHash).toHaveBeenCalledTimes(2)
+      expect(failedReasons).toHaveLength(0)
+      expect(nestedCounterMessages).toHaveLength(0)
+    })
+
+    it('should return false if beforeStates account ID does not match tx address', async () => {
+      // Arrange
+      ;(mockReceipt.signedReceipt as any).tx.value = {
+        internalTXType: InternalTXType.ApplyChangeConfig,
+        isInternalTx: true,
+        timestamp: 123456789,
+        from: 'test-from',
+        change: { cycle: 1, change: {} },
+      } as SetGlobalTxValue
+
+      mockReceipt.beforeStates = [
+        {
+          accountId: 'wrong-address',
+          data: { hash: 'test-address-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
+          isGlobal: false,
+        } as any,
+      ]
+
+      // Act
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons as any, nestedCounterMessages as any)
+
+      // Assert
       expect(result).toBe(false)
-      expect(failedReasons).toContain(
-        `Account hash before does not match in globalModification tx - testAddress , ${mockReceipt.tx.txId} , ${mockReceipt.cycle} , ${mockReceipt.tx.timestamp}`
-      )
-      expect(nestedCounterMessages).toContain('Account hash before does not match in globalModification tx')
+      expect(failedReasons).toHaveLength(1)
+      expect(failedReasons[0]).toContain('Unexpected account found in before accounts')
+      expect(nestedCounterMessages).toContain('Unexpected account found in before accounts')
+    })
 
-      // Verify accountSpecificHash was called with correct parameters
-      expect(accountSpecificHash).toHaveBeenCalledWith(beforeStateData)
-    }
+    it('should return false if afterStates account ID does not match tx address', async () => {
+      // Arrange
+      ;(mockReceipt.signedReceipt as any).tx.value = {
+        internalTXType: InternalTXType.ApplyChangeConfig,
+        isInternalTx: true,
+        timestamp: 123456789,
+        from: 'test-from',
+        change: { cycle: 1, change: {} },
+      } as SetGlobalTxValue
 
-    // Clean up mock
-    jest.restoreAllMocks()
-  })
+      mockReceipt.beforeStates = [
+        {
+          accountId: 'test-address',
+          data: { hash: 'test-address-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
+          isGlobal: false,
+        } as any,
+      ]
 
-  it('should return false and add appropriate error messages', async() => {
-    // Mock the accountSpecificHash function to return a different hash
-    jest
-      .spyOn(require('../../../../src/shardeum/calculateAccountHash'), 'accountSpecificHash')
-      .mockReturnValue('wrongHash')
+      mockReceipt.afterStates = [
+        {
+          accountId: 'wrong-address',
+          data: { hash: 'test-after-state-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
+          isGlobal: false,
+        } as any,
+      ] as any
 
-    // Execute the function
-    const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+      // Mock accountSpecificHash to return the expected hashes
+      ;(accountSpecificHash as jest.Mock).mockImplementation((data: any) => {
+        if (data?.hash === 'test-address-hash') return 'test-address-hash'
+        if (data?.hash === 'test-after-state-hash') return 'test-after-state-hash'
+        return 'unexpected-hash'
+      })
 
-    // Verify the result is false
-    expect(result).toBe(false)
+      // Act
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons as any, nestedCounterMessages as any)
 
-    // Verify error message was added to failedReasons
-    const expectedError = `Account hash before does not match in globalModification tx - ${mockReceipt.beforeStates[0].accountId} , ${mockReceipt.tx.txId} , ${mockReceipt.cycle} , ${mockReceipt.tx.timestamp}`
-    expect(failedReasons).toContain(expectedError)
+      // Assert
+      expect(result).toBe(false)
+      expect(failedReasons).toHaveLength(1)
+      expect(failedReasons[0]).toContain('Unexpected account found in accounts')
+      expect(nestedCounterMessages).toContain('Unexpected account found in accounts')
+    })
 
-    // Verify counter message was added
-    expect(nestedCounterMessages).toContain('Account hash before does not match in globalModification tx')
+    it('should return false if afterStates account hash does not match', async () => {
+      // Arrange
+      ;(mockReceipt.signedReceipt as any).tx.value = {
+        internalTXType: InternalTXType.ApplyChangeConfig,
+        isInternalTx: true,
+        timestamp: 123456789,
+        from: 'test-from',
+        change: { cycle: 1, change: {} },
+      } as SetGlobalTxValue
 
-    // Verify accountSpecificHash was called with correct parameters
-    expect(accountSpecificHash).toHaveBeenCalledWith(mockReceipt.beforeStates[0].data)
-  })
+      mockReceipt.beforeStates = [
+        {
+          accountId: 'test-address',
+          data: { hash: 'test-address-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
+          isGlobal: false,
+        } as any,
+      ]
 
-  afterEach(() => {
-    // Clean up mocks
-    jest.restoreAllMocks()
-  })
+      mockReceipt.afterStates = [
+        {
+          accountId: 'test-address',
+          data: { hash: 'wrong-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
+          isGlobal: false,
+        } as any,
+      ] as any
 
-  it('should return false if no network account found in beforeStates', async() => {
-    if ('tx' in mockReceipt.signedReceipt) {
-      // Setup the transaction type
-      const txValue = mockReceipt.signedReceipt.tx.value as { internalTXType: InternalTXType }
-      txValue.internalTXType = InternalTXType.ApplyChangeConfig
-      mockReceipt.signedReceipt.tx.address = 'networkAccountId'
-      mockReceipt.signedReceipt.tx.addressHash = ''
+      // Mock accountSpecificHash to return expected hash for beforeStates but wrong hash for afterStates
+      ;(accountSpecificHash as jest.Mock).mockImplementation((data: any) => {
+        if (data?.hash === 'test-address-hash') return 'test-address-hash'
+        return 'wrong-calculated-hash'
+      })
 
-      // Empty beforeStates to simulate missing network account
+      // Act
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons as any, nestedCounterMessages as any)
+
+      // Assert
+      expect(result).toBe(false)
+      expect(failedReasons).toHaveLength(1)
+      expect(failedReasons[0]).toContain('Account afterStateHash does not match in globalModification tx')
+      expect(nestedCounterMessages).toContain('Account afterStateHash does not match in globalModification tx')
+    })
+
+    it('should return false if network account is not found in before or after states', async () => {
+      // Arrange
+      ;(mockReceipt.signedReceipt as any).tx.value = {
+        internalTXType: InternalTXType.ApplyChangeConfig,
+        isInternalTx: true,
+        timestamp: 123456789,
+        from: 'test-from',
+        change: { cycle: 1, change: {} },
+      } as SetGlobalTxValue
+
+      // Empty beforeStates will cause network account not found error
       mockReceipt.beforeStates = []
       mockReceipt.afterStates = [
         {
-          accountId: 'networkAccountId',
-          data: {},
-          hash: 'hash',
-          timestamp: 0,
-          isGlobal: true,
-        },
-      ]
+          accountId: 'test-address',
+          data: { hash: 'test-after-state-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
+          isGlobal: false,
+        } as any,
+      ] as any
 
-      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+      // Act
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons as any, nestedCounterMessages as any)
 
+      // Assert
       expect(result).toBe(false)
-      expect(failedReasons).toContain(
-        `Network account Before or After states not found ${mockReceipt.tx.txId} , ${mockReceipt.cycle} , ${mockReceipt.tx.timestamp}`
-      )
+      expect(failedReasons).toHaveLength(1)
+      expect(failedReasons[0]).toContain('Network account Before or After states not found')
       expect(nestedCounterMessages).toContain('Network account Before or After states not found')
-    }
+    })
   })
-  //new
-  it('should return false if unexpected account found in afterStates', async() => {
-    if ('tx' in mockReceipt.signedReceipt) {
-      const txValue = mockReceipt.signedReceipt.tx.value as { internalTXType: InternalTXType }
-      txValue.internalTXType = InternalTXType.ApplyChangeConfig
-      mockReceipt.signedReceipt.tx.value = txValue
-      mockReceipt.signedReceipt.tx.address = 'testAddress'
-      mockReceipt.signedReceipt.tx.addressHash = 'testHash'
 
-      // Set valid beforeStates
+  describe('Other transaction types', () => {
+    it('should return false for unsupported transaction types', async () => {
+      // Arrange
+      ;(mockReceipt.signedReceipt as any).tx.value = {
+        internalTXType: InternalTXType.NodeReward, // Unsupported type
+        isInternalTx: true,
+        timestamp: 123456789,
+        from: 'test-from',
+        change: { cycle: 1, change: {} },
+      } as SetGlobalTxValue
+
+      // Act
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons as any, nestedCounterMessages as any)
+
+      // Assert
+      expect(result).toBe(false)
+      expect(failedReasons).toHaveLength(1)
+      expect(failedReasons[0]).toContain('Unexpected internal transaction type in the globalModification tx')
+      expect(nestedCounterMessages).toContain('Unexpected internal transaction type in the globalModification tx')
+    })
+  })
+
+  describe('Error handling', () => {
+    it('should return false and add error message if an exception occurs', async () => {
+      // Arrange
+      // Create a receipt that will cause an error
+      const badReceipt = {
+        signedReceipt: null, // This will cause an error when code tries to access properties
+        tx: {
+          txId: 'test-tx-id',
+          timestamp: 123456789,
+        },
+        cycle: 5,
+      } as unknown as ArchiverReceipt
+
+      // Mock console.error to prevent actual console output in tests
+      const originalConsoleError = console.error
+      console.error = jest.fn()
+
+      // Act
+      const result = await verifyGlobalTxAccountChange(badReceipt, failedReasons as any, nestedCounterMessages as any)
+
+      // Assert
+      expect(result).toBe(false)
+      expect(failedReasons).toHaveLength(1)
+      expect(failedReasons[0]).toContain('Error while verifying global account change')
+      expect(nestedCounterMessages).toContain('Error while verifying global account change')
+      expect(console.error).toHaveBeenCalled()
+
+      // Restore console.error
+      console.error = originalConsoleError
+    })
+  })
+
+  describe('Empty addressHash scenarios', () => {
+    it('should skip before state hash verification when addressHash is empty', async () => {
+      // Arrange
+      ;(mockReceipt.signedReceipt as any).tx.value = {
+        internalTXType: InternalTXType.ApplyChangeConfig,
+        isInternalTx: true,
+        timestamp: 123456789,
+        from: 'test-from',
+        change: { cycle: 1, change: {} },
+      } as SetGlobalTxValue
+
+      // Set addressHash to empty string to skip validation
+      ;(mockReceipt.signedReceipt as any).tx.addressHash = ''
+
       mockReceipt.beforeStates = [
         {
-          accountId: mockReceipt.signedReceipt.tx.address,
-          data: {},
-          timestamp: mockReceipt.tx.timestamp,
-          hash: 'testHash',
+          accountId: 'test-address',
+          data: { hash: 'test-address-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
           isGlobal: false,
-        },
+        } as any,
       ]
 
-      // Set invalid afterStates
       mockReceipt.afterStates = [
         {
-          accountId: 'unexpectedAddress',
-          data: {},
-          timestamp: 0,
-          hash: '',
+          accountId: 'test-address',
+          data: { hash: 'test-after-state-hash' },
+          timestamp: 123456789,
+          hash: 'account-hash',
           isGlobal: false,
-        },
-      ]
+        } as any,
+      ] as any
 
-      // Mock accountSpecificHash to return the expected hash
-      jest
-        .spyOn(require('../../../../src/shardeum/calculateAccountHash'), 'accountSpecificHash')
-        .mockReturnValue('testHash')
+      // Act
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons as any, nestedCounterMessages as any)
 
-      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
-
-      expect(result).toBe(false)
-      expect(failedReasons).toContain(
-        `Unexpected account found in accounts ${mockReceipt.tx.txId} , ${mockReceipt.cycle} , ${mockReceipt.tx.timestamp}`
-      )
-      expect(nestedCounterMessages).toContain('Unexpected account found in accounts')
-    }
-  })
-
-  it('should return false for invalid internalTXType', async() => {
-    if ('tx' in mockReceipt.signedReceipt) {
-      const txValue = mockReceipt.signedReceipt.tx.value as { internalTXType: InternalTXType }
-      txValue.internalTXType = 999 as InternalTXType // Invalid type
-      mockReceipt.signedReceipt.tx.value = txValue
-
-      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
-
-      expect(result).toBe(false)
-      expect(failedReasons).toContain(
-        `Unexpected internal transaction type in the globalModification tx ${mockReceipt.tx.txId} , ${mockReceipt.cycle} , ${mockReceipt.tx.timestamp}`
-      )
-    }
+      // Assert
+      expect(result).toBe(true)
+      // accountSpecificHash should only be called once for the afterStates check, not for beforeStates
+      expect(accountSpecificHash).toHaveBeenCalledTimes(1)
+      expect(failedReasons).toHaveLength(0)
+      expect(nestedCounterMessages).toHaveLength(0)
+    })
   })
 })
