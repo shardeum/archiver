@@ -8,7 +8,7 @@ export let cachedCycleRecords: P2P.CycleCreatorTypes.CycleData[] = []
 const signedCacheCycleRecords: Map<number, ArchiverCycleResponse> = new Map()
 let lastCacheUpdateFromDBRunning = false
 
-async function updateCacheFromDB(): Promise<void> {
+export async function updateCacheFromDB(): Promise<void> {
   if (lastCacheUpdateFromDBRunning) {
     return
   }
