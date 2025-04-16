@@ -377,8 +377,10 @@ describe('calculateAccountHash', () => {
 
       // THEN it should capture the exception and fail
       expect(result).toBe(false)
-      expect(failedReasons[0]).toContain('Error in verifyAccountHash')
-      expect(nestedCounterMessages[0]).toContain('Error in verifyAccountHash')
+      let errorString =
+        "Error while verifying non global account change test-tx-id , 1 , 12345, TypeError: Cannot destructure property 'accountIDs' of 'signedReceipt.proposal' as it is undefined."
+      expect(failedReasons[0]).toContain(errorString)
+      expect(nestedCounterMessages[0]).toContain('Error while verifying non global account change')
     })
   })
 })
