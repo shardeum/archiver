@@ -371,6 +371,46 @@ export async function queryReceiptsBetweenCycles(
   return receipts
 }
 
+export async function queryInitNetworkReceiptCountBetweenCycles(
+  startCycleNumber: number,
+  endCycleNumber: number
+): Promise<number> {
+  let count = 0
+  try {
+    const sql = `
+      SELECT * FROM receipts
+      WHERE cycle BETWEEN ? AND ?
+    `
+    const dbReceipts = (await db.all(receiptDatabase, sql, [startCycleNumber, endCycleNumber])) as DbReceipt[]
+
+    const filtered = dbReceipts.filter((receipt: DbReceipt) => {
+      deserializeDbReceipt(receipt)
+
+      // Inline type for safely accessing internalTXType
+      const tx = receipt.tx as {
+        originalTxData?: {
+          tx?: {
+            internalTXType?: number
+          }
+        }
+      }
+
+      return tx?.originalTxData?.tx?.internalTXType === 1
+    })
+
+    count = filtered.length
+  } catch (e) {
+    console.error('Error counting initNetwork receipts:', e)
+  }
+
+  if (config.VERBOSE) {
+    Logger.mainLogger.debug('InitNetwork receipt count between cycles:', count)
+  }
+
+  return count
+}
+
+
 function deserializeDbReceipt(receipt: DbReceipt): void {
   if (receipt.tx) receipt.tx = DeSerializeFromJsonString(receipt.tx)
   if (receipt.beforeStates) receipt.beforeStates = DeSerializeFromJsonString(receipt.beforeStates)

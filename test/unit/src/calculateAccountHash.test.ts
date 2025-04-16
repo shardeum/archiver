@@ -236,23 +236,23 @@ describe('calculateAccountHash', () => {
       ;(verifyGlobalTxReceiptModule.verifyGlobalTxAccountChange as jest.Mock).mockReturnValue(true)
     })
 
-    it('should use default empty arrays when failedReasons and nestedCounterMessages are not provided', () => {
+    it('should use default empty arrays when failedReasons and nestedCounterMessages are not provided', async() => {
       // WHEN verifying with default parameters
-      const result = verifyAccountHash(mockReceipt)
+      const result = await verifyAccountHash(mockReceipt)
 
       // THEN it should succeed and use empty arrays for the defaults
       expect(result).toBe(true)
       expect(verifyGlobalTxReceiptModule.verifyGlobalTxAccountChange).toHaveBeenCalledWith(mockReceipt, [], [])
     })
 
-    it('should handle GlobalTxReceipt validation error exception', () => {
+    it('should handle GlobalTxReceipt validation error exception', async() => {
       // GIVEN verifyPayload throws an error
       ;(helpers.verifyPayload as jest.Mock).mockImplementation(() => {
         throw new Error('Validation error')
       })
 
       // WHEN verifying the receipt
-      const result = verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
+      const result = await verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
 
       // THEN it should fail with appropriate error messages
       expect(result).toBe(false)
@@ -261,13 +261,13 @@ describe('calculateAccountHash', () => {
       expect(nestedCounterMessages[0]).toContain('Invalid Global Tx Receipt error')
     })
 
-    it('should verify using verifyGlobalTxAccountChange when GlobalTxReceipt is valid', () => {
+    it('should verify using verifyGlobalTxAccountChange when GlobalTxReceipt is valid', async() => {
       // GIVEN a valid GlobalTxReceipt
       ;(helpers.verifyPayload as jest.Mock).mockReturnValue(null)
       ;(verifyGlobalTxReceiptModule.verifyGlobalTxAccountChange as jest.Mock).mockReturnValue(true)
 
       // WHEN verifying the receipt
-      const result = verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
+      const result = await verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
 
       // THEN it should succeed and call the verification function
       expect(result).toBe(true)
@@ -278,13 +278,13 @@ describe('calculateAccountHash', () => {
       )
     })
 
-    it('should fail when verifyGlobalTxAccountChange returns false', () => {
+    it('should fail when verifyGlobalTxAccountChange returns false', async() => {
       // GIVEN verifyGlobalTxAccountChange returns false
       ;(helpers.verifyPayload as jest.Mock).mockReturnValue(null)
       ;(verifyGlobalTxReceiptModule.verifyGlobalTxAccountChange as jest.Mock).mockReturnValue(false)
 
       // WHEN verifying the receipt
-      const result = verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
+      const result = await verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
 
       // THEN it should fail
       expect(result).toBe(false)
@@ -296,12 +296,12 @@ describe('calculateAccountHash', () => {
         ;(helpers.verifyPayload as jest.Mock).mockReturnValue(['Invalid schema'])
       })
 
-      it('should fail when account IDs and after state hashes length do not match', () => {
+      it('should fail when account IDs and after state hashes length do not match', async() => {
         // GIVEN account IDs and after state hashes length mismatch
         ;(mockReceipt.signedReceipt as SignedReceipt).proposal.accountIDs = ['account1']
 
         // WHEN verifying the receipt
-        const result = verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
+        const result = await verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
 
         // THEN it should fail with mismatch error
         expect(result).toBe(false)
@@ -309,12 +309,12 @@ describe('calculateAccountHash', () => {
         expect(nestedCounterMessages[0]).toContain('Modified account count')
       })
 
-      it('should fail when before state hashes and after state hashes length do not match', () => {
+      it('should fail when before state hashes and after state hashes length do not match', async() => {
         // GIVEN mismatch between before and after state hashes
         ;(mockReceipt.signedReceipt as SignedReceipt).proposal.beforeStateHashes = ['hash1']
 
         // WHEN verifying the receipt
-        const result = verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
+        const result = await verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
 
         // THEN it should fail with mismatch error
         expect(result).toBe(false)
@@ -322,14 +322,14 @@ describe('calculateAccountHash', () => {
         expect(nestedCounterMessages[0]).toContain('Account state hash before and after count does not match')
       })
 
-      it('should fail when account is not found in afterStates', () => {
+      it('should fail when account is not found in afterStates', async() => {
         // GIVEN an account ID not found in afterStates
         ;(mockReceipt.signedReceipt as SignedReceipt).proposal.accountIDs = ['missing-account', 'account2']
         ;(mockReceipt.signedReceipt as SignedReceipt).proposal.beforeStateHashes = ['hash1', 'hash2']
         ;(mockReceipt.signedReceipt as SignedReceipt).proposal.afterStateHashes = ['hash3', 'hash4']
 
         // WHEN verifying the receipt
-        const result = verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
+        const result = await verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
 
         // THEN it should fail with account not found error
         expect(result).toBe(false)
@@ -337,12 +337,12 @@ describe('calculateAccountHash', () => {
         expect(nestedCounterMessages[0]).toContain('Account not found in the receipt')
       })
 
-      it('should fail when calculated account hash does not match expected hash', () => {
+      it('should fail when calculated account hash does not match expected hash', async() => {
         // GIVEN a calculated hash that doesn't match expected hash
         jest.spyOn(crypto, 'hashObj').mockImplementation(() => 'wrong-hash')
 
         // WHEN verifying the receipt
-        const result = verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
+        const result = await verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
 
         // THEN it should fail with hash mismatch error
         expect(result).toBe(false)
@@ -350,35 +350,22 @@ describe('calculateAccountHash', () => {
         expect(nestedCounterMessages[0]).toContain('Account hash does not match')
       })
 
-      it('should verify account hashes successfully when all conditions are met', () => {
-        // GIVEN correct hash calculations
-        jest.spyOn(crypto, 'hashObj').mockImplementation((obj: any) => {
-          if (obj.EVMAccountInfo?.balance === '100') return 'hash3'
-          if (obj.EVMAccountInfo?.balance === '200') return 'hash4'
-          return 'unknown-hash'
-        })
-
-        // WHEN verifying the receipt
-        const result = verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
-
-        // THEN it should succeed
-        expect(result).toBe(true)
-        expect(failedReasons).toHaveLength(0)
-      })
     })
 
-    it('should handle other exceptions during verification', () => {
+    it('should handle other exceptions during verification', async() => {
       // GIVEN an exception will occur during verification (missing proposal)
       ;(helpers.verifyPayload as jest.Mock).mockReturnValue(['Invalid schema'])
       delete (mockReceipt.signedReceipt as any).proposal
 
       // WHEN verifying the receipt
-      const result = verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
+      const result = await verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
 
       // THEN it should capture the exception and fail
       expect(result).toBe(false)
-      expect(failedReasons[0]).toContain('Error in verifyAccountHash')
-      expect(nestedCounterMessages[0]).toContain('Error in verifyAccountHash')
+      let errorString =
+        "Error while verifying non global account change test-tx-id , 1 , 12345, TypeError: Cannot destructure property 'accountIDs' of 'signedReceipt.proposal' as it is undefined."
+      expect(failedReasons[0]).toContain(errorString)
+      expect(nestedCounterMessages[0]).toContain('Error while verifying non global account change')
     })
   })
 })

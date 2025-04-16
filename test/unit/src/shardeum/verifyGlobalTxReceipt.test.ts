@@ -257,21 +257,21 @@ describe('verifyGlobalTxAccountChange', () => {
     nestedCounterMessages = []
   })
 
-  it('should return true for InitNetwork internalTXType', () => {
+  it('should return true for InitNetwork internalTXType', async() => {
     if ('tx' in mockReceipt.signedReceipt) {
       const txValue = mockReceipt.signedReceipt.tx.value as { internalTXType: InternalTXType }
       txValue.internalTXType = InternalTXType.InitNetwork
       mockReceipt.signedReceipt.tx.value = txValue
     }
 
-    const result = verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+    const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
 
     expect(result).toBe(true)
     expect(failedReasons).toHaveLength(0)
     expect(nestedCounterMessages).toHaveLength(0)
   })
 
-  it('should return false if unexpected account found in beforeStates', () => {
+  it('should return false if unexpected account found in beforeStates', async() => {
     if ('tx' in mockReceipt.signedReceipt) {
       const txValue = mockReceipt.signedReceipt.tx.value as { internalTXType: InternalTXType }
       txValue.internalTXType = InternalTXType.ApplyChangeConfig
@@ -279,7 +279,7 @@ describe('verifyGlobalTxAccountChange', () => {
       mockReceipt.signedReceipt.tx.address = 'testAddress'
       mockReceipt.signedReceipt.tx.addressHash = 'testHash'
       mockReceipt.beforeStates = [{ accountId: 'unexpectedAddress', data: {}, timestamp: 0, hash: '', isGlobal: false }]
-      const result = verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
 
       expect(result).toBe(false)
       expect(failedReasons).toContain(

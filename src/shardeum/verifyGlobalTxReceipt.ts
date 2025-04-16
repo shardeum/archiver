@@ -1,5 +1,5 @@
 import { P2P } from '@shardeum-foundation/lib-types'
-import { ArchiverReceipt, Receipt } from '../dbstore/receipts'
+import { ArchiverReceipt, Receipt, queryInitNetworkReceiptCountBetweenCycles } from '../dbstore/receipts'
 import { accountSpecificHash } from './calculateAccountHash'
 
 // Refer to https://github.com/shardeum/shardeum/blob/89db23e1d4ffb86b4353b8f37fb360ea3cd93c5b/src/shardeum/shardeumTypes.ts#L242
@@ -49,11 +49,11 @@ export enum InternalTXType {
  * @param nestedCounterMessages - Array to collect counter messages for metrics
  * @returns boolean - True if verification passes, false otherwise
  */
-export const verifyGlobalTxAccountChange = (
+export const verifyGlobalTxAccountChange = async(
   receipt: ArchiverReceipt | Receipt,
   failedReasons = [],
   nestedCounterMessages = []
-): boolean => {
+): Promise<boolean> => {
   try {
     const signedReceipt = receipt.signedReceipt as P2P.GlobalAccountsTypes.GlobalTxReceipt
     const internalTx = signedReceipt.tx.value as SetGlobalTxValue
@@ -61,6 +61,9 @@ export const verifyGlobalTxAccountChange = (
     if (internalTx.internalTXType === InternalTXType.InitNetwork) {
       // Refer to https://github.com/shardeum/shardeum/blob/89db23e1d4ffb86b4353b8f37fb360ea3cd93c5b/src/index.ts#L2334
       // no need to do anything, as it is network account creation
+      let count = await queryInitNetworkReceiptCountBetweenCycles(1, 5)
+      if( count >= 1 )
+        return false
       return true
     } else if (
       internalTx.internalTXType === InternalTXType.ApplyChangeConfig ||
@@ -107,12 +110,9 @@ export const verifyGlobalTxAccountChange = (
           return false
         }
 
-        // Get the hash from afterState array entry i.e the network account after state hash
-        const expectedAccountHash = networkAccountAfter.hash
+        const calculatedAfterStateHash = accountSpecificHash(networkAccountAfter.data)
 
-        // Compare the hash from the network account with the afterStateHash in the signed receipt
-        // If they don't match, the transaction receipt is invalid
-        if (expectedAccountHash !== signedReceipt.tx.afterStateHash) {
+        if (calculatedAfterStateHash !== signedReceipt.tx.afterStateHash) {
           failedReasons.push(
             `Account afterStateHash does not match in globalModification tx - ${networkAccountAfter.accountId} , ${receipt.tx.txId} , ${receipt.cycle} , ${receipt.tx.timestamp}`
           )
