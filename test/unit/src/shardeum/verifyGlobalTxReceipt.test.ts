@@ -289,7 +289,7 @@ describe('verifyGlobalTxAccountChange', () => {
     }
   })
 
-  it('should return false if account hash mismatch in beforeStates', () => {
+  it('should return false if account hash mismatch in beforeStates', async() => {
     // Mock the accountSpecificHash function before modifying mockReceipt
     jest
       .spyOn(require('../../../../src/shardeum/calculateAccountHash'), 'accountSpecificHash')
@@ -314,7 +314,7 @@ describe('verifyGlobalTxAccountChange', () => {
         },
       ]
 
-      const result = verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
 
       expect(result).toBe(false)
       expect(failedReasons).toContain(
@@ -330,14 +330,14 @@ describe('verifyGlobalTxAccountChange', () => {
     jest.restoreAllMocks()
   })
 
-  it('should return false and add appropriate error messages', () => {
+  it('should return false and add appropriate error messages', async() => {
     // Mock the accountSpecificHash function to return a different hash
     jest
       .spyOn(require('../../../../src/shardeum/calculateAccountHash'), 'accountSpecificHash')
       .mockReturnValue('wrongHash')
 
     // Execute the function
-    const result = verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+    const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
 
     // Verify the result is false
     expect(result).toBe(false)
@@ -358,7 +358,7 @@ describe('verifyGlobalTxAccountChange', () => {
     jest.restoreAllMocks()
   })
 
-  it('should return false if no network account found in beforeStates', () => {
+  it('should return false if no network account found in beforeStates', async() => {
     if ('tx' in mockReceipt.signedReceipt) {
       // Setup the transaction type
       const txValue = mockReceipt.signedReceipt.tx.value as { internalTXType: InternalTXType }
@@ -378,7 +378,7 @@ describe('verifyGlobalTxAccountChange', () => {
         },
       ]
 
-      const result = verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
 
       expect(result).toBe(false)
       expect(failedReasons).toContain(
@@ -388,7 +388,7 @@ describe('verifyGlobalTxAccountChange', () => {
     }
   })
   //new
-  it('should return false if unexpected account found in afterStates', () => {
+  it('should return false if unexpected account found in afterStates', async() => {
     if ('tx' in mockReceipt.signedReceipt) {
       const txValue = mockReceipt.signedReceipt.tx.value as { internalTXType: InternalTXType }
       txValue.internalTXType = InternalTXType.ApplyChangeConfig
@@ -423,7 +423,7 @@ describe('verifyGlobalTxAccountChange', () => {
         .spyOn(require('../../../../src/shardeum/calculateAccountHash'), 'accountSpecificHash')
         .mockReturnValue('testHash')
 
-      const result = verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
 
       expect(result).toBe(false)
       expect(failedReasons).toContain(
@@ -433,13 +433,13 @@ describe('verifyGlobalTxAccountChange', () => {
     }
   })
 
-  it('should return false for invalid internalTXType', () => {
+  it('should return false for invalid internalTXType', async() => {
     if ('tx' in mockReceipt.signedReceipt) {
       const txValue = mockReceipt.signedReceipt.tx.value as { internalTXType: InternalTXType }
       txValue.internalTXType = 999 as InternalTXType // Invalid type
       mockReceipt.signedReceipt.tx.value = txValue
 
-      const result = verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+      const result = await verifyGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
 
       expect(result).toBe(false)
       expect(failedReasons).toContain(
