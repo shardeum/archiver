@@ -3,7 +3,6 @@ import { ArchiverReceipt, SignedReceipt, Receipt } from '../dbstore/receipts'
 import { verifyPayload } from '../types/ajv/Helpers'
 import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 import { verifyGlobalTxAccountChange } from './verifyGlobalTxReceipt'
-import * as ReceiptDB from '../dbstore/receipts'
 
 // account types in Shardeum
 export enum AccountType {
