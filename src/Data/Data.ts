@@ -41,7 +41,7 @@ import { AccountsCopy } from '../dbstore/accounts'
 import { getJson } from '../P2P'
 import { robustQuery } from '../Utils'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
-import { cachedCycleRecords } from '../cache/cycleRecordsCache'
+import { cachedCycleRecords, updateCacheFromDB } from '../cache/cycleRecordsCache'
 import { XOR } from '../utils/general'
 import { customFetch } from '../utils/customHttpFunctions'
 import { ArchiverLogging } from '../profiler/archiverLogging'
@@ -649,10 +649,29 @@ export function collectCycleData(
 
       let bestScore = 0
       let bestMarker = ''
+      let prevMarker = ''
+      
+      // if the cache is empty, update the cache from the db
+      if (cachedCycleRecords.length === 0) {
+        updateCacheFromDB()
+          .then(() => {
+            // Verify if cachedCycleRecords[0] is the previous cycle
+            if (cachedCycleRecords.length > 0 && cycle.counter - cachedCycleRecords[0].counter > 1) {
+              Logger.mainLogger.debug(`updateCacheFromDB: No previous marker found for cycle ${cycle.counter}`)
+            }
+          })
+          .catch((error) => {
+            Logger.mainLogger.error(`updateCacheFromDB: Error updating cache from db: ${error}`)
+          })
+      }
 
-      const prevMarker = cachedCycleRecords[0].marker
-      Logger.mainLogger.debug(`collectCycleData: Previous marker for scoring: ${prevMarker}`)
-
+      if (cachedCycleRecords.length > 0 && cycle.counter - cachedCycleRecords[0].counter === 1) {
+        prevMarker = cachedCycleRecords[0].marker
+        Logger.mainLogger.debug(`collectCycleData: Previous marker for scoring: ${prevMarker}`)
+      } else {
+        Logger.mainLogger.debug(`collectCycleData: No previous marker found for cycle ${cycle.counter}`)
+        continue
+      }
       // find the marker with largest sum of its top 3 cert scores
       const markers = Object.entries(receivedCycleTracker[cycle.counter])
         .filter(([key]) => key !== 'saved' && key !== 'received')
