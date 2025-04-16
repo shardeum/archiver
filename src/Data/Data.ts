@@ -650,8 +650,10 @@ export function collectCycleData(
       let bestScore = 0
       let bestMarker = ''
       let prevMarker = ''
-      
-      // if the cache is empty, update the cache from the db
+
+      // If the cache is empty, update the cache from the db
+      // This change is to prevent the case where the archiver is not running when the cycle is created
+      // or the archiver is restarted and the cycle is not in the cache / fetching prev marker from empty cache
       if (cachedCycleRecords.length === 0) {
         updateCacheFromDB()
           .then(() => {
@@ -659,69 +661,76 @@ export function collectCycleData(
             if (cachedCycleRecords.length > 0 && cycle.counter - cachedCycleRecords[0].counter > 1) {
               Logger.mainLogger.debug(`updateCacheFromDB: No previous marker found for cycle ${cycle.counter}`)
             }
+            processCycleWithPrevMarker()
           })
           .catch((error) => {
             Logger.mainLogger.error(`updateCacheFromDB: Error updating cache from db: ${error}`)
           })
-      }
-
-      if (cachedCycleRecords.length > 0 && cycle.counter - cachedCycleRecords[0].counter === 1) {
-        prevMarker = cachedCycleRecords[0].marker
-        Logger.mainLogger.debug(`collectCycleData: Previous marker for scoring: ${prevMarker}`)
       } else {
-        Logger.mainLogger.debug(`collectCycleData: No previous marker found for cycle ${cycle.counter}`)
-        continue
-      }
-      // find the marker with largest sum of its top 3 cert scores
-      const markers = Object.entries(receivedCycleTracker[cycle.counter])
-        .filter(([key]) => key !== 'saved' && key !== 'received')
-        .map(([, value]) => value)
-
-      Logger.mainLogger.debug(`collectCycleData: Found ${markers.length} different markers for cycle ${cycle.counter}`)
-
-      for (const marker of markers) {
-        const scores = []
-        for (const signer of marker['certSigners']) {
-          const score = scoreCert(signer as string, prevMarker)
-          scores.push(score)
-          Logger.mainLogger.debug(`collectCycleData: Cert from ${signer} scored ${score}`)
-        }
-        // get sum of top 3 scores: sort scores in desc order, then slice off first 3 elements, and add them
-        const sum = scores
-          .sort((a, b) => b - a)
-          .slice(0, 3)
-          .reduce((sum, score) => (sum += score), 0)
-
-        Logger.mainLogger.debug(`collectCycleData: Marker ${marker['cycleInfo'].marker} scored ${sum}`)
-
-        if (sum > bestScore) {
-          bestScore = sum
-          bestMarker = marker['cycleInfo'].marker
-          Logger.mainLogger.debug(`collectCycleData: New best marker: ${bestMarker} with score ${bestScore}`)
-        }
+        processCycleWithPrevMarker()
       }
 
-      Logger.mainLogger.debug(
-        `collectCycleData: Processing cycle ${cycle.counter} with best marker ${bestMarker}, score: ${bestScore}`
-      )
-      processCycles([receivedCycleTracker[cycle.counter][bestMarker].cycleInfo])
-      receivedCycleTracker[cycle.counter]['saved'] = true
+      function processCycleWithPrevMarker() {
+        if (cachedCycleRecords.length > 0 && cycle.counter - cachedCycleRecords[0].counter === 1) {
+          prevMarker = cachedCycleRecords[0].marker
+          Logger.mainLogger.debug(`collectCycleData: Previous marker for scoring: ${prevMarker}`)
+        } else {
+          Logger.mainLogger.debug(`collectCycleData: No previous marker found for cycle ${cycle.counter}`)
+          return
+        }
+        // find the marker with largest sum of its top 3 cert scores
+        const markers = Object.entries(receivedCycleTracker[cycle.counter])
+          .filter(([key]) => key !== 'saved' && key !== 'received')
+          .map(([, value]) => value)
 
-      nestedCountersInstance.countEvent('collectCycleData', 'cycle_processed_successfully_' + cycle.mode, 1)
+        Logger.mainLogger.debug(
+          `collectCycleData: Found ${markers.length} different markers for cycle ${cycle.counter}`
+        )
 
-      ArchiverLogging.logDataSync({
-        sourceArchiver: senderInfo,
-        targetArchiver: config.ARCHIVER_IP,
-        cycle: cycle.counter,
-        dataType: 'CYCLE_RECORD',
-        dataHash: bestMarker,
-        status: 'COMPLETE',
-        operationId,
-        metrics: {
-          duration: Date.now() - startTime,
-          dataSize: StringUtils.safeStringify(receivedCycleTracker[cycle.counter][bestMarker].cycleInfo).length,
-        },
-      })
+        for (const marker of markers) {
+          const scores = []
+          for (const signer of marker['certSigners']) {
+            const score = scoreCert(signer as string, prevMarker)
+            scores.push(score)
+            Logger.mainLogger.debug(`collectCycleData: Cert from ${signer} scored ${score}`)
+          }
+          // get sum of top 3 scores: sort scores in desc order, then slice off first 3 elements, and add them
+          const sum = scores
+            .sort((a, b) => b - a)
+            .slice(0, 3)
+            .reduce((sum, score) => (sum += score), 0)
+
+          Logger.mainLogger.debug(`collectCycleData: Marker ${marker['cycleInfo'].marker} scored ${sum}`)
+
+          if (sum > bestScore) {
+            bestScore = sum
+            bestMarker = marker['cycleInfo'].marker
+            Logger.mainLogger.debug(`collectCycleData: New best marker: ${bestMarker} with score ${bestScore}`)
+          }
+        }
+
+        Logger.mainLogger.debug(
+          `collectCycleData: Processing cycle ${cycle.counter} with best marker ${bestMarker}, score: ${bestScore}`
+        )
+        processCycles([receivedCycleTracker[cycle.counter][bestMarker].cycleInfo])
+        receivedCycleTracker[cycle.counter]['saved'] = true
+
+        nestedCountersInstance.countEvent('collectCycleData', 'cycle_processed_successfully_' + cycle.mode, 1)
+
+        ArchiverLogging.logDataSync({
+          sourceArchiver: senderInfo,
+          targetArchiver: config.ARCHIVER_IP,
+          cycle: cycle.counter,
+          dataType: 'CYCLE_RECORD',
+          dataHash: bestMarker,
+          status: 'COMPLETE',
+          operationId,
+          metrics: {
+            duration: Date.now() - startTime,
+            dataSize: StringUtils.safeStringify(receivedCycleTracker[cycle.counter][bestMarker].cycleInfo).length,
+          },
+        })
+      }
     }
   }
 
