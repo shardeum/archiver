@@ -629,7 +629,7 @@ export const verifyArchiverReceipt = async (
       }
     }
     if (config.verifyAccountData) {
-      const result = verifyAccountHash(receipt, failedReasons, nestedCounterMessages)
+      const result = await verifyAccountHash(receipt, failedReasons, nestedCounterMessages)
       if (!result) {
         failedReasons.push(`Invalid receipt: Account Verification failed ${txId}, ${receipt.cycle}, ${timestamp}`)
         nestedCounterMessages.push('Invalid_receipt_account_verification_failed')
@@ -849,39 +849,111 @@ export const storeReceiptData = async (
       //   appliedReceipt.confirmOrChallenge.message === 'challenge'
       // )
       //   continue
-      for (const account of afterStates) {
-        const accObj: Account.AccountsCopy = {
-          accountId: account.accountId,
-          data: account.data,
-          timestamp: account.timestamp,
-          hash: account.hash,
-          cycleNumber: cycle,
-          isGlobal: account.isGlobal || false,
-        }
-        if (account.timestamp !== account.data['timestamp'])
-          Logger.mainLogger.error('Mismatched account timestamp', txId, account.accountId)
-        if (account.hash !== account.data['hash'])
-          Logger.mainLogger.error('Mismatched account hash', txId, account.accountId)
 
-        const accountExist = await Account.queryAccountByAccountId(account.accountId)
-        if (accountExist) {
-          if (accObj.timestamp > accountExist.timestamp) await Account.updateAccount(accObj)
-        } else {
-          // await Account.insertAccount(accObj)
-          combineAccounts.push(accObj)
-        }
+      
+      if (globalModification) {
+        let globalReceiptValidationErrors 
+        try {
+          
+          globalReceiptValidationErrors = verifyPayload(AJVSchemaEnum.GlobalTxReceipt, receipt?.signedReceipt)
+          
+          if (!globalReceiptValidationErrors) {
 
-        //check global network account updates
-        if (accObj.accountId === config.globalNetworkAccount) {
-          setGlobalNetworkAccount(accObj)
+            for (const account of afterStates) {
+
+              const accObj: Account.AccountsCopy = {
+                accountId: config.globalNetworkAccount, // for global tx type receipts fixing accountID to 1000000000000000000000000000000000000000000000000000000000000001 for now
+                data: account.data,
+                timestamp: account.data.timestamp,
+                hash: account.hash,
+                cycleNumber: cycle,
+                isGlobal: account.isGlobal || false,
+              }
+              if (account.timestamp !== account.data['timestamp'])
+                Logger.mainLogger.error('Mismatched account timestamp', txId, account.accountId)
+              if (account.hash !== account.data['hash'])
+                Logger.mainLogger.error('Mismatched account hash', txId, account.accountId)
+      
+              const accountExist = await Account.queryAccountByAccountId(account.accountId)
+              if (accountExist) {
+                if (accObj.timestamp > accountExist.timestamp) await Account.updateAccount(accObj)
+              } else {
+                // await Account.insertAccount(accObj)
+                combineAccounts.push(accObj)
+              }
+      
+              //check global network account updates
+              if (accObj.accountId === config.globalNetworkAccount) {
+                setGlobalNetworkAccount(accObj)
+              }
+              if (accObj.isGlobal) {
+                globalAccountsMap.set(accObj.accountId, {
+                  hash: accObj.hash,
+                  timestamp: accObj.timestamp,
+                })
+              }
+            }
+            
+          } 
+        } catch (error) {
+          globalReceiptValidationErrors = true
+          if (nestedCountersInstance)
+            nestedCountersInstance.countEvent(
+              'receipt',
+              `Failed to validate receipt schema txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
+            )
+          Logger.mainLogger.error(
+            `Failed to validate receipt schema txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
+          )
         }
-        if (accObj.isGlobal) {
-          globalAccountsMap.set(accObj.accountId, {
-            hash: accObj.hash,
-            timestamp: accObj.timestamp,
-          })
+      } else {
+        try {
+          const signedReceipt = receipt.signedReceipt as Receipt.SignedReceipt;
+          const { accountIDs } = signedReceipt.proposal;
+      
+          for (const accountId of accountIDs) {
+            const account = receipt.afterStates.find((acc) => acc.accountId === accountId);
+            if (!account) {
+              Logger.mainLogger.error('Account not found in afterStates', txId, accountId);
+              continue;
+            }
+      
+            const accObj: Account.AccountsCopy = {
+              accountId: account.accountId,
+              data: account.data,
+              timestamp: account.data.timestamp,
+              hash: account.hash,
+              cycleNumber: cycle,
+              isGlobal: account.isGlobal || false,
+            };
+      
+            if (account.timestamp !== account.data['timestamp']) {
+              Logger.mainLogger.error('Mismatched account timestamp', txId, account.accountId);
+            }
+            if (account.hash !== account.data['hash']) {
+              Logger.mainLogger.error('Mismatched account hash', txId, account.accountId);
+            }
+      
+            const accountExist = await Account.queryAccountByAccountId(account.accountId);
+            if (accountExist) {
+              if (accObj.timestamp > accountExist.timestamp) await Account.updateAccount(accObj);
+            } else {
+              combineAccounts.push(accObj);
+            }
+          }
+        } catch (error) {
+          if (nestedCountersInstance) {
+            nestedCountersInstance.countEvent(
+              'receipt',
+              `Failed to process non-global receipt txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
+            );
+          }
+          Logger.mainLogger.error(
+            `Failed to process non-global receipt txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
+          );
         }
       }
+      
       // if (receipt) {
       //   const accObj: Account.AccountsCopy = {
       //     accountId: receipt.accountId,

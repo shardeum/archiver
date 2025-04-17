@@ -22,68 +22,58 @@ export enum AccountType {
   SecureAccount = 13,
 }
 
+/**
+ * Computes a specific hash for an account object. This function removes any existing
+ * `hash` property from the account object, calculates a new hash based on the account's
+ * data, and then assigns the calculated hash back to the `hash` property of the account.
+ *
+ * @param account - The account object for which the hash is to be calculated.
+ *                  The object is expected to have key-value pairs representing account data.
+ * @returns The newly calculated hash as a string.
+ */
 export const accountSpecificHash = (account: any): string => {
-  let hash: string
-  delete account.hash
-  if (
-    account.accountType === AccountType.NetworkAccount ||
-    account.accountType === AccountType.NodeAccount ||
-    account.accountType === AccountType.NodeAccount2 ||
-    account.accountType === AccountType.NodeRewardReceipt ||
-    account.accountType === AccountType.StakeReceipt ||
-    account.accountType === AccountType.UnstakeReceipt ||
-    account.accountType === AccountType.InternalTxReceipt ||
-    account.accountType === AccountType.DevAccount ||
-    account.accountType === AccountType.SecureAccount
-  ) {
+  if (account == null || account == undefined) {
+    throw new Error('Account data is null or undefined')
+  }
+
+  try {
+    // Remove the existing hash property from the account object
+    delete account.hash
+
+    // Calculate a new hash based on the account's data and assign it to the hash property
     account.hash = crypto.hashObj(account)
     return account.hash
+  } catch (error) {
+    console.error('Error calculating account-specific hash:', error)
+    throw new Error('Failed to calculate account-specific hash')
   }
-  if (account.accountType === AccountType.Account) {
-    const { account: EVMAccountInfo, operatorAccountInfo, timestamp } = account
-    const accountData = operatorAccountInfo
-      ? { EVMAccountInfo, operatorAccountInfo, timestamp }
-      : { EVMAccountInfo, timestamp }
-    hash = crypto.hashObj(accountData)
-  } else if (account.accountType === AccountType.Debug) {
-    hash = crypto.hashObj(account)
-  } else if (account.accountType === AccountType.ContractStorage) {
-    hash = crypto.hashObj({ key: account.key, value: account.value })
-  } else if (account.accountType === AccountType.ContractCode) {
-    hash = crypto.hashObj({ key: account.codeHash, value: account.codeByte })
-  } else if (account.accountType === AccountType.Receipt) {
-    hash = crypto.hashObj({ key: account.txId, value: account.receipt })
-  }
-
-  // hash = hash + '0'.repeat(64 - hash.length)
-  account.hash = hash
-  return hash
 }
 
-export const verifyAccountHash = (
+/**
+ * Verifies the validity of account changes in a non-global transaction by comparing
+ * the provided receipt's account state hashes and account data.
+ *
+ * @param receipt - The receipt object containing transaction details and state information.
+ *                  It can be of type `ArchiverReceipt` or `Receipt`.
+ * @param failedReasons - An array to collect detailed error messages if the verification fails.
+ *                        Defaults to an empty array.
+ * @param nestedCounterMessages - An array to collect high-level error messages for nested counters
+ *                                if the verification fails. Defaults to an empty array.
+ * @returns A boolean indicating whether the account changes in the receipt are valid.
+ *
+ * ### Validation Steps:
+ * 1. Ensures the number of modified accounts matches the number of after-state hashes.
+ * 2. Ensures the number of before-state hashes matches the number of after-state hashes.
+ * 3. Iterates through each account ID in the receipt:
+ *    - Verifies that the account exists in the `afterStates` of the receipt.
+ *    - Calculates the account-specific hash and compares it with the expected hash.
+ */
+export const verifyNonGlobalTxAccountChange = async(
   receipt: ArchiverReceipt | Receipt,
   failedReasons = [],
   nestedCounterMessages = []
-): boolean => {
+): Promise<boolean> => {
   try {
-    let globalReceiptValidationErrors // This is used to store the validation errors of the globalTxReceipt
-    try {
-      globalReceiptValidationErrors = verifyPayload(AJVSchemaEnum.GlobalTxReceipt, receipt?.signedReceipt)
-    } catch (error) {
-      globalReceiptValidationErrors = true
-      failedReasons.push(
-        `Invalid Global Tx Receipt error: ${error}. txId ${receipt.tx.txId} , cycle ${receipt.cycle} , timestamp ${receipt.tx.timestamp}`
-      )
-      nestedCounterMessages.push(
-        `Invalid Global Tx Receipt error: ${error}. txId ${receipt.tx.txId} , cycle ${receipt.cycle} , timestamp ${receipt.tx.timestamp}`
-      )
-      return false
-    }
-    if (!globalReceiptValidationErrors) {
-      const result = verifyGlobalTxAccountChange(receipt, failedReasons, nestedCounterMessages)
-      if (!result) return false
-      return true
-    }
     const signedReceipt = receipt.signedReceipt as SignedReceipt
     const { accountIDs, afterStateHashes, beforeStateHashes } = signedReceipt.proposal
     if (accountIDs.length !== afterStateHashes.length) {
@@ -122,6 +112,57 @@ export const verifyAccountHash = (
         return false
       }
     }
+    return true
+  } catch (error) {
+    console.error(`verifyNonGlobalTxAccountChange error`, error)
+    failedReasons.push(
+      `Error while verifying non global account change ${receipt.tx.txId} , ${receipt.cycle} , ${receipt.tx.timestamp}, ${error}`
+    )
+    nestedCounterMessages.push(`Error while verifying non global account change`)
+    return false
+  }
+}
+
+/**
+ * Verifies the account hash for a given receipt. This function validates the receipt
+ * against a schema and checks the account changes based on whether the receipt is global
+ * or non-global. It also collects validation errors and messages for debugging purposes.
+ *
+ * @param receipt - The receipt object to be verified. It can be of type `ArchiverReceipt` or `Receipt`.
+ * @param failedReasons - An optional array to store reasons for validation failure.
+ * @param nestedCounterMessages - An optional array to store nested counter messages for debugging.
+ * @returns A boolean indicating whether the account hash verification was successful.
+ *
+ * @throws Will catch and log any unexpected errors during the verification process.
+ */
+export const verifyAccountHash = async(
+  receipt: ArchiverReceipt | Receipt,
+  failedReasons = [],
+  nestedCounterMessages = []
+): Promise<boolean> => {
+  try {
+    let globalReceiptValidationErrors // This is used to store the validation errors of the globalTxReceipt
+    try {
+      globalReceiptValidationErrors = verifyPayload(AJVSchemaEnum.GlobalTxReceipt, receipt?.signedReceipt)
+    } catch (error) {
+      globalReceiptValidationErrors = true
+      failedReasons.push(
+        `Invalid Global Tx Receipt error: ${error}. txId ${receipt.tx.txId} , cycle ${receipt.cycle} , timestamp ${receipt.tx.timestamp}`
+      )
+      nestedCounterMessages.push(
+        `Invalid Global Tx Receipt error: ${error}. txId ${receipt.tx.txId} , cycle ${receipt.cycle} , timestamp ${receipt.tx.timestamp}`
+      )
+      return false
+    }
+
+    let result: boolean
+    if (!globalReceiptValidationErrors) {
+      result = await verifyGlobalTxAccountChange(receipt, failedReasons, nestedCounterMessages)
+    } else {
+      result = await verifyNonGlobalTxAccountChange(receipt, failedReasons, nestedCounterMessages)
+    }
+
+    if (!result) return false
     return true
   } catch (e) {
     console.error(`Error in verifyAccountHash`, e)
