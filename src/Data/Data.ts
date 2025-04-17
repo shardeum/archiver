@@ -484,9 +484,9 @@ export function collectCycleData(
       try {
         // need to get the hash(marker) of the cycle as it was in q3/q4 when the certs were made and compared
         Logger.mainLogger.debug(`collectCycleData: Original cycle data: ${UtilsTypes.safeStringify(cycle)}`)
-        const cycleCopy = getRecordWithoutPostQ3Changes(cycle)
-        const computedMarker = Cycles.computeCycleMarker(cycleCopy)
-        Logger.mainLogger.debug(`collectCycleData: cycle copy ${UtilsTypes.safeStringify(cycleCopy)}`)
+        const cleanRecord = getCleanRecord(cycle)
+        const computedMarker = Cycles.computeCycleMarker(cleanRecord)
+        Logger.mainLogger.debug(`collectCycleData: clean record ${UtilsTypes.safeStringify(cleanRecord)}`)
         Logger.mainLogger.debug(
           `collectCycleData: Computed marker for cycle ${cycle.counter}: ${computedMarker}, original marker: ${cycle.marker}`
         )
@@ -498,7 +498,7 @@ export function collectCycleData(
           (cycle as subscriptionCycleData).certificates,
           certSigners,
           computedMarker,
-          cycleCopy as P2PTypes.CycleCreatorTypes.CycleData
+          cleanRecord as P2PTypes.CycleCreatorTypes.CycleData
         )
 
         if (validateCertsResult === false) {
@@ -2809,20 +2809,12 @@ export function scoreCert(pubKey: string, prevMarker: P2PTypes.CycleCreatorTypes
   }
 }
 
-// this function is needed since the cycle record is changed after Q3/Q4. Thus, the cycle certs will contain
-// the marker of the cycle as it existed in Q3/Q4. However, the cycle that we ceived at the start of the
-// function has been changed, so its marker has also been changed. If we try to check this new mark against
-// the markers inside the certs, the validation will obviously fail. So we want to revert those changes on a
-// deep copy so that we can get the original record
-function getRecordWithoutPostQ3Changes(cycle: P2PTypes.CycleCreatorTypes.CycleRecord) {
-  Logger.mainLogger.debug(`getRecordWithoutPostQ3Changes: Processing cycle ${cycle.counter}`)
+// strip the marker and certs from the record
+function getCleanRecord(cycle: P2PTypes.CycleCreatorTypes.CycleRecord) {
+  Logger.mainLogger.debug(`getCleanRecord: Processing cycle ${cycle.counter}`)
 
   const cycleCopy = StringUtils.safeJsonParse(StringUtils.safeStringify(cycle))
   delete cycleCopy.marker
   delete cycleCopy.certificates
-  cycleCopy.nodeListHash = ''
-  cycleCopy.archiverListHash = ''
-  cycleCopy.standbyNodeListHash = ''
-  cycleCopy.joinedConsensors.forEach((jc) => (jc.syncingTimestamp = 0))
   return cycleCopy
 }
