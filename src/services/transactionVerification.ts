@@ -5,7 +5,7 @@ import * as P2P from '../P2P'
 import * as NodeList from '../NodeList'
 import { robustQuery, verifyMultiSigs } from '../Utils'
 import { DevSecurityLevel } from '../types/security'
-import { join } from 'path'
+import { join, isAbsolute } from 'path'
 import { existsSync, readFileSync } from 'fs'
 import { Transaction, TransactionFactory, TransactionType, TypedTransaction } from '@ethereumjs/tx'
 import { Address } from '@ethereumjs/util'
@@ -23,23 +23,34 @@ interface SecureAccountData {
 let secureAccountsFilePath = join(__dirname, '..', '..', 'static', 'genesis-secure-accounts.json')
 let secureAccountDataMap: Map<string, SecureAccountData> | null = null
 
+// Allow overriding genesis secure accounts file via env var, supporting absolute or relative paths
 if (process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS) {
-  const GSAFilePath = process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS
-  GSAFilePath.trim()
-
+  const gsaEnvPath = process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS.trim()
   try {
-    if (existsSync(join(__dirname, '..', '..', 'static', GSAFilePath))) {
-      secureAccountsFilePath = join(__dirname, '..', '..', 'static', GSAFilePath)
-      console.log('secureAccounts: genesis secure path set to:', GSAFilePath)
+    if (isAbsolute(gsaEnvPath)) {
+      // Absolute path provided
+      if (existsSync(gsaEnvPath)) {
+        secureAccountsFilePath = gsaEnvPath
+        console.log('secureAccounts: genesis secure path set to absolute path:', gsaEnvPath)
+      } else {
+        throw new Error(`secureAccounts: absolute path to genesis secure accounts file is incorrect: ${gsaEnvPath}`)
+      }
     } else {
-      throw new Error('secureAccounts: path to the following genesis secure accounts file is incorrect:' + GSAFilePath)
+      // Relative path provided, resolve under static directory
+      const relPath = join(__dirname, '..', '..', 'static', gsaEnvPath)
+      if (existsSync(relPath)) {
+        secureAccountsFilePath = relPath
+        console.log('secureAccounts: genesis secure path set to relative path:', gsaEnvPath)
+      } else {
+        throw new Error(`secureAccounts: path to the following genesis secure accounts file is incorrect: ${relPath}`)
+      }
     }
   } catch (e) {
     throw new Error('secureAccounts: error setting genesis secure accounts file path: ' + e)
   }
 }
 
-const getSecureAccounts = (): Map<string, SecureAccountData> => {
+export const getSecureAccounts = (): Map<string, SecureAccountData> => {
   if (!secureAccountDataMap) {
     try {
       const data = readFileSync(secureAccountsFilePath, 'utf8')
