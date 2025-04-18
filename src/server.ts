@@ -590,6 +590,8 @@ async function startServer(): Promise<void> {
 
   initProfiler(server)
 
+  logEnvSetup()
+
   // Initialize the data log writer
   if (config.dataLogWrite) await initDataLogWriter()
 
