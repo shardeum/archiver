@@ -12,6 +12,7 @@ import { Address } from '@ethereumjs/util'
 import { getSenderAddress } from '@shardeum-foundation/lib-net'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { config } from '../Config'
+import { nestedCountersInstance } from '../profiler/nestedCounters'
 
 interface SecureAccountData {
   Name: string
@@ -32,7 +33,10 @@ if (process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS) {
       if (existsSync(gsaEnvPath)) {
         secureAccountsFilePath = gsaEnvPath
         console.log('secureAccounts: genesis secure path set to absolute path:', gsaEnvPath)
+        /* prettier-ignore */ nestedCountersInstance?.countEvent('config', 'secureAccounts: genesis secure accounts loaded from:'+ gsaEnvPath )
       } else {
+        /* prettier-ignore */ nestedCountersInstance?.countEvent('config', 'secureAccounts: path to the following genesis secure accounts file is incorrect:'+ gsaEnvPath )
+        console.error('secureAccounts: path to the following genesis secure accounts file is incorrect:', gsaEnvPath)
         throw new Error(`secureAccounts: absolute path to genesis secure accounts file is incorrect: ${gsaEnvPath}`)
       }
     } else {
@@ -40,14 +44,21 @@ if (process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS) {
       const relPath = join(__dirname, '..', '..', 'static', gsaEnvPath)
       if (existsSync(relPath)) {
         secureAccountsFilePath = relPath
-        console.log('secureAccounts: genesis secure path set to relative path:', gsaEnvPath)
+        console.log('secureAccounts: genesis secure path set to relative path:',relPath, ' env: ', gsaEnvPath)
+        /* prettier-ignore */ nestedCountersInstance?.countEvent('config', 'secureAccounts: genesis secure accounts loaded from:'+ relPath + ' env: ' + gsaEnvPath )
       } else {
+        /* prettier-ignore */ nestedCountersInstance?.countEvent('config', 'secureAccounts: path to the following genesis secure accounts file is incorrect:'+ relPath )
         throw new Error(`secureAccounts: path to the following genesis secure accounts file is incorrect: ${relPath}`)
       }
     }
   } catch (e) {
+    /* prettier-ignore */ nestedCountersInstance?.countEvent('config', 'secureAccounts: error loading genesis secure accounts file:'+ e.message )
+    console.error('secureAccounts: error loading genesis secure accounts file:', e)
     throw new Error('secureAccounts: error setting genesis secure accounts file path: ' + e)
   }
+} else {
+  /* prettier-ignore */ nestedCountersInstance?.countEvent('config', 'secureAccounts: genesis secure accounts file path not set in env' )
+  console.log('secureAccounts: genesis secure accounts file path not set in env, using default:', secureAccountsFilePath)
 }
 
 export const getSecureAccounts = (): Map<string, SecureAccountData> => {

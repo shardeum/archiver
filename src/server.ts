@@ -52,6 +52,7 @@ import { syncMissingCheckpoints } from './checkpoint/CheckpointV2'
 import { RequestDataType } from './API'
 import { getOldestPendingOrFailedCheckpointStatus } from './dbstore/checkpointStatus'
 import { ArchiverLogging } from './profiler/archiverLogging'
+import { logEnvSetup } from './utils/environment'
 
 const configFile = resolve(__dirname, '../archiver-config.json')
 const allowedArchiversConfigPath = join(__dirname, '../allowed-archivers.json')
@@ -78,6 +79,9 @@ async function start(): Promise<void> {
   if (logsConfig.saveConsoleOutput) {
     startSaving(join(baseDir, logsConfig.dir))
   }
+
+  logEnvSetup()
+  
   // Initialize allowed archivers manager
   allowedArchiversManager.initialize(allowedArchiversConfigPath)
   // Global error handling
