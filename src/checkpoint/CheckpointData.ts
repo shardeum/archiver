@@ -616,13 +616,17 @@ export class CheckpointBucket<T> {
         })
       )
 
-      if (!response.success || !response?.entries || response?.bucketID !== this.bucketID) {
-        Logger.mainLogger.error('exchangeCheckpointRadixEntries invalid response:', response)
+      if (!response?.success || !response?.entries || response?.bucketID !== this.bucketID) {
+        Logger.mainLogger.error(
+          `[exchangeAndRepairRadix - ${this.checkpointType}] Invalid response from peer ${peerAddress}:  ${response}`
+        )
         return
       }
 
       if (!Crypto.verify(response)) {
-        Logger.mainLogger.error('exchangeCheckpointRadixEntries invalid response:', response)
+        Logger.mainLogger.error(
+          `[exchangeAndRepairRadix - ${this.checkpointType}] Response verification failed for peer ${peerAddress}:  ${response}`
+        )
         return
       }
 
@@ -631,7 +635,10 @@ export class CheckpointBucket<T> {
       // Process received entries
       this.onExchangeRadixEntries(response.bucketID, response.entries)
     } catch (err) {
-      Logger.mainLogger.error('Exchange and repair radix failed:', err)
+      Logger.mainLogger.error(
+        `[exchangeAndRepairRadix - ${this.checkpointType}] Exchange and repair radix failed:`,
+        err
+      )
     }
   }
 
