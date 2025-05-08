@@ -216,10 +216,17 @@ class DataLogWriter {
 export let CycleLogWriter: DataLogWriter
 export let ReceiptLogWriter: DataLogWriter
 export let OriginalTxDataLogWriter: DataLogWriter
+export let ReceiptOverwriteLogWriter: DataLogWriter
 
 export async function initDataLogWriter(): Promise<void> {
   CycleLogWriter = new DataLogWriter('cycle', 1, LOG_WRITER_CONFIG.maxCycleEntries)
   ReceiptLogWriter = new DataLogWriter('receipt', 1, LOG_WRITER_CONFIG.maxReceiptEntries)
   OriginalTxDataLogWriter = new DataLogWriter('originalTx', 1, LOG_WRITER_CONFIG.maxOriginalTxEntries)
-  await Promise.all([CycleLogWriter.init(), ReceiptLogWriter.init(), OriginalTxDataLogWriter.init()])
+  ReceiptOverwriteLogWriter = new DataLogWriter('receiptOverwrite', 1, LOG_WRITER_CONFIG.maxOriginalTxEntries)
+  await Promise.all([
+    CycleLogWriter.init(),
+    ReceiptLogWriter.init(),
+    OriginalTxDataLogWriter.init(),
+    ReceiptOverwriteLogWriter.init(),
+  ])
 }
