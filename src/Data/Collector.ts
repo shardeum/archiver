@@ -17,11 +17,16 @@ import * as Utils from '../Utils'
 import { DataType, GossipData, sendDataToAdjacentArchivers, TxData } from './GossipData'
 import { postJson } from '../P2P'
 import { globalAccountsMap, setGlobalNetworkAccount } from '../GlobalAccount'
-import { CycleLogWriter, ReceiptLogWriter, OriginalTxDataLogWriter } from '../Data/DataLogWriter'
+import {
+  CycleLogWriter,
+  ReceiptLogWriter,
+  OriginalTxDataLogWriter,
+  ReceiptOverwriteLogWriter,
+} from '../Data/DataLogWriter'
 import * as OriginalTxDB from '../dbstore/originalTxsData'
 import ShardFunction from '../ShardFunctions'
 import { accountSpecificHash, verifyAccountHash } from '../shardeum/calculateAccountHash'
-import { verifyAppReceiptData } from '../shardeum/verifyAppReceiptData'
+import { ShardeumReceipt, verifyAppReceiptData } from '../shardeum/verifyAppReceiptData'
 import { Cycle as DbCycle } from '../dbstore/types'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { verifyPayload } from '../types/ajv/Helpers'
@@ -29,6 +34,7 @@ import { AJVSchemaEnum } from '../types/enum/AJVSchemaEnum'
 import { verifyTransaction } from '../services/transactionVerification'
 import { CycleShardData } from '@shardeum-foundation/lib-types/build/src/state-manager/shardFunctionTypes'
 import { generateTxId } from '../Utils'
+import { queryReceiptByReceiptId } from '../dbstore/receipts'
 
 export let storingAccountData = false
 const processedReceiptsMap: Map<string, number> = new Map()
@@ -649,6 +655,53 @@ export const verifyArchiverReceipt = async (
 }
 
 /**
+ * Determines whether a new receipt should be allowed to overwrite an existing receipt in the database.
+ *
+ * Receipt status overwrite logic:
+ * Incoming Status : Existing Status
+ * - 0 -> 1: Don't replace (reject incoming receipt with failure if existing has success)
+ * - 1 -> 0: Replace (allow overwriting failure with success)
+ * - 1 -> 1: Won't happen (impossible case, nonce will change)
+ * - 0 -> 0: Replace (allow overwriting failure with failure)
+ *
+ * @param {any} receipt - The incoming receipt that may overwrite an existing one
+ * @param {string} txId - The transaction ID to check for existing receipts
+ * @returns {Promise<boolean>} True if overwrite is allowed, false if rejected
+ */
+export async function checkIfValidOverwrite(receipt: any, txId: string): Promise<boolean> {
+  try {
+    const existingReceipt = await queryReceiptByReceiptId(txId)
+    if (!existingReceipt) return true // receipt came for the first time, let it insert
+
+    // we found a duplicate receipt
+    if (config.dataLogWrite && ReceiptOverwriteLogWriter) {
+      ReceiptOverwriteLogWriter.writeToLog(
+        `Existing Receipt : ${StringUtils.safeStringify(existingReceipt)} Incoming Receipt : ${StringUtils.safeStringify(receipt)}`
+      )
+    }
+    if (config.VERBOSE) console.log('Duplicate receipts were found for the txId', txId)
+    if (config.VERBOSE)
+      console.log(
+        `Existing Receipt : ${StringUtils.safeStringify(existingReceipt)} Incoming Receipt : ${StringUtils.safeStringify(receipt)}`
+      )
+    nestedCountersInstance.countEvent('duplicate-receipts', `txId : ${txId}`)
+
+    const existingShardeumReceipt = existingReceipt.appReceiptData.data as ShardeumReceipt
+    const existingStatus = existingShardeumReceipt.readableReceipt.status
+    if (existingStatus === 1) {
+      return false // you cannot override a successful receipt (status 1) with any new receipt
+    } else return true // if the existingStatus is 0 (failure), let the new receipt ( be it with status 0 or 1) override the old failure receipt
+  } catch (error) {
+    // Log the error with context about what operation was attempted
+    Logger.mainLogger.error(`Error in checkIfValidOverwrite for txId ${txId}: ${error.message}`, error)
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'checkIfValidOverwrite_error')
+
+    // Default to rejecting the overwrite in case of error to be safe
+    return false
+  }
+}
+
+/**
  * Stores receipt data in the database.
  *
  * @param {Receipt.Receipt[] | Receipt.ArchiverReceipt[]} receipts - Array of receipts to be stored.
@@ -725,6 +778,14 @@ export const storeReceiptData = async (
         if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_validation_failed')
         if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
         continue
+      }
+
+      if (config.enableDuplicateReceiptsCheck && !receipt.globalModification) {
+        // only consider this for EVM txns and Non Global Internal Txns
+        const result = await checkIfValidOverwrite(receipt, txId)
+        if (!result) {
+          continue // if the incoming receipt has a status of 0, do not allow it to overwrite a receipt of status 1
+        }
       }
 
       if (verifyData) {
@@ -850,17 +911,13 @@ export const storeReceiptData = async (
       // )
       //   continue
 
-      
       if (globalModification) {
-        let globalReceiptValidationErrors 
+        let globalReceiptValidationErrors
         try {
-          
           globalReceiptValidationErrors = verifyPayload(AJVSchemaEnum.GlobalTxReceipt, receipt?.signedReceipt)
-          
+
           if (!globalReceiptValidationErrors) {
-
             for (const account of afterStates) {
-
               const accObj: Account.AccountsCopy = {
                 accountId: config.globalNetworkAccount, // for global tx type receipts fixing accountID to 1000000000000000000000000000000000000000000000000000000000000001 for now
                 data: account.data,
@@ -873,7 +930,7 @@ export const storeReceiptData = async (
                 Logger.mainLogger.error('Mismatched account timestamp', txId, account.accountId)
               if (account.hash !== account.data['hash'])
                 Logger.mainLogger.error('Mismatched account hash', txId, account.accountId)
-      
+
               const accountExist = await Account.queryAccountByAccountId(account.accountId)
               if (accountExist) {
                 if (accObj.timestamp > accountExist.timestamp) await Account.updateAccount(accObj)
@@ -881,7 +938,7 @@ export const storeReceiptData = async (
                 // await Account.insertAccount(accObj)
                 combineAccounts.push(accObj)
               }
-      
+
               //check global network account updates
               if (accObj.accountId === config.globalNetworkAccount) {
                 setGlobalNetworkAccount(accObj)
@@ -893,8 +950,7 @@ export const storeReceiptData = async (
                 })
               }
             }
-            
-          } 
+          }
         } catch (error) {
           globalReceiptValidationErrors = true
           if (nestedCountersInstance)
@@ -908,16 +964,16 @@ export const storeReceiptData = async (
         }
       } else {
         try {
-          const signedReceipt = receipt.signedReceipt as Receipt.SignedReceipt;
-          const { accountIDs } = signedReceipt.proposal;
-      
+          const signedReceipt = receipt.signedReceipt as Receipt.SignedReceipt
+          const { accountIDs } = signedReceipt.proposal
+
           for (const accountId of accountIDs) {
-            const account = receipt.afterStates.find((acc) => acc.accountId === accountId);
+            const account = receipt.afterStates.find((acc) => acc.accountId === accountId)
             if (!account) {
-              Logger.mainLogger.error('Account not found in afterStates', txId, accountId);
-              continue;
+              Logger.mainLogger.error('Account not found in afterStates', txId, accountId)
+              continue
             }
-      
+
             const accObj: Account.AccountsCopy = {
               accountId: account.accountId,
               data: account.data,
@@ -925,20 +981,20 @@ export const storeReceiptData = async (
               hash: account.hash,
               cycleNumber: cycle,
               isGlobal: account.isGlobal || false,
-            };
-      
+            }
+
             if (account.timestamp !== account.data['timestamp']) {
-              Logger.mainLogger.error('Mismatched account timestamp', txId, account.accountId);
+              Logger.mainLogger.error('Mismatched account timestamp', txId, account.accountId)
             }
             if (account.hash !== account.data['hash']) {
-              Logger.mainLogger.error('Mismatched account hash', txId, account.accountId);
+              Logger.mainLogger.error('Mismatched account hash', txId, account.accountId)
             }
-      
-            const accountExist = await Account.queryAccountByAccountId(account.accountId);
+
+            const accountExist = await Account.queryAccountByAccountId(account.accountId)
             if (accountExist) {
-              if (accObj.timestamp > accountExist.timestamp) await Account.updateAccount(accObj);
+              if (accObj.timestamp > accountExist.timestamp) await Account.updateAccount(accObj)
             } else {
-              combineAccounts.push(accObj);
+              combineAccounts.push(accObj)
             }
           }
         } catch (error) {
@@ -946,14 +1002,14 @@ export const storeReceiptData = async (
             nestedCountersInstance.countEvent(
               'receipt',
               `Failed to process non-global receipt txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
-            );
+            )
           }
           Logger.mainLogger.error(
             `Failed to process non-global receipt txId: ${txId}, cycle: ${cycle}, timestamp: ${timestamp}, error: ${error}`
-          );
+          )
         }
       }
-      
+
       // if (receipt) {
       //   const accObj: Account.AccountsCopy = {
       //     accountId: receipt.accountId,
