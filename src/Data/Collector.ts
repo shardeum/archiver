@@ -684,7 +684,7 @@ export async function checkIfValidOverwrite(receipt: any, txId: string): Promise
       console.log(
         `Existing Receipt : ${StringUtils.safeStringify(existingReceipt)} Incoming Receipt : ${StringUtils.safeStringify(receipt)}`
       )
-    nestedCountersInstance.countEvent('duplicate-receipts', `txId : ${txId}`)
+    if (nestedCountersInstance) nestedCountersInstance.countEvent('duplicate-receipts', `txId : ${txId}`)
 
     const existingShardeumReceipt = existingReceipt.appReceiptData.data as ShardeumReceipt
     const existingStatus = existingShardeumReceipt.readableReceipt.status
