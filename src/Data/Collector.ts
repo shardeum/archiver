@@ -654,6 +654,34 @@ export const verifyArchiverReceipt = async (
   }
 }
 
+/*
+    incoming :  in dB
+      0 -> 1 : dont replace and reject incoming receipt
+      1 -> 0 : replace  // do as it is
+      1 -> 1 : let it be // impossible
+      0 -> 0 : replace // do as it is
+
+    */
+export async function checkIfValidOverwrite(receipt: any, txId: string): Promise<boolean> {
+  const existingReceipt = await queryReceiptByReceiptId(txId)
+  if (!existingReceipt) return true // receipt came for the first time, let it insert
+
+  // we found a duplicate receipt
+  if (config.dataLogWrite && ReceiptOverwriteLogWriter) {
+    ReceiptOverwriteLogWriter.writeToLog(
+      `Existing Receipt : ${StringUtils.safeStringify(existingReceipt)} Incoming Receipt : ${StringUtils.safeStringify(receipt)}`
+    )
+  }
+  if (config.VERBOSE) console.log('Duplicate receipts were found for the txId', txId)
+  nestedCountersInstance.countEvent('duplicate-receipts', `txId : ${txId}`)
+
+  const existingShardeumReceipt = existingReceipt.appReceiptData.data as ShardeumReceipt
+  const existingStatus = existingShardeumReceipt.readableReceipt.status
+  if (existingStatus === 1) {
+    return false // you cannot override the old receipt and datalog write and nestedCounter
+  } else return true // if the existingStatus is 0 and the incomingStatus is 0/1, let the new receipt override the old failure receipt
+}
+
 /**
  * Determines whether a new receipt should be allowed to overwrite an existing receipt in the database.
  *
