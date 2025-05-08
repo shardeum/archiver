@@ -776,7 +776,7 @@ export const storeReceiptData = async (
         continue
       }
 
-      if (config.enableStatusLogic && !receipt.globalModification) {
+      if (config.enableDuplicateReceiptsCheck && !receipt.globalModification) {
         // only consider this for EVM txns and Non Global Internal Txns
         const result = await checkIfValidOverwrite(receipt, txId)
         if (!result) {
