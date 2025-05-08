@@ -137,10 +137,20 @@ class DataLogWriter {
     console.log(`> DataLogWriter: Rotated log file: ${this.dataName}-log${this.logCounter}.txt`)
   }
 
+  /**
+   * Asynchronously writes data to the log.
+   *
+   * @param {string} data - The data string to be written to the log.
+   * @returns {Promise<void>} A promise that resolves when the data is successfully queued for writing.
+   */
   async writeToLog(data: string): Promise<void> {
-    this.writeQueue.push(data)
-    if (!this.isWriting) await this.insertDataLog()
-    // else console.log('❌❌❌ Already writing...')
+    try {
+      this.writeQueue.push(data)
+      if (!this.isWriting) await this.insertDataLog()
+      // else console.log('❌❌❌ Already writing...')
+    } catch (error) {
+      console.error('Error in writeToLog:', error)
+    }
   }
 
   async insertDataLog(): Promise<void> {
@@ -218,6 +228,15 @@ export let ReceiptLogWriter: DataLogWriter
 export let OriginalTxDataLogWriter: DataLogWriter
 export let ReceiptOverwriteLogWriter: DataLogWriter
 
+/**
+ * Initializes the data log writers for various log types.
+ *
+ * This function sets up the log writers for cycle, receipt, original transaction data,
+ * and receipt overwrite logs. It creates instances of `DataLogWriter` for each log type
+ * and initializes them with their respective configurations.
+ *
+ * @returns {Promise<void>} A promise that resolves when all log writers are initialized.
+ */
 export async function initDataLogWriter(): Promise<void> {
   CycleLogWriter = new DataLogWriter('cycle', 1, LOG_WRITER_CONFIG.maxCycleEntries)
   ReceiptLogWriter = new DataLogWriter('receipt', 1, LOG_WRITER_CONFIG.maxReceiptEntries)
