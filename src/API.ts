@@ -1701,9 +1701,20 @@ export enum RequestDataType {
   CHECKPOINT = 'checkpoint',
 }
 
+interface QueryParams {
+  startCycle?: number
+  endCycle?: number
+  start?: number
+  end?: number
+  type?: string
+  page?: number
+  count?: number
+  archiver?: State.ArchiverNodeInfo
+}
+
 export const queryFromArchivers = async (
   type: RequestDataType,
-  queryParameters: object,
+  queryParameters: QueryParams,
   timeoutInSecond?: number
 ): Promise<unknown | null> => {
   let bucketID: number | undefined
@@ -1781,16 +1792,22 @@ export const queryFromArchivers = async (
   }
 
   const maxNumberofArchiversToRetry = 3
-  const randomArchivers = Utils.getRandomItemFromArr(State.otherArchivers, 0, maxNumberofArchiversToRetry)
+  let archiversToTry: any[]
+
+  if (params.archiver) {
+    archiversToTry = [params.archiver]
+  } else {
+    archiversToTry = Utils.getRandomItemFromArr(State.otherArchivers, 0, maxNumberofArchiversToRetry)
+  }
 
   // Try to find an archiver with verified data if checkpoint is enabled and we have bucket information
   if (
     config.checkpoint.bucketConfig.allowCheckpointUpdates &&
-    randomArchivers.length > 0 &&
+    archiversToTry.length > 0 &&
     (bucketRange !== undefined || bucketID !== undefined)
   ) {
     // Try to find an archiver with verified data for the bucket range or single bucket
-    const verifiedArchiver = await findVerifiedArchiver(randomArchivers, bucketRange, bucketID, timeoutInSecond)
+    const verifiedArchiver = await findVerifiedArchiver(archiversToTry, bucketRange, bucketID, timeoutInSecond)
 
     if (verifiedArchiver) {
       try {
@@ -1824,12 +1841,12 @@ export const queryFromArchivers = async (
 
   // If no archiver had verified data or checkpoint is disabled, try any archiver
   for (let retry = 0; retry < maxNumberofArchiversToRetry; retry++) {
-    const randomArchiver = randomArchivers[retry] || randomArchivers[0]
-    if (!randomArchiver) continue
+    const archiver = archiversToTry[retry] || archiversToTry[0]
+    if (!archiver) continue
 
     try {
       const response = await P2P.postJson(
-        `http://${randomArchiver.ip}:${randomArchiver.port}${url}`,
+        `http://${archiver.ip}:${archiver.port}${url}`,
         signedDataToSend,
         timeoutInSecond
       )
@@ -1840,14 +1857,12 @@ export const queryFromArchivers = async (
         if (signatureVerificationResult) {
           return response
         } else {
-          Logger.mainLogger.error(
-            `Invalid response format from archiver ${randomArchiver.ip}:${randomArchiver.port} for ${type}`
-          )
+          Logger.mainLogger.error(`Invalid response format from archiver ${archiver.ip}:${archiver.port} for ${type}`)
         }
       }
     } catch (e) {
       Logger.mainLogger.error(
-        `Error while querying ${randomArchiver.ip}:${randomArchiver.port}${url} for data ${StringUtils.safeStringify(queryParameters)}`,
+        `Error while querying ${archiver.ip}:${archiver.port}${url} for data ${StringUtils.safeStringify(queryParameters)}`,
         e
       )
     }
