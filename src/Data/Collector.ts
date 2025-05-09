@@ -881,7 +881,7 @@ export const storeReceiptData = async (
       receiptsInValidationMap.delete(txId)
       if (missingReceiptsMap.has(txId)) missingReceiptsMap.delete(txId)
       // Store beforeStates only for globalModification tx, or for cycles before the activation cycle, or if config.storeReceiptBeforeStates is true for cycles after the activation
-      receipt.beforeStates = globalModification || config.storeReceiptBeforeStates ? receipt.beforeStates : []
+      receipt.beforeStates = globalModification || config.storeReceiptBeforeStates ? receipt.beforeStates : [] // Store beforeStates for globalModification tx, or if config.storeReceiptBeforeStates is true
       let executionShardKey: string
       if (globalModification) {
         const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt
