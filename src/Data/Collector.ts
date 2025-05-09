@@ -780,8 +780,14 @@ export const storeReceiptData = async (
         continue
       }
 
-      if (config.enableDuplicateReceiptsCheck && !receipt.globalModification) {
-        // only consider this for EVM txns and Non Global Internal Txns
+      if (
+        config.enableDuplicateReceiptsCheck &&
+        receipt.cycle >= config.duplicateReceiptsCheckActivationCycle &&
+        !receipt.globalModification
+      ) {
+         
+
+        // only consider this for EVM txns and Non Global Internal Txns for cycles at or after activation
         const result = await checkIfValidOverwrite(receipt, txId)
         if (!result) {
           continue // if the incoming receipt has a status of 0, do not allow it to overwrite a receipt of status 1
@@ -874,7 +880,8 @@ export const storeReceiptData = async (
       processedReceiptsMap.set(txId, tx.timestamp)
       receiptsInValidationMap.delete(txId)
       if (missingReceiptsMap.has(txId)) missingReceiptsMap.delete(txId)
-      receipt.beforeStates = globalModification || config.storeReceiptBeforeStates ? receipt.beforeStates : [] // Store beforeStates for globalModification tx, or if config.storeReceiptBeforeStates is true
+      // Store beforeStates only for globalModification tx, or for cycles before the activation cycle, or if config.storeReceiptBeforeStates is true for cycles after the activation
+      receipt.beforeStates = globalModification || config.storeReceiptBeforeStates ? receipt.beforeStates : []
       let executionShardKey: string
       if (globalModification) {
         const appliedReceipt = receipt.signedReceipt as P2PTypes.GlobalAccountsTypes.GlobalTxReceipt

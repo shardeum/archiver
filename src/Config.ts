@@ -85,6 +85,8 @@ export interface Config {
   }
   newPOQReceipt: boolean
   storeReceiptBeforeStates: boolean
+  // cycle number from which to activate storeReceiptBeforeStates behavior
+  storeReceiptBeforeStatesActivationCycle: number
   waitingTimeForMissingTxData: number // Wait time in ms for missing tx data before collecting from other archivers
   gossipToMoreArchivers: true // To gossip to more archivers in addition to adjacent archivers
   randomGossipArchiversCount: 2 // Number of random archivers to gossip to
@@ -135,6 +137,8 @@ export interface Config {
   formingNetworkCycleThreshold: number // CODE REVIEW WARNING: never allow this to be set more than 30.  we have some trusted execution until this cycle is reached (specifically allowing global tx receipts) - will be refactored to be avoided
   maxResponseSize: number
   enableDuplicateReceiptsCheck: boolean // To enable duplicate receipts check in storeReceiptData and not allow overwriting of success with failure
+  // cycle number from which to activate duplicate receipts overwrite check
+  duplicateReceiptsCheckActivationCycle: number
 }
 
 let config: Config = {
@@ -217,6 +221,8 @@ let config: Config = {
   },
   newPOQReceipt: false,
   storeReceiptBeforeStates: true,
+  // cycle threshold to start applying storeReceiptBeforeStates behavior
+  storeReceiptBeforeStatesActivationCycle: 0,
   waitingTimeForMissingTxData: 2000, // in ms
   gossipToMoreArchivers: true,
   randomGossipArchiversCount: 2,
@@ -287,6 +293,8 @@ let config: Config = {
   formingNetworkCycleThreshold: 30,
   maxResponseSize: 15 * 1024 * 1024, // 15MB
   enableDuplicateReceiptsCheck: true,
+  // cycle threshold for duplicate receipts overwrite check
+  duplicateReceiptsCheckActivationCycle: 0,
 }
 // Override default config params from config file, env vars, and cli args
 export async function overrideDefaultConfig(file: string): Promise<void> {
