@@ -85,8 +85,6 @@ export interface Config {
   }
   newPOQReceipt: boolean
   storeReceiptBeforeStates: boolean
-  // cycle number from which to activate storeReceiptBeforeStates behavior
-  storeReceiptBeforeStatesActivationCycle: number
   waitingTimeForMissingTxData: number // Wait time in ms for missing tx data before collecting from other archivers
   gossipToMoreArchivers: true // To gossip to more archivers in addition to adjacent archivers
   randomGossipArchiversCount: 2 // Number of random archivers to gossip to
@@ -221,8 +219,6 @@ let config: Config = {
   },
   newPOQReceipt: false,
   storeReceiptBeforeStates: true,
-  // cycle threshold to start applying storeReceiptBeforeStates behavior
-  storeReceiptBeforeStatesActivationCycle: 0,
   waitingTimeForMissingTxData: 2000, // in ms
   gossipToMoreArchivers: true,
   randomGossipArchiversCount: 2,
