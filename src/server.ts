@@ -53,6 +53,7 @@ import { RequestDataType } from './API'
 import { getOldestPendingOrFailedCheckpointStatus } from './dbstore/checkpointStatus'
 import { ArchiverLogging } from './profiler/archiverLogging'
 import { logEnvSetup } from './utils/environment'
+import { Log } from 'ethers'
 
 const configFile = resolve(__dirname, '../archiver-config.json')
 const allowedArchiversConfigPath = join(__dirname, '../allowed-archivers.json')
@@ -224,7 +225,14 @@ async function start(): Promise<void> {
   } else {
     try {
       Logger.mainLogger.debug('We are not first archiver. Syncing and starting archive-server')
-      syncAndStartServer()
+      
+      if(config.passiveMode){
+        Logger.mainLogger.debug('Archiver is in passive mode. Skipping network join.')
+        await startServer()
+      } else {
+        Logger.mainLogger.debug('Syncing and starting archive-server')
+        syncAndStartServer()
+      }
     } catch (err) {
       Logger.mainLogger.error('Error syncing and starting archive-server', err)
     }
@@ -307,6 +315,9 @@ function initProfiler(server: FastifyInstance): void {
 /** Asynchronous function to synchronize and start the server. */
 async function syncAndStartServer(): Promise<void> {
   try {
+
+
+
     // Set the syncing flag to true to know we are patching the data
     State.setSyncing(true)
 
@@ -331,6 +342,7 @@ async function syncAndStartServer(): Promise<void> {
       await validateAndSyncCycleData(lastStoredCycleCount, lastStoredCycleInfo)
     }
 
+    
     // Join the network
     await joinNetwork(cycleDuration)
 
@@ -441,6 +453,12 @@ async function validateAndSyncCycleData(lastStoredCycleCount: number, lastStored
 }
 
 async function joinNetwork(cycleDuration: number): Promise<void> {
+  if(config.passiveMode){
+    Logger.mainLogger.debug('Archiver is in passive mode. Skipping network join.')
+    return
+  }
+  
+  
   let isJoined = false
   let firstTime = true
 

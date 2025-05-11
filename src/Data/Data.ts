@@ -51,6 +51,7 @@ interface ValidationBreadcrumb {
   cycle: P2PTypes.CycleCreatorTypes.CycleData
 }
 
+
 class ValidationTracker {
   private seen = new Set<string>()
   private breadcrumbs: ValidationBreadcrumb[] = []
@@ -828,6 +829,11 @@ export async function replaceDataSender(publicKey: NodeList.ConsensusNodeInfo['p
 }
 
 export async function subscribeNodeForDataTransfer(): Promise<void> {
+  if(config.passiveMode) {
+    Logger.mainLogger.debug('Archiver is in passive mode. Skipping data transfer subscription.')
+    return
+  }
+
   if (config.experimentalSnapshot) {
     await subscribeConsensorsByConsensusRadius()
   } else {
@@ -1139,6 +1145,12 @@ export function calcIncomingTimes(record: P2PTypes.CycleCreatorTypes.CycleRecord
 }
 
 export async function joinNetwork(nodeList: NodeList.ConsensusNodeInfo[], isFirstTime: boolean): Promise<boolean> {
+  if (config.passiveMode) {
+    Logger.mainLogger.debug('joinNetwork-skipped  passive mode')
+    return true 
+  }
+
+  
   Logger.mainLogger.debug('Is firstTime', isFirstTime)
   if (!isFirstTime) {
     const isJoined: boolean = await checkJoinStatus(nodeList)
@@ -1178,6 +1190,10 @@ export async function submitJoin(
   nodes: NodeList.ConsensusNodeInfo[],
   joinRequest: P2P.ArchiverJoinRequest & SignedObject
 ): Promise<void> {
+  if (config.passiveMode) {
+    Logger.mainLogger.debug('submitJoin-skipped  passive mode')
+    return 
+  }
   // Send the join request to a handful of the active node all at once:w
   const selectedNodes = Utils.getRandom(nodes, Math.min(nodes.length, 5))
   Logger.mainLogger.debug(`Sending join request to ${selectedNodes.map((n) => `${n.ip}:${n.port}`)}`)
@@ -1188,6 +1204,11 @@ export async function submitJoin(
 }
 
 export async function sendLeaveRequest(nodes: NodeList.ConsensusNodeInfo[]): Promise<void> {
+  if (config.passiveMode) {
+    Logger.mainLogger.debug('sendLeaveRequest-skipped  passive mode')
+    return 
+  }
+  
   const leaveRequest = P2P.createArchiverLeaveRequest()
   Logger.mainLogger.debug(`Sending leave request to ${nodes.map((n) => `${n.ip}:${n.port}`)}`)
 
@@ -1223,6 +1244,11 @@ export async function sendLeaveRequest(nodes: NodeList.ConsensusNodeInfo[]): Pro
 }
 
 export async function sendActiveRequest(): Promise<void> {
+  if (config.passiveMode) {
+    Logger.mainLogger.debug('sendActiveRequest-skipped  passive mode')
+    return 
+  }
+
   Logger.mainLogger.debug('Sending Active Request to the network!')
   const latestCycleInfo = await CycleDB.queryLatestCycleRecords(1)
   const latestCycle = latestCycleInfo[0]
@@ -1288,6 +1314,11 @@ export async function getCycleDuration(): Promise<number> {
   This queries by the /joinedArchiver endpoint on the nodes and returns joining status based on majority response.
 */
 export async function checkJoinStatus(activeNodes: NodeList.ConsensusNodeInfo[]): Promise<boolean> {
+  if (config.passiveMode) {
+    Logger.mainLogger.debug('checkJoinStatus-skipped  passive mode')
+    return false
+  }
+  
   Logger.mainLogger.debug('checkJoinStatus: Checking join status')
   const ourNodeInfo = State.getNodeInfo()
 
@@ -1313,6 +1344,11 @@ export async function checkJoinStatus(activeNodes: NodeList.ConsensusNodeInfo[])
 
 // This will be used once activeArchivers field is added to the cycle record
 export async function checkActiveStatus(): Promise<boolean> {
+  if (config.checkActiveStatus) {
+    console.log('checkJoinStatus-skipped  passive mode')
+    return false
+  }
+  
   Logger.mainLogger.debug('Checking active status')
   const ourNodeInfo = State.getNodeInfo()
   try {
