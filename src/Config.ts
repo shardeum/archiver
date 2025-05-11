@@ -69,6 +69,7 @@ export interface Config {
   globalNetworkAccount: string
   maxValidatorsToServe: number
   limitToArchiversOnly: boolean
+  passiveMode: boolean // To enable passive mode for archiver
   verifyReceiptData: boolean
   verifyReceiptSignaturesSeparately: boolean
   verifyAppReceiptData: boolean
@@ -184,6 +185,7 @@ let config: Config = {
     process.env.GLOBAL_ACCOUNT || '1000000000000000000000000000000000000000000000000000000000000001', //this address will change in the future
   maxValidatorsToServe: 10, // max number of validators to serve accounts data during restore mode
   limitToArchiversOnly: true,
+  passiveMode: true, // To enable passive mode for archiver
   verifyReceiptData: true,
   verifyReceiptSignaturesSeparately: true,
   verifyAccountData: true,
