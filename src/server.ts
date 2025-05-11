@@ -317,7 +317,11 @@ function initProfiler(server: FastifyInstance): void {
 /** Asynchronous function to synchronize and start the server. */
 async function syncAndStartServer(): Promise<void> {
   try {
-
+    if(config.passiveMode){
+      Logger.mainLogger.debug('Archiver is in passive mode. Skipping network join.')
+      await startServer()
+      return
+    }
 
 
     // Set the syncing flag to true to know we are patching the data
