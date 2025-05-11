@@ -46,6 +46,7 @@ import { XOR } from '../utils/general'
 import { customFetch } from '../utils/customHttpFunctions'
 import { ArchiverLogging } from '../profiler/archiverLogging'
 import { Utils as UtilsTypes } from '@shardeum-foundation/lib-types'
+import { logEnvSetup } from '../utils/environment'
 
 interface ValidationBreadcrumb {
   cycle: P2PTypes.CycleCreatorTypes.CycleData
@@ -1530,6 +1531,7 @@ export async function buildNodeListFromStoredCycle(
   lastStoredCycle: P2PTypes.CycleCreatorTypes.CycleData
 ): Promise<void> {
   Logger.mainLogger.debug('lastStoredCycle', lastStoredCycle)
+  Logger.mainLogger.debug('buildNodeListFromStoredCycle:')
   Logger.mainLogger.debug(`Syncing till cycle ${lastStoredCycle.counter}...`)
   const cyclesToGet = 2 * Math.floor(Math.sqrt(lastStoredCycle.active)) + 2
   Logger.mainLogger.debug(`Cycles to get is ${cyclesToGet}`)
