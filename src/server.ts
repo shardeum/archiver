@@ -226,6 +226,8 @@ async function start(): Promise<void> {
     try {
       Logger.mainLogger.debug('We are not first archiver. Syncing and starting archive-server')
       
+      console.log('PASSIVE MODE:' + config.passiveMode)
+      Logger.mainLogger.debug('PASSIVE MODE:' + config.passiveMode)
       if(config.passiveMode){
         Logger.mainLogger.debug('Archiver is in passive mode. Skipping network join.')
         await startServer()
