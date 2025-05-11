@@ -91,6 +91,11 @@ type Response = {
 }
 
 export const scheduleMultiSigKeysSyncFromNetConfig = (): void => {
+  if(config.passiveMode) {
+    Logger.mainLogger.info('passive mode is enabled, skipping scheduleMultiSigKeysSyncFromNetConfig')
+    return
+  }
+
   setInterval(async () => {
     console.log('Executing syncKeysFromNetworkConfig on interval...')
     await syncKeysFromNetworkConfig()
