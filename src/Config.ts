@@ -185,7 +185,7 @@ let config: Config = {
     process.env.GLOBAL_ACCOUNT || '1000000000000000000000000000000000000000000000000000000000000001', //this address will change in the future
   maxValidatorsToServe: 10, // max number of validators to serve accounts data during restore mode
   limitToArchiversOnly: true,
-  passiveMode: true, // To enable passive mode for archiver
+  passiveMode: true, //DO not merge as true To enable passive mode for archiver for dev testing reasons 
   verifyReceiptData: true,
   verifyReceiptSignaturesSeparately: true,
   verifyAccountData: true,
