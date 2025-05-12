@@ -94,6 +94,9 @@ const healerConfig = {
   // Flag for verify-only mode
   verifyOnly: false,
 
+  // Flag to ignore count discrepancies
+  ignoreCounts: false,
+
   // Flags to control which data types to heal
   healDataTypes: {
     cycles: true,
@@ -664,7 +667,7 @@ async function findMissingReceipts(start: number, end: number): Promise<MissingR
     const receiptCounts = await processBatchesInParallel(tasks)
     const maxReceiptCount = Math.max(0, ...receiptCounts)
 
-    if (localCount >= maxReceiptCount) {
+    if (healerConfig.ignoreCounts === false && localCount >= maxReceiptCount) {
       // We have all receipts for this cycle
       continue
     }
@@ -1081,6 +1084,8 @@ async function findMissingData(): Promise<MissingData> {
       timestamp: Date.now(),
     }
 
+    await Utils.sleep(healerConfig.timeouts.sleepBetweenHealingOperationsMs)
+
     // Find missing cycles
     if (localCycleCount < maxCounts[DataType.CYCLE]) {
       missingData.cycles = await findMissingCycles(0, maxCounts[DataType.CYCLE] - 1)
@@ -1088,14 +1093,24 @@ async function findMissingData(): Promise<MissingData> {
       Logger.mainLogger.info(`Cycle data is up-to-date`)
     }
 
+    await Utils.sleep(healerConfig.timeouts.sleepBetweenHealingOperationsMs)
+
+    Logger.mainLogger.info(`========== healerConfig.ignoreCounts: ${healerConfig.ignoreCounts}`)
+
     // Find missing receipts
-    if (localReceiptCount < maxCounts[DataType.RECEIPT]) {
+    if (healerConfig.ignoreCounts === true || localReceiptCount < maxCounts[DataType.RECEIPT]) {
       // For receipts, use the max cycle count (either local or network)
       const maxCycleCount = Math.max(localCycleCount, maxCounts[DataType.CYCLE])
       missingData.receipts = await findMissingReceipts(0, maxCycleCount - 1)
+      
+      //TODO need to support min/max cycle range input so we can do partial work
+      //
+      //missingData.receipts = await findMissingReceipts(15590, 15600)
     } else {
       Logger.mainLogger.info(`Receipt data is up-to-date`)
     }
+
+    await Utils.sleep(healerConfig.timeouts.sleepBetweenHealingOperationsMs)
 
     // Find missing accounts
     if (maxCounts[DataType.ACCOUNT] === 0) {
@@ -1108,6 +1123,8 @@ async function findMissingData(): Promise<MissingData> {
     } else {
       Logger.mainLogger.info(`Account data is up-to-date`)
     }
+
+    await Utils.sleep(healerConfig.timeouts.sleepBetweenHealingOperationsMs)
 
     // Find missing transactions
     if (localTransactionCount < maxCounts[DataType.TRANSACTION]) {
@@ -2122,6 +2139,14 @@ async function main() {
         : 'false'
     const disableMajority = disableMajorityArg.toLowerCase() === 'true'
 
+    // Ignore counts flag - default is false (do not ignore), set to true to ignore
+    const ignoreCountsArgIndex = process.argv.indexOf('--ignore-counts')
+    const ignoreCountsArg =
+      ignoreCountsArgIndex !== -1 && ignoreCountsArgIndex < process.argv.length - 1
+        ? process.argv[ignoreCountsArgIndex + 1]
+        : 'false'
+    const ignoreCounts = ignoreCountsArg.toLowerCase() === 'true'
+
     // Data type healing flags
     const healCyclesArgIndex = process.argv.indexOf('--heal-cycles')
     const healCyclesArg =
@@ -2155,6 +2180,7 @@ async function main() {
     useLoggerFile = useLogger
     healerConfig.disableMajorityCheck = disableMajority
     healerConfig.verifyOnly = verifyOnly
+    healerConfig.ignoreCounts = ignoreCounts
     healerConfig.healDataTypes = {
       cycles: healCycles,
       receipts: healReceipts,
@@ -2196,6 +2222,7 @@ async function main() {
     Logger.mainLogger.info(`- Verify-only mode: ${verifyOnly ? 'ENABLED' : 'DISABLED'}`)
     Logger.mainLogger.info(`- Logger mode: ${useLogger ? 'FILE' : 'CONSOLE'}`)
     Logger.mainLogger.info(`- Majority check: ${disableMajority ? 'DISABLED' : 'ENABLED'}`)
+    Logger.mainLogger.info(`- Ignore counts: ${ignoreCounts ? 'ENABLED' : 'DISABLED'}`)
     Logger.mainLogger.info(`- Input file: ${inputFile || 'none (using default or analyzing)'}`)
     Logger.mainLogger.info(`- Using ${useCustomArchivers ? 'custom' : 'State'} archivers`)
     Logger.mainLogger.info(`- Data types to heal:`)
@@ -2312,6 +2339,8 @@ async function main() {
         Logger.mainLogger.info(`Missing data analysis complete. See ${MISSING_DATA_FILE} for details.`)
         Logger.mainLogger.info(`Run with --heal true to apply the healing process.`)
 
+        await Utils.sleep(healerConfig.timeouts.sleepBetweenHealingOperationsMs)
+
         // Exit the process with success code
         process.exit(0)
       }
@@ -2412,6 +2441,8 @@ async function main() {
       Logger.mainLogger.info(`- Accounts: ${finalAccountCount}`)
       Logger.mainLogger.info(`- Transactions: ${finalTxCount}`)
 
+      await Utils.sleep(healerConfig.timeouts.sleepBetweenHealingOperationsMs)
+
       // Exit the process with success code
       process.exit(0)
     }
@@ -2419,6 +2450,8 @@ async function main() {
     console.log('error: ', error)
     Logger.mainLogger.error(`Error in healing process: ${error.message}`)
     Logger.mainLogger.error(error.stack)
+
+    await Utils.sleep(healerConfig.timeouts.sleepBetweenHealingOperationsMs)
 
     // Exit the process with error code
     process.exit(1)
