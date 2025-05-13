@@ -191,12 +191,14 @@ interface MissingCycle {
   counter: number
   majorityHash?: string
   cycleRecord?: string
+  isMissing: boolean // Add explicit flag for missing vs mismatched
 }
 
 interface MissingReceipt {
   cycle: number
   id: string
   majorityHash?: string
+  isMissing: boolean // Add explicit flag for missing vs mismatched
 }
 
 interface MissingAccount {
@@ -204,6 +206,7 @@ interface MissingAccount {
   majorityHash?: string
   cycle?: number
   cycleNumber?: number
+  isMissing: boolean // Add explicit flag for missing vs mismatched
 }
 
 interface MissingTransaction {
@@ -211,6 +214,7 @@ interface MissingTransaction {
   id: string
   majorityHash?: string
   cycleNumber?: number
+  isMissing: boolean // Add explicit flag for missing vs mismatched
 }
 
 interface MissingData {
@@ -225,6 +229,7 @@ interface MissingData {
 interface MissingCycleSummary {
   counter: number
   count: number
+  isMissing: boolean // Add explicit flag for missing vs mismatched
 }
 
 interface MissingReceiptSummary {
@@ -232,6 +237,7 @@ interface MissingReceiptSummary {
   cycle: number
   count: number
   majorityArchivers?: string[]
+  isMissing: boolean // Add explicit flag for missing vs mismatched
 }
 
 interface MissingAccountSummary {
@@ -240,6 +246,7 @@ interface MissingAccountSummary {
   cycle?: number
   cycleNumber?: number
   majorityArchivers?: string[]
+  isMissing: boolean // Add explicit flag for missing vs mismatched
 }
 
 interface MissingTransactionSummary {
@@ -248,6 +255,7 @@ interface MissingTransactionSummary {
   cycle: number
   cycleNumber?: number
   majorityArchivers?: string[]
+  isMissing: boolean // Add explicit flag for missing vs mismatched
 }
 
 // Interface for archiver total data
@@ -265,12 +273,46 @@ function logProgress(current: number, total: number, prefix: string) {
   Logger.mainLogger.info(`${prefix}: ${current}/${total} (${percentage}%)`)
 }
 
+// === BEGIN: Endpoint Stats Tracking ===
+const endpointStats: Record<string, { count: number; totalTimeMs: number; minTimeMs: number; maxTimeMs: number }> = {}
+
+function recordEndpointStat(endpoint: string, durationMs: number) {
+  if (!endpointStats[endpoint]) {
+    endpointStats[endpoint] = { count: 0, totalTimeMs: 0, minTimeMs: Number.POSITIVE_INFINITY, maxTimeMs: 0 }
+  }
+  const stat = endpointStats[endpoint]
+  stat.count++
+  stat.totalTimeMs += durationMs
+  if (durationMs < stat.minTimeMs) stat.minTimeMs = durationMs
+  if (durationMs > stat.maxTimeMs) stat.maxTimeMs = durationMs
+}
+
+function logEndpointStatsSummary() {
+  const lines = [
+    '===== ENDPOINT REQUEST SUMMARY =====',
+    'Endpoint         | Requests | Total Time (ms) | Avg Time (ms) | Min (ms) | Max (ms)',
+    '-----------------|----------|-----------------|---------------|----------|----------',
+  ]
+  for (const endpoint in endpointStats) {
+    const stat = endpointStats[endpoint]
+    const avg = stat.count > 0 ? (stat.totalTimeMs / stat.count).toFixed(2) : '0.00'
+    lines.push(
+      `${endpoint.padEnd(16)}| ${stat.count.toString().padEnd(8)}| ${stat.totalTimeMs.toFixed(0).padEnd(15)}| ${avg.padEnd(13)}| ${stat.minTimeMs.toFixed(0).padEnd(8)}| ${stat.maxTimeMs.toFixed(0).padEnd(8)}`
+    )
+  }
+  lines.push('======================================')
+  const summary = lines.join('\n')
+  Logger.mainLogger.info(summary)
+  console.log(summary)
+}
+
 // Helper function to fetch data from a specific archiver
 async function fetchFromArchiver(
   archiver: CustomArchiverConfig | State.ArchiverNodeInfo,
   endpoint: string,
   data: any
 ): Promise<any> {
+  const start = Date.now()
   try {
     // Add support for different endpoint formats
     let formattedEndpoint = endpoint
@@ -339,6 +381,9 @@ async function fetchFromArchiver(
   } catch (error) {
     Logger.mainLogger.debug(`Error fetching from archiver ${archiver.ip}:${archiver.port}${endpoint}: ${error.message}`)
     return null
+  } finally {
+    const duration = Date.now() - start
+    recordEndpointStat(endpoint, duration)
   }
 }
 
@@ -511,7 +556,7 @@ function loadMissingDataFromJson(): MissingData | null {
 // Find all missing data across all database tables
 async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): Promise<MissingData> {
   try {
-    Logger.mainLogger.info('Starting new missing data analysis using primary key comparison...')
+    Logger.mainLogger.info('Starting new missing data analysis using primary key and hash comparison...')
     const archivers: (CustomArchiverConfig | State.ArchiverNodeInfo)[] = useCustomArchivers
       ? customArchiversConfig
       : State.otherArchivers
@@ -522,177 +567,218 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
     let missingCycles: MissingCycle[] = []
     let missingCyclesSummary: MissingCycleSummary[] = []
     if (healerConfig.healDataTypes.cycles) {
-      Logger.mainLogger.info('Analyzing missing cycles...')
-      // If cycle range is provided, use it, else use all
-      let localCycleSet, remoteCycleMap
-      if (typeof minCycleToUse === 'number' && typeof maxCycleToUse === 'number') {
-        // Get local cycles in range
-        localCycleSet = new Set(
-          (await CycleDB.queryCycleRecordsBetween(minCycleToUse, maxCycleToUse)).map((c: any) => c.counter)
-        )
-        // Get remote cycles in range
-        remoteCycleMap = new Map<number, number>()
-        for (let i = minCycleToUse; i <= maxCycleToUse; i++) remoteCycleMap.set(i, 0)
-        // For each archiver, fetch cycles in range
+      Logger.mainLogger.info('Analyzing missing and corrupt cycles...')
+      let localCycleSet = new Set<number>(),
+        remoteCycleMap,
+        localCycleHashMap = new Map<number, string>(),
+        remoteCycleHashMap
+      const CYCLE_BATCH_SIZE = 100
+      let minCycle = typeof minCycleToUse === 'number' ? minCycleToUse : 0
+      let maxCycle = typeof maxCycleToUse === 'number' ? maxCycleToUse : undefined
+      if (typeof maxCycle === 'undefined') {
+        const totalData = await getTotalDataFromArchivers()
+        maxCycle = 0
+        for (const t of totalData) {
+          if (t.totalCycles > maxCycle) maxCycle = t.totalCycles
+        }
+      }
+      // Fetch local cycles in batches
+      for (let batchStart = minCycle; batchStart < maxCycle; batchStart += CYCLE_BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + CYCLE_BATCH_SIZE - 1, maxCycle - 1)
+        const localCycles = await CycleDB.queryCycleRecordsBetween(batchStart, batchEnd)
+        for (const c of localCycles) {
+          localCycleSet.add(c.counter)
+          localCycleHashMap.set(c.counter, Crypto.hash(StringUtils.safeStringify(c)).toLowerCase())
+        }
+      }
+      // Get remote cycles in range (batched)
+      remoteCycleMap = new Map<number, number>()
+      remoteCycleHashMap = new Map<number, string[]>()
+      for (let batchStart = minCycle; batchStart < maxCycle; batchStart += CYCLE_BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + CYCLE_BATCH_SIZE - 1, maxCycle - 1)
+        for (let i = batchStart; i <= batchEnd; i++) remoteCycleMap.set(i, 0)
         for (const archiver of archivers) {
           const resp = await fetchFromArchiver(archiver, RequestDataType.CYCLE, {
-            start: minCycleToUse,
-            end: maxCycleToUse,
+            start: batchStart,
+            end: batchEnd,
           })
           if (resp && resp.cycleInfo) {
             for (const c of resp.cycleInfo) {
-              if (typeof c.counter === 'number') remoteCycleMap.set(c.counter, (remoteCycleMap.get(c.counter) || 0) + 1)
+              if (typeof c.counter === 'number') {
+                remoteCycleMap.set(c.counter, (remoteCycleMap.get(c.counter) || 0) + 1)
+                const hash = Crypto.hash(StringUtils.safeStringify(c)).toLowerCase()
+                if (!remoteCycleHashMap.has(c.counter)) remoteCycleHashMap.set(c.counter, [])
+                remoteCycleHashMap.get(c.counter)!.push(hash)
+              }
             }
           }
         }
-      } else {
-        ;[localCycleSet, remoteCycleMap] = await Promise.all([getAllLocalCycleCounters(), getAllRemoteCycleCounters()])
       }
-      console.log('remoteCycleMap: ', remoteCycleMap.size)
-      console.log('localCycleSet: ', localCycleSet.size)
+      // Check for missing and corrupt cycles
       for (const [counter, count] of remoteCycleMap.entries()) {
-        if (!localCycleSet.has(counter)) {
-          let majorityHash: string | undefined = undefined
-          if (!healerConfig.disableMajorityCheck) {
-            // Fetch all versions from all archivers
-            let allVersions: any[] = []
-            for (const archiver of archivers) {
-              const resp = await fetchFromArchiver(archiver, RequestDataType.CYCLE, { start: counter, end: counter })
-              if (resp && resp.cycleInfo) allVersions.push(...resp.cycleInfo)
-            }
-            if (allVersions.length > 0) {
-              const hashes = allVersions.map((c) => c.hash || StringUtils.safeStringify(c))
-              const majority = await getMajorityItem(hashes, (h) => h)
-              majorityHash = majority || undefined
+        let majorityHash: string | undefined = undefined
+        let isMissing = !localCycleSet.has(counter)
+        let isCorrupt = false
+        let localHash = localCycleHashMap.get(counter)
+        let remoteHashes = remoteCycleHashMap.get(counter) || []
+        // Find majority hash
+        if (!healerConfig.disableMajorityCheck && remoteHashes.length > 0) {
+          const hashCounts: { [hash: string]: number } = {}
+          for (const h of remoteHashes) hashCounts[h] = (hashCounts[h] || 0) + 1
+          let maxCount = 0
+          for (const hash in hashCounts) {
+            if (hashCounts[hash] > maxCount) {
+              maxCount = hashCounts[hash]
+              majorityHash = hash
             }
           }
-          missingCycles.push({ counter, majorityHash })
-          missingCyclesSummary.push({ counter, count })
+        } else if (remoteHashes.length > 0) {
+          majorityHash = remoteHashes[0]
+        }
+        // If present locally, check for corruption
+        if (!isMissing && majorityHash && localHash && localHash !== majorityHash) {
+          isCorrupt = true
+        }
+        if (isMissing || isCorrupt) {
+          missingCycles.push({ counter, majorityHash, isMissing })
+          missingCyclesSummary.push({ counter, count, isMissing })
         }
       }
-      Logger.mainLogger.info(`Found ${missingCycles.length} missing cycles`)
+      Logger.mainLogger.info(`Found ${missingCycles.length} missing or corrupt cycles`)
     }
 
     // Receipts
     let missingReceipts: MissingReceipt[] = []
     let missingReceiptsSummary: MissingReceiptSummary[] = []
     if (healerConfig.healDataTypes.receipts) {
-      Logger.mainLogger.info('Analyzing missing receipts...')
+      Logger.mainLogger.info('Analyzing missing and corrupt receipts...')
+      const RECEIPT_BATCH_SIZE = 1000
       const [localReceiptSet, remoteReceiptMap]: [Set<string>, Map<string, { count: number; cycle: number }>] =
         await Promise.all([getAllLocalReceiptIds(), getAllRemoteReceiptIds(minCycleToUse, maxCycleToUse)])
-      console.log('remoteReceiptMap: ', remoteReceiptMap.size)
-      console.log('localReceiptSet: ', localReceiptSet.size)
+      // Build local hash map in batches
+      const localReceiptHashMap = new Map<string, string>()
+      let localOffset = 0
+      while (true) {
+        const localReceipts = await ReceiptDB.queryReceipts(localOffset, RECEIPT_BATCH_SIZE)
+        if (!localReceipts || localReceipts.length === 0) break
+        for (const r of localReceipts) {
+          if (r.receiptId) localReceiptHashMap.set(r.receiptId, Crypto.hash(StringUtils.safeStringify(r)).toLowerCase())
+        }
+        if (localReceipts.length < RECEIPT_BATCH_SIZE) break
+        localOffset += RECEIPT_BATCH_SIZE
+      }
+      // For each remote receipt, check for missing or corrupt (batched remote fetch)
       for (const [id, info] of remoteReceiptMap.entries()) {
-        //helper to debug a specific receipt
-        // if(id === '6f9bed243efff65e84d67f0d4082b003057b6eeb5defac25ad079a406e475b52'){
-        //   console.log('id: ', id)
-        // }
-        if (!localReceiptSet.has(id)) {
-          let majorityHash: string | undefined = undefined
-          let majorityArchivers: string[] = []
-          if (!healerConfig.disableMajorityCheck) {
-            // Fetch all versions from all archivers and track which archiver has the majority hash
-            const allVersions: { archiver: string; hash: string; data: any }[] = []
-            for (const archiver of archivers) {
+        let majorityHash: string | undefined = undefined
+        let isMissing = !localReceiptSet.has(id)
+        let isCorrupt = false
+        let localHash = localReceiptHashMap.get(id)
+        // Fetch all remote versions for hash comparison (batched)
+        let remoteHashes: string[] = []
+        for (let i = 0; i < archivers.length; i += 10) {
+          // batch archiver requests
+          const archiverBatch = archivers.slice(i, i + 10)
+          const batchResults = await Promise.all(
+            archiverBatch.map(async (archiver) => {
               const resp = await fetchFromArchiver(archiver, RequestDataType.RECEIPT, { txIdList: [[id, 0]] })
+              let hashes: string[] = []
               if (resp && resp.receipts) {
                 for (const r of resp.receipts) {
-                  if(r.signedReceipt.txGroupCycle != null){
-                    delete r.signedReceipt.txGroupCycle
-                    //console.log('delete r.signedReceipt.txGroupCycle for id: ', id)
-                  }
-                  allVersions.push({
-                    archiver: archiver.publicKey,
-                    hash: r.hash || StringUtils.safeStringify(r),
-                    data: r,
-                  })
+                  hashes.push(Crypto.hash(StringUtils.safeStringify(r)).toLowerCase())
                 }
               }
-            }
-            if (allVersions.length > 0) {
-              const hashCounts: { [hash: string]: string[] } = {}
-              for (const v of allVersions) {
-                if (!hashCounts[v.hash]) hashCounts[v.hash] = []
-                hashCounts[v.hash].push(v.archiver)
-              }
-              let maxCount = 0
-              for (const hash in hashCounts) {
-                if (hashCounts[hash].length > maxCount) {
-                  maxCount = hashCounts[hash].length
-                  majorityHash = hash
-                  majorityArchivers = hashCounts[hash]
-                }
-              }
+              return hashes
+            })
+          )
+          for (const hashes of batchResults) remoteHashes.push(...hashes)
+        }
+        // Find majority hash
+        if (!healerConfig.disableMajorityCheck && remoteHashes.length > 0) {
+          const hashCounts: { [hash: string]: number } = {}
+          for (const h of remoteHashes) hashCounts[h] = (hashCounts[h] || 0) + 1
+          let maxCount = 0
+          for (const hash in hashCounts) {
+            if (hashCounts[hash] > maxCount) {
+              maxCount = hashCounts[hash]
+              majorityHash = hash
             }
           }
-          // Save the data even if no majorityHash was found
-          missingReceipts.push({ cycle: info.cycle, id, majorityHash })
-          missingReceiptsSummary.push({ id, count: info.count, cycle: info.cycle, majorityArchivers })
+        } else if (remoteHashes.length > 0) {
+          majorityHash = remoteHashes[0]
+        }
+        if (!isMissing && majorityHash && localHash && localHash !== majorityHash) {
+          isCorrupt = true
+        }
+        if (isMissing || isCorrupt) {
+          missingReceipts.push({ cycle: info.cycle, id, majorityHash, isMissing })
+          missingReceiptsSummary.push({ id, count: info.count, cycle: info.cycle, isMissing })
         }
       }
-      Logger.mainLogger.info(`Found ${missingReceipts.length} missing receipts`)
+      Logger.mainLogger.info(`Found ${missingReceipts.length} missing or corrupt receipts`)
     }
 
     // Accounts
     let missingAccounts: MissingAccount[] = []
     let missingAccountsSummary: MissingAccountSummary[] = []
     if (healerConfig.healDataTypes.accounts) {
-      Logger.mainLogger.info('Analyzing missing accounts...')
-      const [localAccountSet, remoteAccountMap]: [
-        Set<string>,
-        Map<string, { count: number; cycle?: number; cycleNumber?: number }>,
-      ] = await Promise.all([getAllLocalAccountIds(), getAllRemoteAccountIds()])
-      console.log('remoteAccountMap: ', remoteAccountMap.size)
-      console.log('localAccountSet: ', localAccountSet.size)
+      Logger.mainLogger.info('Analyzing missing and corrupt accounts...')
+      const ACCOUNT_BATCH_SIZE = 1000
+
+      // Get local account IDs and remote account data
+      const localAccountSet = await getAllLocalAccountIds()
+      const [remoteAccountMap, remoteAccountDetailsMap] = await getAllRemoteAccountIds()
+
+      // Build local hash map in batches
+      const localAccountHashMap = new Map<string, string>()
+      let localOffset = 0
+      while (true) {
+        const localAccounts = await AccountDB.queryAccounts(localOffset, ACCOUNT_BATCH_SIZE)
+        if (!localAccounts || localAccounts.length === 0) break
+        for (const a of localAccounts) {
+          if (a.accountId) localAccountHashMap.set(a.accountId, Crypto.hash(StringUtils.safeStringify(a)).toLowerCase())
+        }
+        if (localAccounts.length < ACCOUNT_BATCH_SIZE) break
+        localOffset += ACCOUNT_BATCH_SIZE
+      }
+
       for (const [id, info] of remoteAccountMap.entries()) {
-        if (!localAccountSet.has(id)) {
-          let majorityHash: string | undefined = undefined
-          let majorityArchivers: string[] = []
-          if (!healerConfig.disableMajorityCheck) {
-            // Fetch all versions from all archivers
-            const allVersions: { archiver: string; hash: string; data: any }[] = []
-            for (const archiver of archivers) {
-              const resp = await fetchFromArchiver(archiver, RequestDataType.ACCOUNT, { accountId: id })
-              if (resp && resp.accounts) {
-                if (Array.isArray(resp.accounts)) {
-                  for (const a of resp.accounts) {
-                    allVersions.push({
-                      archiver: archiver.publicKey,
-                      hash: a.hash || StringUtils.safeStringify(a),
-                      data: a,
-                    })
-                  }
-                } else {
-                  allVersions.push({
-                    archiver: archiver.publicKey,
-                    hash: resp.accounts.hash || StringUtils.safeStringify(resp.accounts),
-                    data: resp.accounts,
-                  })
-                }
-              }
-            }
-            if (allVersions.length > 0) {
-              const hashCounts: { [hash: string]: string[] } = {}
-              for (const v of allVersions) {
-                if (!hashCounts[v.hash]) hashCounts[v.hash] = []
-                hashCounts[v.hash].push(v.archiver)
-              }
-              let maxCount = 0
-              for (const hash in hashCounts) {
-                if (hashCounts[hash].length > maxCount) {
-                  maxCount = hashCounts[hash].length
-                  majorityHash = hash
-                  majorityArchivers = hashCounts[hash]
-                }
-              }
-            }
+        let isMissing = !localAccountSet.has(id)
+        let isCorrupt = false
+        let localHash = localAccountHashMap.get(id)
+
+        // Get all remote versions for this account
+        const accountVersions = remoteAccountDetailsMap.get(id) || []
+
+        // Find the account with the latest timestamp
+        let latestAccount = null
+        let latestTimestamp = 0
+        for (const account of accountVersions) {
+          if (account.timestamp > latestTimestamp) {
+            latestTimestamp = account.timestamp
+            latestAccount = account
           }
-          // Save the data even if no majorityHash was found
+        }
+
+        // Find majority hash using the latest account version
+        let majorityHash: string | undefined = undefined
+        let majorityArchivers: string[] = []
+
+        if (latestAccount) {
+          majorityHash = Crypto.hash(StringUtils.safeStringify(latestAccount)).toLowerCase()
+
+          // Check if local version is corrupt (exists but hash doesn't match)
+          if (!isMissing && localHash && localHash !== majorityHash) {
+            isCorrupt = true
+          }
+        }
+
+        if (isMissing || isCorrupt) {
           missingAccounts.push({
             id,
             majorityHash,
             cycle: info.cycle,
             cycleNumber: info.cycleNumber,
+            isMissing,
           })
           missingAccountsSummary.push({
             id,
@@ -700,116 +786,346 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
             cycle: info.cycle,
             cycleNumber: info.cycleNumber,
             majorityArchivers,
+            isMissing,
           })
         }
       }
-      Logger.mainLogger.info(`Found ${missingAccounts.length} missing accounts`)
+      Logger.mainLogger.info(`Found ${missingAccounts.length} missing or corrupt accounts`)
     }
 
     // Transactions
     let missingTransactions: MissingTransaction[] = []
     let missingTransactionsSummary: MissingTransactionSummary[] = []
     if (healerConfig.healDataTypes.transactions) {
-      Logger.mainLogger.info('Analyzing missing transactions...')
+      Logger.mainLogger.info('Analyzing missing and corrupt transactions...')
+      const TX_BATCH_SIZE = 1000
       const [localTxSet, remoteTxMap]: [
         Set<string>,
         Map<string, { count: number; cycle: number; cycleNumber?: number }>,
       ] = await Promise.all([getAllLocalTxIds(), getAllRemoteTxIds(minCycleToUse, maxCycleToUse)])
-      console.log('remoteTxMap: ', remoteTxMap.size)
-      console.log('localTxSet: ', localTxSet.size)
+      // Build local hash map in batches
+      const localTxHashMap = new Map<string, string>()
+      let localOffset = 0
+      while (true) {
+        const localTxs = await TransactionDB.queryTransactions(localOffset, TX_BATCH_SIZE)
+        if (!localTxs || localTxs.length === 0) break
+        for (const t of localTxs) {
+          if (t.txId) localTxHashMap.set(t.txId, Crypto.hash(StringUtils.safeStringify(t)).toLowerCase())
+        }
+        if (localTxs.length < TX_BATCH_SIZE) break
+        localOffset += TX_BATCH_SIZE
+      }
       for (const [id, info] of remoteTxMap.entries()) {
-        if (!localTxSet.has(id)) {
-          let majorityHash: string | undefined = undefined
-          let majorityArchivers: string[] = []
-          if (!healerConfig.disableMajorityCheck) {
-            // Fetch all versions from all archivers and track which archiver has the majority hash
-            const allVersions: { archiver: string; hash: string; data: any }[] = []
-            for (const archiver of archivers) {
+        let majorityHash: string | undefined = undefined
+        let isMissing = !localTxSet.has(id)
+        let isCorrupt = false
+        let localHash = localTxHashMap.get(id)
+        // Fetch all remote versions for hash comparison (batched)
+        let remoteHashes: string[] = []
+        for (let i = 0; i < archivers.length; i += 10) {
+          const archiverBatch = archivers.slice(i, i + 10)
+          const batchResults = await Promise.all(
+            archiverBatch.map(async (archiver) => {
               const resp = await fetchFromArchiver(archiver, RequestDataType.TRANSACTION, { txId: id })
+              let hashes: string[] = []
               if (resp && resp.transactions) {
                 if (Array.isArray(resp.transactions)) {
                   for (const t of resp.transactions) {
-                    allVersions.push({
-                      archiver: archiver.publicKey,
-                      hash: t.hash || StringUtils.safeStringify(t),
-                      data: t,
-                    })
+                    hashes.push(Crypto.hash(StringUtils.safeStringify(t)).toLowerCase())
                   }
                 } else {
-                  allVersions.push({
-                    archiver: archiver.publicKey,
-                    hash: resp.transactions.hash || StringUtils.safeStringify(resp.transactions),
-                    data: resp.transactions,
-                  })
+                  hashes.push(Crypto.hash(StringUtils.safeStringify(resp.transactions)).toLowerCase())
                 }
               }
-            }
-            if (allVersions.length > 0) {
-              const hashCounts: { [hash: string]: string[] } = {}
-              for (const v of allVersions) {
-                if (!hashCounts[v.hash]) hashCounts[v.hash] = []
-                hashCounts[v.hash].push(v.archiver)
-              }
-              let maxCount = 0
-              for (const hash in hashCounts) {
-                if (hashCounts[hash].length > maxCount) {
-                  maxCount = hashCounts[hash].length
-                  majorityHash = hash
-                  majorityArchivers = hashCounts[hash]
-                }
-              }
+              return hashes
+            })
+          )
+          for (const hashes of batchResults) remoteHashes.push(...hashes)
+        }
+        // Find majority hash
+        if (!healerConfig.disableMajorityCheck && remoteHashes.length > 0) {
+          const hashCounts: { [hash: string]: number } = {}
+          for (const h of remoteHashes) hashCounts[h] = (hashCounts[h] || 0) + 1
+          let maxCount = 0
+          for (const hash in hashCounts) {
+            if (hashCounts[hash] > maxCount) {
+              maxCount = hashCounts[hash]
+              majorityHash = hash
             }
           }
-          // Save the data even if no majorityHash was found
+        } else if (remoteHashes.length > 0) {
+          majorityHash = remoteHashes[0]
+        }
+        if (!isMissing && majorityHash && localHash && localHash !== majorityHash) {
+          isCorrupt = true
+        }
+        if (isMissing || isCorrupt) {
           missingTransactions.push({
             cycle: info.cycle,
             id,
             majorityHash,
             cycleNumber: info.cycleNumber,
+            isMissing,
           })
           missingTransactionsSummary.push({
             id,
             count: info.count,
             cycle: info.cycle,
             cycleNumber: info.cycleNumber,
-            majorityArchivers,
+            isMissing,
           })
         }
       }
-      Logger.mainLogger.info(`Found ${missingTransactions.length} missing transactions`)
+      Logger.mainLogger.info(`Found ${missingTransactions.length} missing or corrupt transactions`)
     }
 
     // Save summary to log file
     const summaryLines = [
+      '===== MISSING/MISMATCHED DATA BASIC SUMMARY =====',
+      `Test Range: minCycle:${minCycleToUse || 0}   maxCycle:${maxCycleToUse || 'unknown'}`,
+      '',
+      `Cycles:  missing: ${missingCycles.filter((c) => c.isMissing).length}  mismatched: ${missingCycles.filter((c) => !c.isMissing).length} total: ${missingCycles.length}`,
+      `Receipts: missing: ${missingReceipts.filter((r) => r.isMissing).length}  mismatched: ${missingReceipts.filter((r) => !r.isMissing).length} total: ${missingReceipts.length}`,
+      `Accounts: missing: ${missingAccounts.filter((a) => a.isMissing).length}  mismatched: ${missingAccounts.filter((a) => !a.isMissing).length} total: ${missingAccounts.length}`,
+      `Transactions: missing: ${missingTransactions.filter((t) => t.isMissing).length}  mismatched: ${missingTransactions.filter((t) => !t.isMissing).length} total: ${missingTransactions.length}`,
+      '',
+      '===== MISSING/MISMATCHED DATA BY COUNTS =====',
+
+      // Group by cycle and count missing items per cycle
+      ...(() => {
+        const cycleMap = new Map<
+          number,
+          {
+            missingCycles: number
+            mismatchedCycles: number
+            missingReceipts: number
+            mismatchedReceipts: number
+            missingAccounts: number
+            mismatchedAccounts: number
+            missingTransactions: number
+            mismatchedTransactions: number
+          }
+        >()
+
+        // Count missing cycles
+        for (const cycle of missingCycles) {
+          const cycleNum = cycle.counter
+          if (!cycleMap.has(cycleNum)) {
+            cycleMap.set(cycleNum, {
+              missingCycles: 0,
+              mismatchedCycles: 0,
+              missingReceipts: 0,
+              mismatchedReceipts: 0,
+              missingAccounts: 0,
+              mismatchedAccounts: 0,
+              missingTransactions: 0,
+              mismatchedTransactions: 0,
+            })
+          }
+          if (cycle.isMissing) {
+            cycleMap.get(cycleNum)!.missingCycles++
+          } else {
+            cycleMap.get(cycleNum)!.mismatchedCycles++
+          }
+        }
+
+        // Count missing receipts
+        for (const receipt of missingReceipts) {
+          const cycleNum = receipt.cycle
+          if (!cycleMap.has(cycleNum)) {
+            cycleMap.set(cycleNum, {
+              missingCycles: 0,
+              mismatchedCycles: 0,
+              missingReceipts: 0,
+              mismatchedReceipts: 0,
+              missingAccounts: 0,
+              mismatchedAccounts: 0,
+              missingTransactions: 0,
+              mismatchedTransactions: 0,
+            })
+          }
+          if (receipt.isMissing) {
+            cycleMap.get(cycleNum)!.missingReceipts++
+          } else {
+            cycleMap.get(cycleNum)!.mismatchedReceipts++
+          }
+        }
+
+        // Count missing accounts
+        for (const account of missingAccounts) {
+          const cycleNum = account.cycleNumber || account.cycle || 0
+          if (!cycleMap.has(cycleNum)) {
+            cycleMap.set(cycleNum, {
+              missingCycles: 0,
+              mismatchedCycles: 0,
+              missingReceipts: 0,
+              mismatchedReceipts: 0,
+              missingAccounts: 0,
+              mismatchedAccounts: 0,
+              missingTransactions: 0,
+              mismatchedTransactions: 0,
+            })
+          }
+          if (account.isMissing) {
+            cycleMap.get(cycleNum)!.missingAccounts++
+          } else {
+            cycleMap.get(cycleNum)!.mismatchedAccounts++
+          }
+        }
+
+        // Count missing transactions
+        for (const tx of missingTransactions) {
+          const cycleNum = tx.cycleNumber || tx.cycle
+          if (!cycleMap.has(cycleNum)) {
+            cycleMap.set(cycleNum, {
+              missingCycles: 0,
+              mismatchedCycles: 0,
+              missingReceipts: 0,
+              mismatchedReceipts: 0,
+              missingAccounts: 0,
+              mismatchedAccounts: 0,
+              missingTransactions: 0,
+              mismatchedTransactions: 0,
+            })
+          }
+          if (tx.isMissing) {
+            cycleMap.get(cycleNum)!.missingTransactions++
+          } else {
+            cycleMap.get(cycleNum)!.mismatchedTransactions++
+          }
+        }
+
+        // Convert to array of lines
+        return Array.from(cycleMap.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([cycle, counts]) => {
+            const parts = []
+            if (counts.missingCycles > 0) parts.push(`missing-cycles:${counts.missingCycles}`)
+            if (counts.mismatchedCycles > 0) parts.push(`mismatched-cycles:${counts.mismatchedCycles}`)
+            if (counts.missingReceipts > 0) parts.push(`missing-receipts:${counts.missingReceipts}`)
+            if (counts.mismatchedReceipts > 0) parts.push(`mismatched-receipts:${counts.mismatchedReceipts}`)
+            if (counts.missingAccounts > 0) parts.push(`missing-accounts:${counts.missingAccounts}`)
+            if (counts.mismatchedAccounts > 0) parts.push(`mismatched-accounts:${counts.mismatchedAccounts}`)
+            if (counts.missingTransactions > 0) parts.push(`missing-transactions:${counts.missingTransactions}`)
+            if (counts.mismatchedTransactions > 0)
+              parts.push(`mismatched-transactions:${counts.mismatchedTransactions}`)
+
+            return `cycle ${cycle}:  ${parts.join(' ')}`
+          })
+      })(),
+      '',
       '===== MISSING DATA SUMMARY =====',
       `Cycles:`,
-      ...missingCyclesSummary.map((c) => `  counter: ${c.counter}, occurrences: ${c.count}`),
+      missingCycles.filter((c) => c.isMissing).length === 0
+        ? '  No missing data found'
+        : missingCyclesSummary
+            .filter((c) => c.isMissing)
+            .map((c) => `  counter: ${c.counter}, occurrences: ${c.count}`),
       `Receipts:`,
-      ...missingReceiptsSummary.map(
-        (r) =>
-          `  id: ${r.id}, cycle: ${r.cycle}, occurrences: ${r.count}` +
-          (r.majorityArchivers && r.majorityArchivers.length > 0
-            ? `, majorityArchivers: [${r.majorityArchivers.join(', ')}]`
-            : '')
-      ),
+      missingReceipts.filter((r) => r.isMissing).length === 0
+        ? '  No missing data found'
+        : missingReceiptsSummary
+            .filter((r) => r.isMissing)
+            .map(
+              (r) =>
+                `  id: ${r.id}, cycle: ${r.cycle}, occurrences: ${r.count}` +
+                (r.majorityArchivers && r.majorityArchivers.length > 0
+                  ? `, majorityArchivers: [${r.majorityArchivers.join(', ')}]`
+                  : '')
+            ),
       `Accounts:`,
-      ...missingAccountsSummary.map(
-        (a) =>
-          `  id: ${a.id}, occurrences: ${a.count}, cycle: ${a.cycle || 'unknown'}, cycleNumber: ${a.cycleNumber || 'unknown'}` +
-          (a.majorityArchivers && a.majorityArchivers.length > 0
-            ? `, majorityArchivers: [${a.majorityArchivers.join(', ')}]`
-            : '')
-      ),
+      missingAccounts.filter((a) => a.isMissing).length === 0
+        ? '  No missing data found'
+        : missingAccountsSummary
+            .filter((a) => a.isMissing)
+            .map(
+              (a) =>
+                `  id: ${a.id}, occurrences: ${a.count}, cycle: ${a.cycleNumber || 'unknown'}` +
+                (a.majorityArchivers && a.majorityArchivers.length > 0
+                  ? `, majorityArchivers: [${a.majorityArchivers.join(', ')}]`
+                  : '')
+            ),
       `Transactions:`,
-      ...missingTransactionsSummary.map(
-        (t) =>
-          `  id: ${t.id}, cycle: ${t.cycle || 'unknown'}, cycleNumber: ${t.cycleNumber || 'unknown'}, occurrences: ${t.count}` +
-          (t.majorityArchivers && t.majorityArchivers.length > 0
-            ? `, majorityArchivers: [${t.majorityArchivers.join(', ')}]`
-            : '')
-      ),
-      '===============================',
-    ]
+      missingTransactions.filter((t) => t.isMissing).length === 0
+        ? '  No missing data found'
+        : missingTransactionsSummary
+            .filter((t) => t.isMissing)
+            .map(
+              (t) =>
+                `  id: ${t.id}, cycle: ${t.cycleNumber || 'unknown'}, occurrences: ${t.count}` +
+                (t.majorityArchivers && t.majorityArchivers.length > 0
+                  ? `, majorityArchivers: [${t.majorityArchivers.join(', ')}]`
+                  : '')
+            ),
+      '',
+      '===== MISMATCHED DATA SUMMARY =====',
+      `Cycles:`,
+      missingCycles.filter((c) => !c.isMissing).length === 0
+        ? '  No Mismatch Found'
+        : missingCyclesSummary
+            .filter((c) => !c.isMissing)
+            .map((c) => {
+              const mismatchedCycle = missingCycles.find((mc) => mc.counter === c.counter && !mc.isMissing)
+              return (
+                `  counter: ${c.counter}, occurrences: ${c.count}` +
+                (mismatchedCycle && mismatchedCycle.majorityHash ? ', hash mismatch' : '')
+              )
+            }),
+      `Receipts:`,
+      missingReceipts.filter((r) => !r.isMissing).length === 0
+        ? '  No Mismatch Found'
+        : missingReceiptsSummary
+            .filter((r) => !r.isMissing)
+            .map((r) => {
+              const mismatchedReceipt = missingReceipts.find((mr) => mr.id === r.id && !mr.isMissing)
+              return (
+                `  id: ${r.id}, cycle: ${r.cycle}, occurrences: ${r.count}` +
+                (mismatchedReceipt && mismatchedReceipt.majorityHash ? ', hash mismatch' : '')
+              )
+            }),
+      `Accounts:`,
+      missingAccounts.filter((a) => !a.isMissing).length === 0
+        ? '  No Mismatch Found'
+        : missingAccountsSummary
+            .filter((a) => missingAccounts.find((ma) => ma.id === a.id && !ma.isMissing))
+            .map((a) => {
+              const mismatchedAccount = missingAccounts.find((ma) => ma.id === a.id && !ma.isMissing)
+              return (
+                `  id: ${a.id}, occurrences: ${a.count}, cycle: ${a.cycleNumber || 'unknown'}` +
+                (mismatchedAccount && mismatchedAccount.majorityHash ? ', hash mismatch' : '')
+              )
+            }),
+      `Transactions:`,
+      missingTransactions.filter((t) => !t.isMissing).length === 0
+        ? '  No Mismatch Found'
+        : missingTransactionsSummary
+            .filter((t) => missingTransactions.find((mt) => mt.id === t.id && !mt.isMissing))
+            .map((t) => {
+              const mismatchedTx = missingTransactions.find((mt) => mt.id === t.id && !mt.isMissing)
+              return (
+                `  id: ${t.id}, cycle: ${t.cycleNumber || 'unknown'}, occurrences: ${t.count}` +
+                (mismatchedTx && mismatchedTx.majorityHash ? ', hash mismatch' : '')
+              )
+            }),
+      '',
+      '===== API ENDPOINT CALLS SUMMARY =====',
+      ...(() => {
+        const lines = [
+          'Endpoint         | Requests | Total Time (ms) | Avg Time (ms) | Min (ms) | Max (ms)',
+          '-----------------|----------|-----------------|---------------|----------|----------',
+        ]
+
+        for (const endpoint in endpointStats) {
+          const stat = endpointStats[endpoint]
+          const avg = stat.count > 0 ? (stat.totalTimeMs / stat.count).toFixed(2) : '0.00'
+          lines.push(
+            `${endpoint.padEnd(16)}| ${stat.count.toString().padEnd(8)}| ${stat.totalTimeMs.toFixed(0).padEnd(15)}| ${avg.padEnd(13)}| ${stat.minTimeMs.toFixed(0).padEnd(8)}| ${stat.maxTimeMs.toFixed(0).padEnd(8)}`
+          )
+        }
+
+        return lines
+      })(),
+    ].flat()
     fs.writeFileSync(MISSING_DATA_SUMMARY_FILE, summaryLines.join('\n'))
     Logger.mainLogger.info(`Missing data summary saved to ${MISSING_DATA_SUMMARY_FILE}`)
 
@@ -924,6 +1240,7 @@ async function healMissingCycles(missingCycles: MissingCycle[]): Promise<void> {
             counter: matchingCycle.counter,
             cycleMarker: matchingCycle.marker || `cycle-${matchingCycle.counter}`,
             cycleRecord: matchingCycle,
+            isMissing: false,
           })
           Logger.mainLogger.debug(
             `Using exact hash match for cycle ${matchingCycle.counter}. Data: ${StringUtils.safeStringify(matchingCycle).substring(0, 200)}...`
@@ -938,6 +1255,7 @@ async function healMissingCycles(missingCycles: MissingCycle[]): Promise<void> {
               counter: majorityCycle.counter,
               cycleMarker: majorityCycle.marker || `cycle-${majorityCycle.counter}`,
               cycleRecord: majorityCycle,
+              isMissing: false,
             })
             Logger.mainLogger.debug(
               `Using majority cycle for ${majorityCycle.counter}. Data: ${StringUtils.safeStringify(majorityCycle).substring(0, 200)}...`
@@ -956,6 +1274,7 @@ async function healMissingCycles(missingCycles: MissingCycle[]): Promise<void> {
             counter: majorityCycle.counter,
             cycleMarker: majorityCycle.marker || `cycle-${majorityCycle.counter}`,
             cycleRecord: majorityCycle,
+            isMissing: false,
           })
           Logger.mainLogger.debug(
             `Using majority cycle for ${majorityCycle.counter}. Data: ${StringUtils.safeStringify(majorityCycle).substring(0, 200)}...`
@@ -1212,122 +1531,42 @@ async function healMissingAccounts(missingAccounts: MissingAccount[]): Promise<v
 
   Logger.mainLogger.info(`Healing ${missingAccounts.length} missing accounts...`)
 
-  // Create a map to track accounts that we've found
-  const foundAccounts = new Map<string, any[]>()
-
-  // Use either custom archivers or State archivers
-  const archivers = useCustomArchivers ? customArchiversConfig : State.otherArchivers
-
-  // Process accounts in smaller batches to avoid overwhelming the network
-  const batchSize = healerConfig.batchSizes.subBatchSize
-
-  Logger.mainLogger.info(`Querying each missing account by ID from archivers...`)
-
-  // Process accounts in batches
-  for (let i = 0; i < missingAccounts.length; i += batchSize) {
-    const batch = missingAccounts.slice(i, i + batchSize)
-    Logger.mainLogger.info(
-      `Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(missingAccounts.length / batchSize)}: ${batch.length} accounts`
-    )
-
-    // Create tasks to query each account from each archiver
-    for (const account of batch) {
-      const accountId = account.id
-      Logger.mainLogger.debug(`Querying account ${accountId} from archivers`)
-
-      const tasks = archivers.map((archiver) => {
-        return async () => {
-          try {
-            // Directly query this specific account by ID
-            const response = await fetchFromArchiver(archiver, RequestDataType.ACCOUNT, {
-              accountId: accountId,
-            })
-
-            if (response && response.accounts) {
-              if (Array.isArray(response.accounts) && response.accounts.length > 0) {
-                Logger.mainLogger.debug(`Got account ${accountId} from archiver ${archiver.ip}:${archiver.port}`)
-                return response.accounts
-              } else if (response.accounts.accountId) {
-                Logger.mainLogger.debug(`Got account ${accountId} from archiver ${archiver.ip}:${archiver.port}`)
-                return [response.accounts]
-              }
-            }
-            Logger.mainLogger.debug(`No account data for ${accountId} from archiver ${archiver.ip}:${archiver.port}`)
-            return []
-          } catch (error) {
-            Logger.mainLogger.error(
-              `Error fetching account ${accountId} from ${archiver.ip}:${archiver.port}: ${error.message}`
-            )
-            return []
-          }
-        }
-      })
-
-      const results = await processBatchesInParallel(tasks)
-      const accountData = results.flat()
-
-      if (accountData.length > 0) {
-        foundAccounts.set(accountId, accountData)
-        Logger.mainLogger.info(`Found ${accountData.length} versions of account ${accountId}`)
-      } else {
-        Logger.mainLogger.warn(`No data found for account ${accountId} from any archiver`)
-      }
-    }
-
-    // Add a small delay between batches
-    if (i + batchSize < missingAccounts.length) {
-      await Utils.sleep(healerConfig.timeouts.sleepBetweenBatchesMs)
-    }
-  }
-
-  Logger.mainLogger.info(`Found data for ${foundAccounts.size}/${missingAccounts.length} missing accounts`)
+  // Get all remote accounts data
+  const [_, remoteAccountDetailsMap] = await getAllRemoteAccountIds()
 
   // Process accounts in batches to avoid overwhelming memory
   const accountsToInsert = []
 
-  // Process missing accounts using the majority hash
+  // Process missing accounts using the latest timestamp
   for (const missingAccount of missingAccounts) {
-    const accounts = foundAccounts.get(missingAccount.id) || []
+    // Get all versions of this account that we've already fetched
+    const accountVersions = remoteAccountDetailsMap.get(missingAccount.id) || []
 
-    if (accounts.length === 0) {
+    if (accountVersions.length === 0) {
       Logger.mainLogger.warn(`No data found for account ${missingAccount.id}`)
       continue
     }
 
-    if (missingAccount.majorityHash) {
-      // Use the majority hash from the report
-      const matchingAccount = accounts.find(
-        (a) => (a.hash || StringUtils.safeStringify(a)) === missingAccount.majorityHash
-      )
+    // Find the account with the latest timestamp
+    let latestAccount = accountVersions[0]
+    let latestTimestamp = latestAccount.timestamp || 0
 
-      if (matchingAccount) {
-        // Don't reformat the account, use it as is
-        accountsToInsert.push(matchingAccount)
-        Logger.mainLogger.debug(
-          `Using exact hash match for account ${missingAccount.id}. Data: ${StringUtils.safeStringify(matchingAccount).substring(0, 200)}...`
-        )
-      } else {
-        // If we can't find the exact hash match, use majority determination again
-        const majorityAccount = await getMajorityItem(accounts, (a) => a.hash || StringUtils.safeStringify(a))
-        if (majorityAccount) {
-          // Don't reformat the account, use it as is
-          accountsToInsert.push(majorityAccount)
-          Logger.mainLogger.debug(
-            `Using majority account for ${missingAccount.id}. Data: ${StringUtils.safeStringify(majorityAccount).substring(0, 200)}...`
-          )
-        }
-      }
-    } else {
-      // No majority hash in the report, determine it now
-      const majorityAccount = await getMajorityItem(accounts, (a) => a.hash || StringUtils.safeStringify(a))
-      if (majorityAccount) {
-        // Don't reformat the account, use it as is
-        accountsToInsert.push(majorityAccount)
-        Logger.mainLogger.debug(
-          `Using majority account for ${missingAccount.id}. Data: ${StringUtils.safeStringify(majorityAccount).substring(0, 200)}...`
-        )
+    // Compare all versions to find the one with the latest timestamp
+    for (let i = 1; i < accountVersions.length; i++) {
+      const account = accountVersions[i]
+      const timestamp = account.timestamp || 0
+
+      if (timestamp > latestTimestamp) {
+        latestTimestamp = timestamp
+        latestAccount = account
       }
     }
+
+    // Use the account with the latest timestamp
+    accountsToInsert.push(latestAccount)
+    Logger.mainLogger.debug(
+      `Using account with latest timestamp (${latestTimestamp}) for ${missingAccount.id}. Data: ${StringUtils.safeStringify(latestAccount).substring(0, 200)}...`
+    )
   }
 
   // Insert accounts in smaller batches to avoid memory issues
@@ -1921,7 +2160,9 @@ async function getAllRemoteReceiptIds(
 }
 
 // Helper: Fetch all account IDs from all archivers
-async function getAllRemoteAccountIds(): Promise<Map<string, { count: number; cycle?: number; cycleNumber?: number }>> {
+async function getAllRemoteAccountIds(): Promise<
+  [Map<string, { count: number; cycle?: number; cycleNumber?: number }>, Map<string, any[]>]
+> {
   const archivers = useCustomArchivers ? customArchiversConfig : State.otherArchivers
   let maxCycle = 0
   const totalData = await getTotalDataFromArchivers()
@@ -1929,6 +2170,7 @@ async function getAllRemoteAccountIds(): Promise<Map<string, { count: number; cy
     if (t.totalCycles > maxCycle) maxCycle = t.totalCycles
   }
   const idMap = new Map<string, { count: number; cycle?: number; cycleNumber?: number }>()
+  const accountDetailsMap = new Map<string, any[]>() // Store all account versions
   const batchSize = healerConfig.batchSizes.accounts
   const MAX_CYCLE_RANGE = 100
   for (let cycleStart = 0; cycleStart < maxCycle; cycleStart += MAX_CYCLE_RANGE) {
@@ -1944,9 +2186,24 @@ async function getAllRemoteAccountIds(): Promise<Map<string, { count: number; cy
         })
         if (resp && resp.accounts) {
           if (Array.isArray(resp.accounts)) {
+            // Store all account details
+            for (const account of resp.accounts) {
+              if (account.accountId) {
+                if (!accountDetailsMap.has(account.accountId)) {
+                  accountDetailsMap.set(account.accountId, [])
+                }
+                accountDetailsMap.get(account.accountId)!.push(account)
+              }
+            }
             // Return both ID and cycle if available
             return resp.accounts.map((a) => ({ id: a.accountId, cycle: a.cycle, cycleNumber: a.cycleNumber }))
           } else if (resp.accounts.accountId) {
+            // Store account details
+            if (!accountDetailsMap.has(resp.accounts.accountId)) {
+              accountDetailsMap.set(resp.accounts.accountId, [])
+            }
+            accountDetailsMap.get(resp.accounts.accountId)!.push(resp.accounts)
+
             return [{ id: resp.accounts.accountId, cycle: resp.accounts.cycle, cycleNumber: resp.accounts.cycleNumber }]
           }
         }
@@ -1979,7 +2236,7 @@ async function getAllRemoteAccountIds(): Promise<Map<string, { count: number; cy
       else page++
     }
   }
-  return idMap
+  return [idMap, accountDetailsMap]
 }
 
 // Helper: Fetch all txIds from all archivers
@@ -2306,6 +2563,9 @@ async function main() {
       if (!heal) {
         Logger.mainLogger.info(`Missing data analysis complete. See ${MISSING_DATA_FILE} for details.`)
         Logger.mainLogger.info(`Run with --heal true to apply the healing process.`)
+
+        // Log endpoint stats summary at the end
+        logEndpointStatsSummary()
         // Exit the process with success code
         process.exit(0)
       }
@@ -2446,6 +2706,8 @@ async function main() {
       Logger.mainLogger.info(`- Accounts: ${finalAccountCount}`)
       Logger.mainLogger.info(`- Transactions: ${finalTxCount}`)
 
+      // Log endpoint stats summary at the end
+      logEndpointStatsSummary()
       // Exit the process with success code
       process.exit(0)
     }
@@ -2454,6 +2716,8 @@ async function main() {
     Logger.mainLogger.error(`Error in healing process: ${error.message}`)
     Logger.mainLogger.error(error.stack)
 
+    // Log endpoint stats summary at the end
+    logEndpointStatsSummary()
     // Exit the process with error code
     process.exit(1)
   }
