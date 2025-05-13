@@ -1,0 +1,50 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug healArchiver.ts with ts-node",
+            "type": "node",
+            "request": "launch",
+      
+            // Tell VS Code to invoke node itself
+            "runtimeExecutable": "node",
+      
+            // Preload ts-node so that .ts files just work
+            "runtimeArgs": [
+              "-r",
+              "ts-node/register"
+            ],
+      
+            // Point at your script
+            "args": [
+              "${workspaceFolder}/src/healArchiver.ts",
+              "--min-cycle",
+              "15602",
+              "--max-cycle",
+              "15610",
+              "--heal-cycles",
+              "false",
+              "--heal-accounts",
+              "false",
+              "--heal-transactions",
+              "false",
+            ],
+      
+            // Use your workspace folder as CWD
+            "cwd": "${workspaceFolder}",
+      
+            // Make sure VS Code maps your TS breakpoints
+            "outFiles": [
+              "${workspaceFolder}/**/*.ts"
+            ],
+      
+            // Optional, but helpful to see console.log output
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+          }
+      
+    ]
+}

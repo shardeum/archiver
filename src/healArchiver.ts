@@ -583,6 +583,10 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
       console.log('remoteReceiptMap: ', remoteReceiptMap.size)
       console.log('localReceiptSet: ', localReceiptSet.size)
       for (const [id, info] of remoteReceiptMap.entries()) {
+        //helper to debug a specific receipt
+        // if(id === '6f9bed243efff65e84d67f0d4082b003057b6eeb5defac25ad079a406e475b52'){
+        //   console.log('id: ', id)
+        // }
         if (!localReceiptSet.has(id)) {
           let majorityHash: string | undefined = undefined
           let majorityArchivers: string[] = []
@@ -593,6 +597,10 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
               const resp = await fetchFromArchiver(archiver, RequestDataType.RECEIPT, { txIdList: [[id, 0]] })
               if (resp && resp.receipts) {
                 for (const r of resp.receipts) {
+                  if(r.signedReceipt.txGroupCycle != null){
+                    delete r.signedReceipt.txGroupCycle
+                    //console.log('delete r.signedReceipt.txGroupCycle for id: ', id)
+                  }
                   allVersions.push({
                     archiver: archiver.publicKey,
                     hash: r.hash || StringUtils.safeStringify(r),
