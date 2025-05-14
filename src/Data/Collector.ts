@@ -760,12 +760,16 @@ export const storeReceiptData = async (
       }
 
       const timestamp = receipt?.tx?.timestamp
-      if (!txId || !timestamp) continue
+      if (!txId || !timestamp) {
+        logReceiptData(receipt)
+        continue
+      }
       if (
         (processedReceiptsMap.has(txId) && processedReceiptsMap.get(txId) === timestamp) ||
         (receiptsInValidationMap.has(txId) && receiptsInValidationMap.get(txId) === timestamp)
       ) {
         if (config.VERBOSE) console.log('RECEIPT', 'Skip', txId, timestamp, senderInfo)
+        logReceiptData(receipt, txId, timestamp)
         continue
       }
       if (config.VERBOSE) console.log('RECEIPT', 'Validate', txId, timestamp, senderInfo)
@@ -777,6 +781,7 @@ export const storeReceiptData = async (
         receiptsInValidationMap.delete(txId)
         if (nestedCountersInstance) nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_validation_failed')
         if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
+        logReceiptData(receipt, txId, timestamp)
         continue
       }
 
@@ -784,6 +789,7 @@ export const storeReceiptData = async (
         // only consider this for EVM txns and Non Global Internal Txns
         const result = await checkIfValidOverwrite(receipt, txId)
         if (!result) {
+          logReceiptData(receipt, txId, timestamp)
           continue // if the incoming receipt has a status of 0, do not allow it to overwrite a receipt of status 1
         }
       }
@@ -822,6 +828,7 @@ export const storeReceiptData = async (
             if (nestedCountersInstance)
               nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_verification_failed')
             if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
+            logReceiptData(receipt, txId, timestamp)
             continue
           }
 
@@ -838,6 +845,7 @@ export const storeReceiptData = async (
             if (nestedCountersInstance)
               nestedCountersInstance.countEvent('receipt', 'Invalid_receipt_verification_failed')
             if (profilerInstance) profilerInstance.profileSectionEnd('Verify_archiver_receipt')
+            logReceiptData(receipt, txId, timestamp)
             continue
           }
           // console.log('offload receipt result', txId, timestamp, result)
@@ -856,6 +864,7 @@ export const storeReceiptData = async (
           if (result.success === false) {
             receiptsInValidationMap.delete(txId)
             if (profilerInstance) profilerInstance.profileSectionEnd('Validate_receipt')
+            logReceiptData(receipt, txId, timestamp)
             continue
           }
         }
@@ -891,15 +900,7 @@ export const storeReceiptData = async (
         applyTimestamp,
         executionShardKey,
       })
-      if (config.dataLogWrite && ReceiptLogWriter)
-        ReceiptLogWriter.writeToLog(
-          `${StringUtils.safeStringify({
-            ...receipt,
-            receiptId: txId,
-            timestamp: tx.timestamp,
-            applyTimestamp,
-          })}\n`
-        )
+      logReceiptData(receipt, txId, tx.timestamp, applyTimestamp)
       txDataList.push({ txId, timestamp })
       originalTxDataList.push({ txId, timestamp })
       // If the receipt is a challenge, then skip updating its accounts data or transaction data
@@ -1113,6 +1114,24 @@ export const storeReceiptData = async (
   if (combineProcessedTxs.length > 0) await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs)
   // If the archiver is not active, good to clean up the processed receipts map if it exceeds 2000
   if (!State.isActive && processedReceiptsMap.size > 2000) processedReceiptsMap.clear()
+}
+
+function logReceiptData(
+  receipt: Receipt.Receipt | Receipt.ArchiverReceipt,
+  txId?: string,
+  timestamp?: number,
+  applyTimestamp?: number
+) {
+  if (config.dataLogWrite && ReceiptLogWriter) {
+    ReceiptLogWriter.writeToLog(
+      `${StringUtils.safeStringify({
+        ...receipt,
+        receiptId: txId,
+        timestamp,
+        applyTimestamp,
+      })}\n`
+    )
+  }
 }
 
 export const validateCycleData = (cycleRecord: P2PTypes.CycleCreatorTypes.CycleData): boolean => {
