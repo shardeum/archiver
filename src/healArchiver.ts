@@ -3467,61 +3467,61 @@ async function main() {
       }
 
       // Verify after healing to ensure all data was properly imported
-      const isVerified = false //= await verifyDataIntegrity()   -> Commenting this out since maxCount doesn't necessarily tell us about missing data
+      // const isVerified = false //= await verifyDataIntegrity()   -> Commenting this out since maxCount doesn't necessarily tell us about missing data
 
-      if (!isVerified) {
-        Logger.mainLogger.warn('Some data is still missing after the initial healing pass.')
-        Logger.mainLogger.info('Performing second analysis pass to find remaining missing data...')
+      // if (!isVerified) {
+      //   Logger.mainLogger.warn('Some data is still missing after the initial healing pass.')
+      //   Logger.mainLogger.info('Performing second analysis pass to find remaining missing data...')
 
-        // Get the min and max cycle from the user cli
-        const minCycleArgIndex = process.argv.indexOf('--min-cycle')
-        const maxCycleArgIndex = process.argv.indexOf('--max-cycle')
-        const offsetArgIndex = process.argv.indexOf('--offset')
-        let minCycleToUse: number | undefined = undefined
-        let maxCycleToUse: number | undefined = undefined
-        let offset = 0
-        if (minCycleArgIndex !== -1 && minCycleArgIndex < process.argv.length - 1) {
-          minCycleToUse = parseInt(process.argv[minCycleArgIndex + 1], 10)
-        }
-        if (maxCycleArgIndex !== -1 && maxCycleArgIndex < process.argv.length - 1) {
-          maxCycleToUse = parseInt(process.argv[maxCycleArgIndex + 1], 10)
-        }
-        if (offsetArgIndex !== -1 && offsetArgIndex < process.argv.length - 1) {
-          offset = parseInt(process.argv[offsetArgIndex + 1], 10)
-        }
-        if (typeof minCycleToUse !== 'number') minCycleToUse = 0
-        if (typeof maxCycleToUse !== 'number') {
-          const totalData = await getTotalDataFromArchivers()
-          let maxCycleFromArchivers = 0
-          for (const t of totalData) {
-            if (t.totalCycles > maxCycleFromArchivers) maxCycleFromArchivers = t.totalCycles
-          }
-          maxCycleToUse = maxCycleFromArchivers - offset
-        } else {
-          maxCycleToUse -= offset
-        }
+      //   // Get the min and max cycle from the user cli
+      //   const minCycleArgIndex = process.argv.indexOf('--min-cycle')
+      //   const maxCycleArgIndex = process.argv.indexOf('--max-cycle')
+      //   const offsetArgIndex = process.argv.indexOf('--offset')
+      //   let minCycleToUse: number | undefined = undefined
+      //   let maxCycleToUse: number | undefined = undefined
+      //   let offset = 0
+      //   if (minCycleArgIndex !== -1 && minCycleArgIndex < process.argv.length - 1) {
+      //     minCycleToUse = parseInt(process.argv[minCycleArgIndex + 1], 10)
+      //   }
+      //   if (maxCycleArgIndex !== -1 && maxCycleArgIndex < process.argv.length - 1) {
+      //     maxCycleToUse = parseInt(process.argv[maxCycleArgIndex + 1], 10)
+      //   }
+      //   if (offsetArgIndex !== -1 && offsetArgIndex < process.argv.length - 1) {
+      //     offset = parseInt(process.argv[offsetArgIndex + 1], 10)
+      //   }
+      //   if (typeof minCycleToUse !== 'number') minCycleToUse = 0
+      //   if (typeof maxCycleToUse !== 'number') {
+      //     const totalData = await getTotalDataFromArchivers()
+      //     let maxCycleFromArchivers = 0
+      //     for (const t of totalData) {
+      //       if (t.totalCycles > maxCycleFromArchivers) maxCycleFromArchivers = t.totalCycles
+      //     }
+      //     maxCycleToUse = maxCycleFromArchivers - offset
+      //   } else {
+      //     maxCycleToUse -= offset
+      //   }
 
-        console.log('minCycleToUse: ', minCycleToUse)
-        console.log('maxCycleToUse: ', maxCycleToUse)
-        console.log('offset: ', offset)
+      //   console.log('minCycleToUse: ', minCycleToUse)
+      //   console.log('maxCycleToUse: ', maxCycleToUse)
+      //   console.log('offset: ', offset)
 
-        // Find the still-missing data
-        const remainingMissingData = await findMissingData(minCycleToUse, maxCycleToUse)
+      //   // Find the still-missing data
+      //   const remainingMissingData = await findMissingData(minCycleToUse, maxCycleToUse)
 
-        // Check if there is still data to heal for enabled data types
-        const needsMoreHealing =
-          (healerConfig.healDataTypes.cycles && remainingMissingData.cycles.length > 0) ||
-          (healerConfig.healDataTypes.receipts && remainingMissingData.receipts.length > 0) ||
-          (healerConfig.healDataTypes.accounts && remainingMissingData.accounts.length > 0) ||
-          (healerConfig.healDataTypes.transactions && remainingMissingData.transactions.length > 0) ||
-          (healerConfig.healDataTypes.processedTx && remainingMissingData.processedTx.length > 0) ||
-          (healerConfig.healDataTypes.originalTxData && remainingMissingData.originalTxData.length > 0)
+      //   // Check if there is still data to heal for enabled data types
+      //   const needsMoreHealing =
+      //     (healerConfig.healDataTypes.cycles && remainingMissingData.cycles.length > 0) ||
+      //     (healerConfig.healDataTypes.receipts && remainingMissingData.receipts.length > 0) ||
+      //     (healerConfig.healDataTypes.accounts && remainingMissingData.accounts.length > 0) ||
+      //     (healerConfig.healDataTypes.transactions && remainingMissingData.transactions.length > 0) ||
+      //     (healerConfig.healDataTypes.processedTx && remainingMissingData.processedTx.length > 0) ||
+      //     (healerConfig.healDataTypes.originalTxData && remainingMissingData.originalTxData.length > 0)
 
-        if (needsMoreHealing) {
-          Logger.mainLogger.info('Found additional missing data in second pass. Healing...')
-          await healAllMissingData(remainingMissingData)
-        }
-      }
+      //   if (needsMoreHealing) {
+      //     Logger.mainLogger.info('Found additional missing data in second pass. Healing...')
+      //     await healAllMissingData(remainingMissingData)
+      //   }
+      // }
 
       // Final data sync for any edge cases
       Logger.mainLogger.info('Performing final data sync with other archivers...')
