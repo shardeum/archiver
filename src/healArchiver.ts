@@ -22,6 +22,8 @@ import { initializeSerialization } from './utils/serialization/SchemaHelpers'
 import * as dbstore from './dbstore'
 import { DataType as GossipDataType } from './Data/GossipData'
 
+
+const startTime = Date.now()
 /*
 
 Usage:
@@ -304,6 +306,8 @@ function logEndpointStatsSummary() {
   const summary = lines.join('\n')
   Logger.mainLogger.info(summary)
   console.log(summary)
+  console.log('run totaltime: ', Date.now() - startTime)
+
 }
 
 // Helper function to fetch data from a specific archiver
@@ -662,6 +666,12 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
         const localReceipts = await ReceiptDB.queryReceipts(localOffset, RECEIPT_BATCH_SIZE)
         if (!localReceipts || localReceipts.length === 0) break
         for (const r of localReceipts) {
+          //@ts-ignore
+          if(r.signedReceipt.txGroupCycle != null){
+            //@ts-ignore
+            delete r.signedReceipt.txGroupCycle
+            //console.log('delete r.signedReceipt.txGroupCycle for id: ', id)
+          }
           if (r.receiptId) localReceiptHashMap.set(r.receiptId, Crypto.hash(StringUtils.safeStringify(r)).toLowerCase())
         }
         if (localReceipts.length < RECEIPT_BATCH_SIZE) break
@@ -684,6 +694,12 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
               let hashes: string[] = []
               if (resp && resp.receipts) {
                 for (const r of resp.receipts) {
+
+                  if(r.signedReceipt.txGroupCycle != null){
+                    delete r.signedReceipt.txGroupCycle
+                    //console.log('delete r.signedReceipt.txGroupCycle for id: ', id)
+                  }
+
                   hashes.push(Crypto.hash(StringUtils.safeStringify(r)).toLowerCase())
                 }
               }
@@ -1126,6 +1142,7 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
         return lines
       })(),
     ].flat()
+    summaryLines.push(`run totaltime:  ${Date.now() - startTime}`)
     fs.writeFileSync(MISSING_DATA_SUMMARY_FILE, summaryLines.join('\n'))
     Logger.mainLogger.info(`Missing data summary saved to ${MISSING_DATA_SUMMARY_FILE}`)
 
@@ -2484,9 +2501,15 @@ async function main() {
         await Utils.sleep(500)
         Logger.mainLogger.info('Verification complete. Exiting.')
         console.log('Verification complete. Check the logs for details.')
+        console.log('run totaltime: ', Date.now() - startTime)
+        await Utils.sleep(500)    // Add slight delay to ensure logs are flushed before exit
+
         process.exit(0)
       } catch (error) {
         Logger.mainLogger.error(`Error in verification mode: ${error.message}`)
+        console.log('run totaltime: ', Date.now() - startTime)
+        await Utils.sleep(500)    // Add slight delay to ensure logs are flushed before exit
+
         process.exit(1)
       }
     }
@@ -2566,6 +2589,9 @@ async function main() {
 
         // Log endpoint stats summary at the end
         logEndpointStatsSummary()
+
+        await Utils.sleep(500)    // Add slight delay to ensure logs are flushed before exit
+
         // Exit the process with success code
         process.exit(0)
       }
@@ -2708,6 +2734,9 @@ async function main() {
 
       // Log endpoint stats summary at the end
       logEndpointStatsSummary()
+
+      await Utils.sleep(500)    // Add slight delay to ensure logs are flushed before exit
+
       // Exit the process with success code
       process.exit(0)
     }
@@ -2718,6 +2747,9 @@ async function main() {
 
     // Log endpoint stats summary at the end
     logEndpointStatsSummary()
+
+    await Utils.sleep(500)    // Add slight delay to ensure logs are flushed before exit
+
     // Exit the process with error code
     process.exit(1)
   }
