@@ -21,7 +21,8 @@ import { initAjvSchemas } from './types/ajv/Helpers'
 import { initializeSerialization } from './utils/serialization/SchemaHelpers'
 import * as dbstore from './dbstore'
 import { DataType as GossipDataType } from './Data/GossipData'
-
+import * as OriginalTxsDataDB from './dbstore/originalTxsData'
+import * as ProcessedTxsDB from './dbstore/processedTxs'
 
 const startTime = Date.now()
 /*
@@ -75,24 +76,29 @@ const customArchiversConfig: CustomArchiverConfig[] = [
   // { ip: '192.168.1.5', port: 8080, publicKey: 'archiver-public-key-2' },
   {
     ip: '127.0.0.1',
-    port: 4001,
-    publicKey: 'e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94',
+    port: 4000,
+    publicKey: '758b1c119412298802cd28dbfa394cdfeecc4074492d60844cc192d632d84de3',
   },
-  {
-    ip: '127.0.0.1',
-    port: 4002,
-    publicKey: '9426b64e675cad739d69526bf7e27f3f304a8a03dca508a9180f01e9269ce447',
-  },
-  {
-    ip: '127.0.0.1',
-    port: 4004,
-    publicKey: '7a95c68fa1a852e25e4f33e1dc5b1b8b142c4b52209ec3535ac059b4b4db3b4c',
-  },
-  {
-    ip: '127.0.0.1',
-    port: 4005,
-    publicKey: 'fd24ef72d1e3ea49165df43e6f3b2737d5480ae4b7309cc11143af4ab35d28b2',
-  },
+  // {
+  //   ip: '127.0.0.1',
+  //   port: 4001,
+  //   publicKey: 'e8a5c26b9e2c3c31eb7c7d73eaed9484374c16d983ce95f3ab18a62521964a94',
+  // },
+  // {
+  //   ip: '127.0.0.1',
+  //   port: 4002,
+  //   publicKey: '9426b64e675cad739d69526bf7e27f3f304a8a03dca508a9180f01e9269ce447',
+  // },
+  // {
+  //   ip: '127.0.0.1',
+  //   port: 4004,
+  //   publicKey: '7a95c68fa1a852e25e4f33e1dc5b1b8b142c4b52209ec3535ac059b4b4db3b4c',
+  // },
+  // {
+  //   ip: '127.0.0.1',
+  //   port: 4005,
+  //   publicKey: 'fd24ef72d1e3ea49165df43e6f3b2737d5480ae4b7309cc11143af4ab35d28b2',
+  // },
 ]
 
 // Configurable options
@@ -115,6 +121,18 @@ const healerConfig = {
     receipts: true,
     accounts: true,
     transactions: true,
+    originalTxData: true,
+    processedTx: true,
+  },
+
+  // Flags to control which data types to analyze
+  analyzeDataTypes: {
+    cycles: true,
+    receipts: true,
+    accounts: true,
+    transactions: true,
+    originalTxData: true,
+    processedTx: true,
   },
 
   // Batch sizes for different operations
@@ -130,9 +148,9 @@ const healerConfig = {
   // Timeouts and delays
   timeouts: {
     requestTimeoutSeconds: 30, // Timeout for HTTP requests
-    sleepBetweenBatchesMs: 1000, // Sleep time between processing large batches
-    sleepBetweenSubBatchesMs: 200, // Sleep time between processing sub-batches
-    sleepBetweenHealingOperationsMs: 500, // Sleep time between healing operations
+    sleepBetweenBatchesMs: 300, // Sleep time between processing large batches
+    sleepBetweenSubBatchesMs: 300, // Sleep time between processing sub-batches
+    sleepBetweenHealingOperationsMs: 300, // Sleep time between healing operations
   },
 
   // Parallel processing limits
@@ -151,11 +169,6 @@ const useCustomArchivers = healerConfig.useCustomArchivers
 
 // Flag to control whether to output logs to file or console
 let useLoggerFile = healerConfig.useLoggerFile
-
-console.log('useCustomArchivers: ', useCustomArchivers)
-console.log('useLoggerFile: ', useLoggerFile)
-console.log('disableMajorityCheck: ', healerConfig.disableMajorityCheck)
-console.log('healDataTypes: ', healerConfig.healDataTypes)
 
 // Configurable parameters
 const BATCH_SIZE = healerConfig.batchSizes.general
@@ -186,6 +199,8 @@ enum DataType {
   RECEIPT = 'receipt',
   ACCOUNT = 'account',
   TRANSACTION = 'transaction',
+  ORIGINAL_TX_DATA = 'originalTxData',
+  PROCESSED_TX = 'processedTx',
 }
 
 // Interfaces for tracking missing data
@@ -207,7 +222,6 @@ interface MissingAccount {
   id: string
   majorityHash?: string
   cycle?: number
-  cycleNumber?: number
   isMissing: boolean // Add explicit flag for missing vs mismatched
 }
 
@@ -215,8 +229,23 @@ interface MissingTransaction {
   cycle: number
   id: string
   majorityHash?: string
-  cycleNumber?: number
   isMissing: boolean // Add explicit flag for missing vs mismatched
+}
+
+interface MissingOriginalTxData {
+  id: string
+  cycle?: number
+  majorityHash?: string
+  isMissing: boolean // Add explicit flag for missing vs mismatched
+  timestamp?: number
+}
+
+interface MissingProcessedTx {
+  id: string
+  cycle?: number
+  majorityHash?: string
+  isMissing: boolean // Add explicit flag for missing vs mismatched
+  txTimestamp?: number
 }
 
 interface MissingData {
@@ -224,6 +253,8 @@ interface MissingData {
   receipts: MissingReceipt[]
   accounts: MissingAccount[]
   transactions: MissingTransaction[]
+  originalTxData: MissingOriginalTxData[]
+  processedTx: MissingProcessedTx[]
   timestamp: number
 }
 
@@ -267,6 +298,8 @@ interface TotalDataCounts {
   totalAccounts: number
   totalTransactions: number
   archiverPk: string
+  totalOriginalTxData?: number
+  totalProcessedTx?: number
 }
 
 // Log progress with percentage
@@ -306,8 +339,19 @@ function logEndpointStatsSummary() {
   const summary = lines.join('\n')
   Logger.mainLogger.info(summary)
   console.log(summary)
-  console.log('run totaltime: ', Date.now() - startTime)
+  const totalTimeMs = Date.now() - startTime
+  const totalTimeSec = totalTimeMs / 1000
+  let formattedTime
 
+  if (totalTimeSec < 60) {
+    formattedTime = `${totalTimeSec.toFixed(2)} seconds`
+  } else if (totalTimeSec < 3600) {
+    formattedTime = `${(totalTimeSec / 60).toFixed(2)} minutes`
+  } else {
+    formattedTime = `${(totalTimeSec / 3600).toFixed(2)} hours`
+  }
+
+  console.log('run totaltime: ', formattedTime)
 }
 
 // Helper function to fetch data from a specific archiver
@@ -332,6 +376,8 @@ async function fetchFromArchiver(
       formattedEndpoint = '/transaction'
     } else if (endpoint === RequestDataType.TOTALDATA) {
       formattedEndpoint = '/totalData'
+    } else if (endpoint === 'originalTx') {
+      formattedEndpoint = '/originalTx'
     }
 
     // Special handling for account endpoint
@@ -418,6 +464,8 @@ async function getTotalDataFromArchivers(): Promise<TotalDataCounts[]> {
           totalAccounts: response.totalAccounts || 0,
           totalTransactions: response.totalTransactions || 0,
           archiverPk: archiver.publicKey,
+          totalOriginalTxData: response.totalOriginalTxData || 0,
+          totalProcessedTx: response.totalProcessedTx || 0,
         }
       }
     } catch (error) {
@@ -450,13 +498,33 @@ async function getMaxCounts(): Promise<Record<DataType, number>> {
     [DataType.RECEIPT]: Math.max(...totals.map((t) => t.totalReceipts), 0),
     [DataType.ACCOUNT]: Math.max(...totals.map((t) => t.totalAccounts), 0),
     [DataType.TRANSACTION]: Math.max(...totals.map((t) => t.totalTransactions), 0),
+    [DataType.ORIGINAL_TX_DATA]: Math.max(...totals.map((t) => t.totalOriginalTxData || 0), 0),
+    [DataType.PROCESSED_TX]: Math.max(...totals.map((t) => t.totalProcessedTx || 0), 0),
+  }
+
+  // Calculate average counts
+  const avgCounts = {
+    [DataType.CYCLE]: totals.reduce((sum, t) => sum + t.totalCycles, 0) / totals.length || 0,
+    [DataType.RECEIPT]: totals.reduce((sum, t) => sum + t.totalReceipts, 0) / totals.length || 0,
+    [DataType.ACCOUNT]: totals.reduce((sum, t) => sum + t.totalAccounts, 0) / totals.length || 0,
+    [DataType.TRANSACTION]: totals.reduce((sum, t) => sum + t.totalTransactions, 0) / totals.length || 0,
+    [DataType.ORIGINAL_TX_DATA]: totals.reduce((sum, t) => sum + (t.totalOriginalTxData || 0), 0) / totals.length || 0,
+    [DataType.PROCESSED_TX]: totals.reduce((sum, t) => sum + (t.totalProcessedTx || 0), 0) / totals.length || 0,
   }
 
   Logger.mainLogger.info(`Maximum data counts from archivers:`)
-  Logger.mainLogger.info(`Cycles: ${maxCounts[DataType.CYCLE]}`)
-  Logger.mainLogger.info(`Receipts: ${maxCounts[DataType.RECEIPT]}`)
-  Logger.mainLogger.info(`Accounts: ${maxCounts[DataType.ACCOUNT]}`)
-  Logger.mainLogger.info(`Transactions: ${maxCounts[DataType.TRANSACTION]}`)
+  Logger.mainLogger.info(`Cycles: ${maxCounts[DataType.CYCLE]} (avg: ${avgCounts[DataType.CYCLE].toFixed(2)})`)
+  Logger.mainLogger.info(`Receipts: ${maxCounts[DataType.RECEIPT]} (avg: ${avgCounts[DataType.RECEIPT].toFixed(2)})`)
+  Logger.mainLogger.info(`Accounts: ${maxCounts[DataType.ACCOUNT]} (avg: ${avgCounts[DataType.ACCOUNT].toFixed(2)})`)
+  Logger.mainLogger.info(
+    `Transactions: ${maxCounts[DataType.TRANSACTION]} (avg: ${avgCounts[DataType.TRANSACTION].toFixed(2)})`
+  )
+  Logger.mainLogger.info(
+    `Original TX Data: ${maxCounts[DataType.ORIGINAL_TX_DATA]} (avg: ${avgCounts[DataType.ORIGINAL_TX_DATA].toFixed(2)})`
+  )
+  Logger.mainLogger.info(
+    `Processed TX: ${maxCounts[DataType.PROCESSED_TX]} (avg: ${avgCounts[DataType.PROCESSED_TX].toFixed(2)})`
+  )
 
   return maxCounts
 }
@@ -570,7 +638,7 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
     // Cycles
     let missingCycles: MissingCycle[] = []
     let missingCyclesSummary: MissingCycleSummary[] = []
-    if (healerConfig.healDataTypes.cycles) {
+    if (healerConfig.analyzeDataTypes.cycles) {
       Logger.mainLogger.info('Analyzing missing and corrupt cycles...')
       let localCycleSet = new Set<number>(),
         remoteCycleMap,
@@ -654,7 +722,7 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
     // Receipts
     let missingReceipts: MissingReceipt[] = []
     let missingReceiptsSummary: MissingReceiptSummary[] = []
-    if (healerConfig.healDataTypes.receipts) {
+    if (healerConfig.analyzeDataTypes.receipts) {
       Logger.mainLogger.info('Analyzing missing and corrupt receipts...')
       const RECEIPT_BATCH_SIZE = 1000
       const [localReceiptSet, remoteReceiptMap]: [Set<string>, Map<string, { count: number; cycle: number }>] =
@@ -667,7 +735,7 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
         if (!localReceipts || localReceipts.length === 0) break
         for (const r of localReceipts) {
           //@ts-ignore
-          if(r.signedReceipt.txGroupCycle != null){
+          if (r.signedReceipt.txGroupCycle != null) {
             //@ts-ignore
             delete r.signedReceipt.txGroupCycle
             //console.log('delete r.signedReceipt.txGroupCycle for id: ', id)
@@ -694,8 +762,7 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
               let hashes: string[] = []
               if (resp && resp.receipts) {
                 for (const r of resp.receipts) {
-
-                  if(r.signedReceipt.txGroupCycle != null){
+                  if (r.signedReceipt.txGroupCycle != null) {
                     delete r.signedReceipt.txGroupCycle
                     //console.log('delete r.signedReceipt.txGroupCycle for id: ', id)
                   }
@@ -736,83 +803,85 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
     // Accounts
     let missingAccounts: MissingAccount[] = []
     let missingAccountsSummary: MissingAccountSummary[] = []
-    if (healerConfig.healDataTypes.accounts) {
+    if (healerConfig.analyzeDataTypes.accounts) {
       Logger.mainLogger.info('Analyzing missing and corrupt accounts...')
       const ACCOUNT_BATCH_SIZE = 1000
 
       // Get local account IDs and remote account data
       const localAccountSet = await getAllLocalAccountIds()
-      const [remoteAccountMap, remoteAccountDetailsMap] = await getAllRemoteAccountIds()
+      const [remoteAccountMap, remoteAccountDetailsMap] = await getAllRemoteAccountIds(minCycleToUse, maxCycleToUse)
 
-      // Build local hash map in batches
-      const localAccountHashMap = new Map<string, string>()
+      // Build local account map (id -> account object)
+      const localAccountMap = new Map<string, any>()
       let localOffset = 0
       while (true) {
         const localAccounts = await AccountDB.queryAccounts(localOffset, ACCOUNT_BATCH_SIZE)
         if (!localAccounts || localAccounts.length === 0) break
         for (const a of localAccounts) {
-          if (a.accountId) localAccountHashMap.set(a.accountId, Crypto.hash(StringUtils.safeStringify(a)).toLowerCase())
+          if (a.accountId) localAccountMap.set(a.accountId, a)
         }
         if (localAccounts.length < ACCOUNT_BATCH_SIZE) break
         localOffset += ACCOUNT_BATCH_SIZE
       }
 
       for (const [id, info] of remoteAccountMap.entries()) {
-        let isMissing = !localAccountSet.has(id)
-        let isCorrupt = false
-        let localHash = localAccountHashMap.get(id)
-
-        // Get all remote versions for this account
+        const localAccount = localAccountMap.get(id)
         const accountVersions = remoteAccountDetailsMap.get(id) || []
-
-        // Find the account with the latest timestamp
-        let latestAccount = null
-        let latestTimestamp = 0
+        let isMissing = !localAccount
+        let isCorrupt = false
+        let localTimestamp = localAccount ? localAccount.timestamp : 0
+        // Find the account with the latest timestamp (remote or local)
+        let latestAccount = localAccount
+        let latestTimestamp = localTimestamp
         for (const account of accountVersions) {
           if (account.timestamp > latestTimestamp) {
             latestTimestamp = account.timestamp
             latestAccount = account
           }
         }
-
-        // Find majority hash using the latest account version
-        let majorityHash: string | undefined = undefined
-        let majorityArchivers: string[] = []
-
-        if (latestAccount) {
-          majorityHash = Crypto.hash(StringUtils.safeStringify(latestAccount)).toLowerCase()
-
-          // Check if local version is corrupt (exists but hash doesn't match)
-          if (!isMissing && localHash && localHash !== majorityHash) {
-            isCorrupt = true
-          }
+        // If local exists and is latest, skip (not missing or mismatched)
+        if (localAccount && localAccount.timestamp >= latestTimestamp) {
+          continue
         }
-
-        if (isMissing || isCorrupt) {
+        // If local does not exist, mark as missing
+        if (!localAccount) {
           missingAccounts.push({
             id,
-            majorityHash,
-            cycle: info.cycle,
-            cycleNumber: info.cycleNumber,
-            isMissing,
+            majorityHash: undefined,
+            cycle: info.cycleNumber,
+            isMissing: true,
           })
           missingAccountsSummary.push({
             id,
             count: info.count,
-            cycle: info.cycle,
-            cycleNumber: info.cycleNumber,
-            majorityArchivers,
-            isMissing,
+            cycle: info.cycleNumber,
+            majorityArchivers: [],
+            isMissing: true,
+          })
+        } else {
+          // Local exists but is not latest, mark as mismatched
+          missingAccounts.push({
+            id,
+            majorityHash: undefined,
+            cycle: info.cycleNumber,
+            isMissing: false,
+          })
+          missingAccountsSummary.push({
+            id,
+            count: info.count,
+            cycle: info.cycleNumber,
+            majorityArchivers: [],
+            isMissing: false,
           })
         }
       }
-      Logger.mainLogger.info(`Found ${missingAccounts.length} missing or corrupt accounts`)
+      Logger.mainLogger.info(`Found ${missingAccounts.length} missing or mismatched accounts`)
     }
 
     // Transactions
     let missingTransactions: MissingTransaction[] = []
     let missingTransactionsSummary: MissingTransactionSummary[] = []
-    if (healerConfig.healDataTypes.transactions) {
+    if (healerConfig.analyzeDataTypes.transactions) {
       Logger.mainLogger.info('Analyzing missing and corrupt transactions...')
       const TX_BATCH_SIZE = 1000
       const [localTxSet, remoteTxMap]: [
@@ -845,13 +914,7 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
               const resp = await fetchFromArchiver(archiver, RequestDataType.TRANSACTION, { txId: id })
               let hashes: string[] = []
               if (resp && resp.transactions) {
-                if (Array.isArray(resp.transactions)) {
-                  for (const t of resp.transactions) {
-                    hashes.push(Crypto.hash(StringUtils.safeStringify(t)).toLowerCase())
-                  }
-                } else {
-                  hashes.push(Crypto.hash(StringUtils.safeStringify(resp.transactions)).toLowerCase())
-                }
+                hashes.push(Crypto.hash(StringUtils.safeStringify(resp.transactions)).toLowerCase())
               }
               return hashes
             })
@@ -877,22 +940,381 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
         }
         if (isMissing || isCorrupt) {
           missingTransactions.push({
-            cycle: info.cycle,
+            cycle: info.cycleNumber,
             id,
             majorityHash,
-            cycleNumber: info.cycleNumber,
             isMissing,
           })
           missingTransactionsSummary.push({
             id,
             count: info.count,
-            cycle: info.cycle,
-            cycleNumber: info.cycleNumber,
+            cycle: info.cycleNumber,
             isMissing,
           })
         }
       }
       Logger.mainLogger.info(`Found ${missingTransactions.length} missing or corrupt transactions`)
+    }
+
+    // Original Tx Data
+    let missingOriginalTxData: MissingOriginalTxData[] = []
+    let missingOriginalTxDataSummary: any[] = []
+    if (healerConfig.analyzeDataTypes.originalTxData) {
+      Logger.mainLogger.info('Analyzing missing and corrupt originalTxData...')
+      // Get all local originalTxData IDs and timestamps
+      const localOriginalTxSet = new Set<string>()
+      const localOriginalTxHashMap = new Map<string, string>()
+      let localOffset = 0
+      const LOCAL_BATCH_SIZE = 1000
+      while (true) {
+        const localTxs = await OriginalTxsDataDB.queryOriginalTxsData(localOffset, LOCAL_BATCH_SIZE)
+        if (!localTxs || localTxs.length === 0) break
+        for (const t of localTxs) {
+          if (t.txId && t.timestamp) {
+            const key = `${t.txId}:${t.timestamp}`
+            localOriginalTxSet.add(key)
+            localOriginalTxHashMap.set(key, Crypto.hash(StringUtils.safeStringify(t)).toLowerCase())
+          }
+        }
+        if (localTxs.length < LOCAL_BATCH_SIZE) break
+        localOffset += LOCAL_BATCH_SIZE
+      }
+      // Get all remote originalTxData IDs and timestamps in cycle batches
+      const archivers = useCustomArchivers ? customArchiversConfig : State.otherArchivers
+      const remoteOriginalTxMap = new Map<string, { count: number; cycle?: number }>()
+      
+      // Determine min/max cycle
+      let minCycle = typeof minCycleToUse === 'number' ? minCycleToUse : 0
+      let maxCycle = typeof maxCycleToUse === 'number' ? maxCycleToUse : undefined
+      if (typeof maxCycle === 'undefined') {
+        const totalData = await getTotalDataFromArchivers()
+        maxCycle = 0
+        for (const t of totalData) {
+          if (t.totalCycles > maxCycle) maxCycle = t.totalCycles
+        }
+      }
+      
+      // First approach: fetch by cycle range
+      const CYCLE_BATCH_SIZE = 100
+      for (let batchStart = minCycle; batchStart < maxCycle; batchStart += CYCLE_BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + CYCLE_BATCH_SIZE - 1, maxCycle - 1)
+        for (const archiver of archivers) {
+          try {
+            const response = await fetchFromArchiver(archiver, 'originalTx', {
+              startCycle: batchStart,
+              endCycle: batchEnd,
+            })
+            if (response && response.originalTxs) {
+              for (const t of response.originalTxs) {
+                if (t.txId && t.timestamp) {
+                  const key = `${t.txId}:${t.timestamp}`
+                  if (!remoteOriginalTxMap.has(key)) remoteOriginalTxMap.set(key, { count: 1, cycle: t.cycle })
+                  else remoteOriginalTxMap.get(key)!.count++
+                }
+              }
+            }
+          } catch (error) {
+            Logger.mainLogger.debug(
+              `Error fetching originalTxData IDs from ${archiver.ip}:${archiver.port}: ${error.message}`
+            )
+          }
+        }
+      }
+      
+      // Second approach: fetch originalTxData for all missing transactions
+      // This ensures we don't miss any originalTxData that might exist for transactions
+      Logger.mainLogger.info('Cross-checking originalTxData with missing transactions...')
+      const txBatchSize = 50; // Process transactions in batches to avoid overwhelming requests
+      
+      // If we already have missing transactions data, use it
+      for (let i = 0; i < missingTransactions.length; i += txBatchSize) {
+        const txBatch = missingTransactions.slice(i, i + txBatchSize);
+        
+        // For each transaction batch, query all archivers
+        for (const archiver of archivers) {
+          for (const tx of txBatch) {
+            try {
+              const response = await fetchFromArchiver(archiver, 'originalTx', { txId: tx.id });
+              if (response && response.originalTxs && Array.isArray(response.originalTxs)) {
+                for (const t of response.originalTxs) {
+                  if (t.txId && t.timestamp) {
+                    const key = `${t.txId}:${t.timestamp}`;
+                    if (!remoteOriginalTxMap.has(key)) {
+                      remoteOriginalTxMap.set(key, { count: 1, cycle: tx.cycle });
+                    } else {
+                      remoteOriginalTxMap.get(key)!.count++;
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              // Ignore errors for individual transaction queries
+            }
+          }
+        }
+        
+        // Add a small delay between batches to avoid overwhelming the system
+        if (i + txBatchSize < missingTransactions.length) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+      // Check for missing or corrupt originalTxData
+      for (const [key, info] of remoteOriginalTxMap.entries()) {
+        let majorityHash: string | undefined = undefined
+        const [txId, timestampStr] = key.split(':')
+        let isMissing = !localOriginalTxSet.has(key)
+        let isCorrupt = false
+        let localHash = localOriginalTxHashMap.get(key)
+        // Fetch all remote versions for hash comparison
+        let remoteHashes: string[] = []
+        for (const archiver of archivers) {
+          try {
+            const timestamp = Number(timestampStr)
+            const response = await fetchFromArchiver(archiver, 'originalTx', { txIdList: [[txId, timestamp]] })
+            if (response && response.originalTxs) {
+              for (const t of Array.isArray(response.originalTxs) ? response.originalTxs : [response.originalTxs]) {
+                remoteHashes.push(Crypto.hash(StringUtils.safeStringify(t)).toLowerCase())
+              }
+            }
+          } catch (error) {
+            Logger.mainLogger.debug(
+              `Error fetching originalTxData ${key} from ${archiver.ip}:${archiver.port}: ${error.message}`
+            )
+          }
+        }
+        // Find majority hash
+        if (!healerConfig.disableMajorityCheck && remoteHashes.length > 0) {
+          const hashCounts: { [hash: string]: number } = {}
+          for (const h of remoteHashes) hashCounts[h] = (hashCounts[h] || 0) + 1
+          let maxCount = 0
+          for (const hash in hashCounts) {
+            if (hashCounts[hash] > maxCount) {
+              maxCount = hashCounts[hash]
+              majorityHash = hash
+            }
+          }
+        } else if (remoteHashes.length > 0) {
+          majorityHash = remoteHashes[0]
+        }
+        if (!isMissing && majorityHash && localHash && localHash !== majorityHash) {
+          isCorrupt = true
+        }
+        if (isMissing || isCorrupt) {
+          missingOriginalTxData.push({
+            id: txId,
+            cycle: info.cycle,
+            majorityHash,
+            isMissing,
+            timestamp: Number(timestampStr), // <-- add timestamp
+          })
+          missingOriginalTxDataSummary.push({
+            id: txId,
+            count: info.count,
+            cycle: info.cycle,
+            isMissing,
+          })
+        }
+      }
+      Logger.mainLogger.info(`Found ${missingOriginalTxData.length} missing or corrupt originalTxData`)
+    }
+    // ProcessedTx
+    let missingProcessedTx: MissingProcessedTx[] = []
+    let missingProcessedTxSummary: any[] = []
+    if (healerConfig.analyzeDataTypes.processedTx) {
+      Logger.mainLogger.info('Analyzing missing and corrupt processedTx...')
+      // Get all local processedTx IDs and timestamps
+      const localProcessedTxSet = new Set<string>()
+      const localProcessedTxHashMap = new Map<string, string>()
+
+      // Query all processed transactions within the cycle range
+      let localOffset = minCycleToUse || 0
+      const maxLocalCycle = maxCycleToUse || 0
+
+      while (localOffset <= maxLocalCycle) {
+        const localTxs = await ProcessedTxsDB.queryProcessedTxsByCycleNumber(localOffset)
+        if (localTxs) {
+          for (const t of localTxs) {
+            if (t.txId && t.txTimestamp) {
+              const key = `${t.txId}:${t.txTimestamp}`
+              localProcessedTxSet.add(key)
+              localProcessedTxHashMap.set(key, Crypto.hash(StringUtils.safeStringify(t)).toLowerCase())
+            }
+          }
+        }
+        localOffset++
+      }
+
+      // Get all remote processedTx IDs and timestamps in cycle batches
+      const archivers = useCustomArchivers ? customArchiversConfig : State.otherArchivers
+      const remoteProcessedTxMap = new Map<string, { count: number; cycle?: number }>()
+      // Determine min/max cycle
+      let minCycle = typeof minCycleToUse === 'number' ? minCycleToUse : 0
+      let maxCycle = typeof maxCycleToUse === 'number' ? maxCycleToUse : undefined
+      if (typeof maxCycle === 'undefined') {
+        const totalData = await getTotalDataFromArchivers()
+        maxCycle = 0
+        for (const t of totalData) {
+          if (t.totalCycles > maxCycle) maxCycle = t.totalCycles
+        }
+      }
+      const CYCLE_BATCH_SIZE = 100
+      for (let batchStart = minCycle; batchStart < maxCycle; batchStart += CYCLE_BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + CYCLE_BATCH_SIZE - 1, maxCycle - 1)
+        for (const archiver of archivers) {
+          try {
+            // Use transaction endpoint to get transactions in this cycle range, paginated
+            let page = 1
+            let fetchedAll = false
+            while (!fetchedAll) {
+              const txResponse = await fetchFromArchiver(archiver, RequestDataType.TRANSACTION, {
+                startCycle: batchStart,
+                endCycle: batchEnd,
+                page,
+              })
+              if (txResponse && txResponse.transactions) {
+                const txs = Array.isArray(txResponse.transactions) ? txResponse.transactions : [txResponse.transactions]
+                for (const tx of txs) {
+                  if (!tx.txId) continue
+                  // Now get the receipt for this transaction to get the apply timestamp
+                  const receiptResponse = await fetchFromArchiver(archiver, RequestDataType.RECEIPT, {
+                    txId: tx.txId,
+                  })
+
+                  let foundReceipt = false
+                  if (receiptResponse && receiptResponse.receipts) {
+                    const receipts = Array.isArray(receiptResponse.receipts)
+                      ? receiptResponse.receipts
+                      : [receiptResponse.receipts]
+
+                    for (const receipt of receipts) {
+                      if (receipt && receipt.tx && receipt.tx.txId === tx.txId) {
+                        const timestamp = receipt.applyTimestamp || receipt.timestamp || tx.timestamp || Date.now()
+                        const key = `${tx.txId}:${timestamp}`
+                        if (!remoteProcessedTxMap.has(key)) {
+                          remoteProcessedTxMap.set(key, { count: 1, cycle: tx.cycleNumber })
+                        } else {
+                          remoteProcessedTxMap.get(key)!.count++
+                        }
+                        foundReceipt = true
+                      }
+                    }
+                  }
+                }
+                // If we fetched less than the page size, we are done
+                if (txs.length < config.REQUEST_LIMIT.MAX_ACCOUNTS_PER_REQUEST) {
+                  fetchedAll = true
+                } else {
+                  page++
+                }
+              } else {
+                // No transactions returned, we are done
+                fetchedAll = true
+              }
+            }
+          } catch (error) {
+            Logger.mainLogger.debug(
+              `Error fetching processedTx IDs from ${archiver.ip}:${archiver.port}: ${error.message}`
+            )
+          }
+        }
+      }
+      // Check for missing or corrupt processedTx
+      for (const [key, info] of remoteProcessedTxMap.entries()) {
+        let majorityHash: string | undefined = undefined
+        // Extract txId and timestamp from key
+        const [txId, timestampStr] = key.split(':')
+        const txTimestamp = Number(timestampStr)
+        let isMissing = !localProcessedTxSet.has(key)
+        let isCorrupt = false
+        let localHash = localProcessedTxHashMap.get(key)
+        // Fetch all remote versions for hash comparison
+        let remoteHashes: string[] = []
+        for (const archiver of archivers) {
+          try {
+            // Use transaction and receipt endpoints to get processed transaction data
+            const txResponse = await fetchFromArchiver(archiver, RequestDataType.TRANSACTION, {
+              txId,
+            })
+
+            let processedTxData = []
+            if (txResponse && txResponse.transactions) {
+              const txData = Array.isArray(txResponse.transactions)
+                ? txResponse.transactions.find((t) => t.txId === txId)
+                : txResponse.transactions
+
+              if (txData) {
+                // Get receipt data
+                const receiptResponse = await fetchFromArchiver(archiver, RequestDataType.RECEIPT, {
+                  txId,
+                })
+                if (receiptResponse && receiptResponse.receipts) {
+                  const receiptData = Array.isArray(receiptResponse.receipts)
+                    ? receiptResponse.receipts.find((r) => r.tx && r.tx.txId === txId)
+                    : receiptResponse.receipts
+                  if (receiptData) {
+                    // Create processed transaction object
+                    const processedTx = {
+                      txId: txData.txId,
+                      cycle: txData.cycleNumber,
+                      txTimestamp: txTimestamp,
+                      applyTimestamp: receiptData.timestamp || Date.now(),
+                    }
+                    processedTxData.push(processedTx)
+                  }
+                }
+              }
+            }
+
+            // Simulate the expected response format
+            const response = { processedTxs: processedTxData }
+            if (response && response.processedTxs) {
+              for (const t of Array.isArray(response.processedTxs) ? response.processedTxs : [response.processedTxs]) {
+                remoteHashes.push(Crypto.hash(StringUtils.safeStringify(t)).toLowerCase())
+              }
+            }
+          } catch (error) {
+            Logger.mainLogger.debug(
+              `Error fetching processedTx ${key} from ${archiver.ip}:${archiver.port}: ${error.message}`
+            )
+          }
+        }
+
+        // Find majority hash
+        if (!healerConfig.disableMajorityCheck && remoteHashes.length > 0) {
+          const hashCounts: { [hash: string]: number } = {}
+          for (const h of remoteHashes) hashCounts[h] = (hashCounts[h] || 0) + 1
+          let maxCount = 0
+          for (const hash in hashCounts) {
+            if (hashCounts[hash] > maxCount) {
+              maxCount = hashCounts[hash]
+              majorityHash = hash
+            }
+          }
+        } else if (remoteHashes.length > 0) {
+          majorityHash = remoteHashes[0]
+        }
+        // If localHash is undefined, treat as missing (do not log undefined)
+        if (!isMissing && majorityHash && localHash && localHash !== majorityHash) {
+          isCorrupt = true
+        }
+        if (isMissing || isCorrupt) {
+          // id should be txId, cycle from info or remote
+          missingProcessedTx.push({
+            id: txId,
+            cycle: info.cycle,
+            majorityHash,
+            isMissing,
+            txTimestamp,
+          })
+          missingProcessedTxSummary.push({
+            id: txId,
+            count: info.count,
+            cycle: info.cycle,
+            isMissing,
+          })
+        }
+      }
+      Logger.mainLogger.info(`Found ${missingProcessedTx.length} missing or corrupt processedTx`)
     }
 
     // Save summary to log file
@@ -904,6 +1326,8 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
       `Receipts: missing: ${missingReceipts.filter((r) => r.isMissing).length}  mismatched: ${missingReceipts.filter((r) => !r.isMissing).length} total: ${missingReceipts.length}`,
       `Accounts: missing: ${missingAccounts.filter((a) => a.isMissing).length}  mismatched: ${missingAccounts.filter((a) => !a.isMissing).length} total: ${missingAccounts.length}`,
       `Transactions: missing: ${missingTransactions.filter((t) => t.isMissing).length}  mismatched: ${missingTransactions.filter((t) => !t.isMissing).length} total: ${missingTransactions.length}`,
+      `OriginalTxData: missing: ${missingOriginalTxData.filter((o) => o.isMissing).length}  mismatched: ${missingOriginalTxData.filter((o) => !o.isMissing).length} total: ${missingOriginalTxData.length}`,
+      `ProcessedTx: missing: ${missingProcessedTx.filter((p) => p.isMissing).length}  mismatched: ${missingProcessedTx.filter((p) => !p.isMissing).length} total: ${missingProcessedTx.length}`,
       '',
       '===== MISSING/MISMATCHED DATA BY COUNTS =====',
 
@@ -920,6 +1344,10 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
             mismatchedAccounts: number
             missingTransactions: number
             mismatchedTransactions: number
+            missingOriginalTxData: number
+            mismatchedOriginalTxData: number
+            missingProcessedTx: number
+            mismatchedProcessedTx: number
           }
         >()
 
@@ -936,6 +1364,10 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
               mismatchedAccounts: 0,
               missingTransactions: 0,
               mismatchedTransactions: 0,
+              missingOriginalTxData: 0,
+              mismatchedOriginalTxData: 0,
+              missingProcessedTx: 0,
+              mismatchedProcessedTx: 0,
             })
           }
           if (cycle.isMissing) {
@@ -958,6 +1390,10 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
               mismatchedAccounts: 0,
               missingTransactions: 0,
               mismatchedTransactions: 0,
+              missingOriginalTxData: 0,
+              mismatchedOriginalTxData: 0,
+              missingProcessedTx: 0,
+              mismatchedProcessedTx: 0,
             })
           }
           if (receipt.isMissing) {
@@ -969,7 +1405,7 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
 
         // Count missing accounts
         for (const account of missingAccounts) {
-          const cycleNum = account.cycleNumber || account.cycle || 0
+          const cycleNum = account.cycle || 0
           if (!cycleMap.has(cycleNum)) {
             cycleMap.set(cycleNum, {
               missingCycles: 0,
@@ -980,6 +1416,10 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
               mismatchedAccounts: 0,
               missingTransactions: 0,
               mismatchedTransactions: 0,
+              missingOriginalTxData: 0,
+              mismatchedOriginalTxData: 0,
+              missingProcessedTx: 0,
+              mismatchedProcessedTx: 0,
             })
           }
           if (account.isMissing) {
@@ -991,7 +1431,7 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
 
         // Count missing transactions
         for (const tx of missingTransactions) {
-          const cycleNum = tx.cycleNumber || tx.cycle
+          const cycleNum = tx.cycle || 0
           if (!cycleMap.has(cycleNum)) {
             cycleMap.set(cycleNum, {
               missingCycles: 0,
@@ -1002,12 +1442,68 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
               mismatchedAccounts: 0,
               missingTransactions: 0,
               mismatchedTransactions: 0,
+              missingOriginalTxData: 0,
+              mismatchedOriginalTxData: 0,
+              missingProcessedTx: 0,
+              mismatchedProcessedTx: 0,
             })
           }
           if (tx.isMissing) {
             cycleMap.get(cycleNum)!.missingTransactions++
           } else {
             cycleMap.get(cycleNum)!.mismatchedTransactions++
+          }
+        }
+
+        // Count missing originalTxData
+        for (const originalTx of missingOriginalTxData) {
+          const cycleNum = originalTx.cycle || 0
+          if (!cycleMap.has(cycleNum)) {
+            cycleMap.set(cycleNum, {
+              missingCycles: 0,
+              mismatchedCycles: 0,
+              missingReceipts: 0,
+              mismatchedReceipts: 0,
+              missingAccounts: 0,
+              mismatchedAccounts: 0,
+              missingTransactions: 0,
+              mismatchedTransactions: 0,
+              missingOriginalTxData: 0,
+              mismatchedOriginalTxData: 0,
+              missingProcessedTx: 0,
+              mismatchedProcessedTx: 0,
+            })
+          }
+          if (originalTx.isMissing) {
+            cycleMap.get(cycleNum)!.missingOriginalTxData++
+          } else {
+            cycleMap.get(cycleNum)!.mismatchedOriginalTxData++
+          }
+        }
+
+        // Count missing processedTx
+        for (const processedTx of missingProcessedTx) {
+          const cycleNum = processedTx.cycle || 0
+          if (!cycleMap.has(cycleNum)) {
+            cycleMap.set(cycleNum, {
+              missingCycles: 0,
+              mismatchedCycles: 0,
+              missingReceipts: 0,
+              mismatchedReceipts: 0,
+              missingAccounts: 0,
+              mismatchedAccounts: 0,
+              missingTransactions: 0,
+              mismatchedTransactions: 0,
+              missingOriginalTxData: 0,
+              mismatchedOriginalTxData: 0,
+              missingProcessedTx: 0,
+              mismatchedProcessedTx: 0,
+            })
+          }
+          if (processedTx.isMissing) {
+            cycleMap.get(cycleNum)!.missingProcessedTx++
+          } else {
+            cycleMap.get(cycleNum)!.mismatchedProcessedTx++
           }
         }
 
@@ -1025,6 +1521,11 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
             if (counts.missingTransactions > 0) parts.push(`missing-transactions:${counts.missingTransactions}`)
             if (counts.mismatchedTransactions > 0)
               parts.push(`mismatched-transactions:${counts.mismatchedTransactions}`)
+            if (counts.missingOriginalTxData > 0) parts.push(`missing-originalTxData:${counts.missingOriginalTxData}`)
+            if (counts.mismatchedOriginalTxData > 0)
+              parts.push(`mismatched-originalTxData:${counts.mismatchedOriginalTxData}`)
+            if (counts.missingProcessedTx > 0) parts.push(`missing-processedTx:${counts.missingProcessedTx}`)
+            if (counts.mismatchedProcessedTx > 0) parts.push(`mismatched-processedTx:${counts.mismatchedProcessedTx}`)
 
             return `cycle ${cycle}:  ${parts.join(' ')}`
           })
@@ -1056,7 +1557,7 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
             .filter((a) => a.isMissing)
             .map(
               (a) =>
-                `  id: ${a.id}, occurrences: ${a.count}, cycle: ${a.cycleNumber || 'unknown'}` +
+                `  id: ${a.id}, occurrences: ${a.count}, cycle: ${a.cycle || 'unknown'}` +
                 (a.majorityArchivers && a.majorityArchivers.length > 0
                   ? `, majorityArchivers: [${a.majorityArchivers.join(', ')}]`
                   : '')
@@ -1068,11 +1569,23 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
             .filter((t) => t.isMissing)
             .map(
               (t) =>
-                `  id: ${t.id}, cycle: ${t.cycleNumber || 'unknown'}, occurrences: ${t.count}` +
+                `  id: ${t.id}, cycle: ${t.cycle || 'unknown'}, occurrences: ${t.count}` +
                 (t.majorityArchivers && t.majorityArchivers.length > 0
                   ? `, majorityArchivers: [${t.majorityArchivers.join(', ')}]`
                   : '')
             ),
+      `OriginalTxData:`,
+      missingOriginalTxData.filter((o) => o.isMissing).length === 0
+        ? '  No missing data found'
+        : missingOriginalTxDataSummary
+            .filter((o) => o.isMissing)
+            .map((o) => `  id: ${o.id}, cycle: ${o.cycle || 'unknown'}, occurrences: ${o.count}`),
+      `ProcessedTx:`,
+      missingProcessedTx.filter((p) => p.isMissing).length === 0
+        ? '  No missing data found'
+        : missingProcessedTxSummary
+            .filter((p) => p.isMissing)
+            .map((p) => `  id: ${p.id}, cycle: ${p.cycle || 'unknown'}, occurrences: ${p.count}`),
       '',
       '===== MISMATCHED DATA SUMMARY =====',
       `Cycles:`,
@@ -1107,7 +1620,7 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
             .map((a) => {
               const mismatchedAccount = missingAccounts.find((ma) => ma.id === a.id && !ma.isMissing)
               return (
-                `  id: ${a.id}, occurrences: ${a.count}, cycle: ${a.cycleNumber || 'unknown'}` +
+                `  id: ${a.id}, occurrences: ${a.count}, cycle: ${a.cycle || 'unknown'}` +
                 (mismatchedAccount && mismatchedAccount.majorityHash ? ', hash mismatch' : '')
               )
             }),
@@ -1119,8 +1632,32 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
             .map((t) => {
               const mismatchedTx = missingTransactions.find((mt) => mt.id === t.id && !mt.isMissing)
               return (
-                `  id: ${t.id}, cycle: ${t.cycleNumber || 'unknown'}, occurrences: ${t.count}` +
+                `  id: ${t.id}, cycle: ${t.cycle || 'unknown'}, occurrences: ${t.count}` +
                 (mismatchedTx && mismatchedTx.majorityHash ? ', hash mismatch' : '')
+              )
+            }),
+      `OriginalTxData:`,
+      missingOriginalTxData.filter((o) => !o.isMissing).length === 0
+        ? '  No Mismatch Found'
+        : missingOriginalTxDataSummary
+            .filter((o) => missingOriginalTxData.find((mo) => mo.id === o.id && !mo.isMissing))
+            .map((o) => {
+              const mismatchedOriginalTx = missingOriginalTxData.find((mo) => mo.id === o.id && !mo.isMissing)
+              return (
+                `  id: ${o.txId}, cycle: ${o.cycle || 'unknown'}, occurrences: ${o.count}` +
+                (mismatchedOriginalTx && mismatchedOriginalTx.majorityHash ? ', hash mismatch' : '')
+              )
+            }),
+      `ProcessedTx:`,
+      missingProcessedTx.filter((p) => !p.isMissing).length === 0
+        ? '  No Mismatch Found'
+        : missingProcessedTxSummary
+            .filter((p) => missingProcessedTx.find((mp) => mp.id === p.id && !mp.isMissing))
+            .map((p) => {
+              const mismatchedProcessedTx = missingProcessedTx.find((mp) => mp.id === p.id && !mp.isMissing)
+              return (
+                `  id: ${p.txId}, cycle: ${p.cycle || 'unknown'}, occurrences: ${p.count}` +
+                (mismatchedProcessedTx && mismatchedProcessedTx.majorityHash ? ', hash mismatch' : '')
               )
             }),
       '',
@@ -1143,21 +1680,50 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
       })(),
     ].flat()
     summaryLines.push(`run totaltime:  ${Date.now() - startTime}`)
-    fs.writeFileSync(MISSING_DATA_SUMMARY_FILE, summaryLines.join('\n'))
+    fs.appendFileSync(MISSING_DATA_SUMMARY_FILE, summaryLines.join('\n') + '\n')
     Logger.mainLogger.info(`Missing data summary saved to ${MISSING_DATA_SUMMARY_FILE}`)
 
-    // Build missingData object only with enabled types
+    // Build missingData object only with analyzed types
     const missingData: any = { timestamp: Date.now() }
-    if (healerConfig.healDataTypes.cycles) missingData.cycles = missingCycles
-    if (healerConfig.healDataTypes.receipts) missingData.receipts = missingReceipts
-    if (healerConfig.healDataTypes.accounts) missingData.accounts = missingAccounts
-    if (healerConfig.healDataTypes.transactions) missingData.transactions = missingTransactions
+    if (healerConfig.analyzeDataTypes.cycles) missingData.cycles = missingCycles
+    if (healerConfig.analyzeDataTypes.receipts) missingData.receipts = missingReceipts
+    if (healerConfig.analyzeDataTypes.accounts) missingData.accounts = missingAccounts
+    if (healerConfig.analyzeDataTypes.transactions) missingData.transactions = missingTransactions
+    if (healerConfig.analyzeDataTypes.originalTxData) missingData.originalTxData = missingOriginalTxData
+    if (healerConfig.analyzeDataTypes.processedTx) missingData.processedTx = missingProcessedTx
 
     Logger.mainLogger.info('Missing data analysis complete:')
     Logger.mainLogger.info(`- Missing cycles: ${missingData.cycles ? missingData.cycles.length : 0}`)
     Logger.mainLogger.info(`- Missing receipts: ${missingData.receipts ? missingData.receipts.length : 0}`)
     Logger.mainLogger.info(`- Missing accounts: ${missingData.accounts ? missingData.accounts.length : 0}`)
     Logger.mainLogger.info(`- Missing transactions: ${missingData.transactions ? missingData.transactions.length : 0}`)
+    Logger.mainLogger.info(
+      `- Missing originalTxData: ${missingData.originalTxData ? missingData.originalTxData.length : 0}`
+    )
+    Logger.mainLogger.info(`- Missing processedTx: ${missingData.processedTx ? missingData.processedTx.length : 0}`)
+
+    // Filter missingOriginalTxData by cycle range
+    if (
+      healerConfig.analyzeDataTypes.originalTxData &&
+      typeof minCycleToUse === 'number' &&
+      typeof maxCycleToUse === 'number'
+    ) {
+      missingOriginalTxData = missingOriginalTxData.filter((o) => {
+        if (typeof o.cycle !== 'number') return false
+        return o.cycle >= minCycleToUse && o.cycle < maxCycleToUse
+      })
+    }
+    // Filter missingProcessedTx by cycle range
+    if (
+      healerConfig.analyzeDataTypes.processedTx &&
+      typeof minCycleToUse === 'number' &&
+      typeof maxCycleToUse === 'number'
+    ) {
+      missingProcessedTx = missingProcessedTx.filter((p) => {
+        if (typeof p.cycle !== 'number') return false
+        return p.cycle >= minCycleToUse && p.cycle < maxCycleToUse
+      })
+    }
 
     return missingData
   } catch (error) {
@@ -1169,6 +1735,8 @@ async function findMissingData(minCycleToUse?: number, maxCycleToUse?: number): 
       receipts: [],
       accounts: [],
       transactions: [],
+      originalTxData: [],
+      processedTx: [],
       timestamp: Date.now(),
     }
   }
@@ -1442,6 +2010,11 @@ async function healMissingReceipts(missingReceipts: MissingReceipt[]): Promise<v
       const receiptsByIdMap = new Map<string, any[]>()
       for (const receipt of allReceipts) {
         if (!receipt.receiptId) continue
+
+        // Delete txGroupCycle from signedReceipt if it exists
+        if (receipt.signedReceipt?.txGroupCycle != null) {
+          delete receipt.signedReceipt.txGroupCycle
+        }
 
         if (!receiptsByIdMap.has(receipt.receiptId)) {
           receiptsByIdMap.set(receipt.receiptId, [])
@@ -1929,8 +2502,6 @@ async function healAllMissingData(missingData: MissingData): Promise<void> {
         Logger.mainLogger.error(`Error healing cycles: ${error.message}`)
         Logger.mainLogger.error(`Continuing with other data types despite cycle healing errors`)
       }
-    } else {
-      console.log(`No cycles to heal`)
     }
   } else {
     Logger.mainLogger.info(`Skipping cycles healing as per configuration`)
@@ -1946,8 +2517,6 @@ async function healAllMissingData(missingData: MissingData): Promise<void> {
         Logger.mainLogger.error(`Error healing receipts: ${error.message}`)
         Logger.mainLogger.error(`Continuing with other data types despite receipt healing errors`)
       }
-    } else {
-      console.log(`No receipts to heal`)
     }
   } else {
     Logger.mainLogger.info(`Skipping receipts healing as per configuration`)
@@ -1963,8 +2532,6 @@ async function healAllMissingData(missingData: MissingData): Promise<void> {
         Logger.mainLogger.error(`Error healing accounts: ${error.message}`)
         Logger.mainLogger.error(`Continuing with other data types despite account healing errors`)
       }
-    } else {
-      console.log(`No accounts to heal`)
     }
   } else {
     Logger.mainLogger.info(`Skipping accounts healing as per configuration`)
@@ -1980,11 +2547,38 @@ async function healAllMissingData(missingData: MissingData): Promise<void> {
         Logger.mainLogger.error(`Error healing transactions: ${error.message}`)
         Logger.mainLogger.error(`Continuing despite transaction healing errors`)
       }
-    } else {
-      console.log(`No transactions to heal`)
     }
   } else {
     Logger.mainLogger.info(`Skipping transactions healing as per configuration`)
+  }
+
+  if (healerConfig.healDataTypes.originalTxData) {
+    Logger.mainLogger.info(`Healing originalTxData...`)
+    if (missingData?.originalTxData?.length > 0) {
+      try {
+        await healMissingOriginalTxData(missingData.originalTxData)
+        Logger.mainLogger.info(`Successfully healed originalTxData`)
+      } catch (error) {
+        Logger.mainLogger.error(`Error healing originalTxData: ${error.message}`)
+        Logger.mainLogger.error(`Continuing with other data types despite originalTxData healing errors`)
+      }
+    }
+  } else {
+    Logger.mainLogger.info(`Skipping originalTxData healing as per configuration`)
+  }
+  if (healerConfig.healDataTypes.processedTx) {
+    Logger.mainLogger.info(`Healing processedTx...`)
+    if (missingData?.processedTx?.length > 0) {
+      try {
+        await healMissingProcessedTx(missingData.processedTx)
+        Logger.mainLogger.info(`Successfully healed processedTx`)
+      } catch (error) {
+        Logger.mainLogger.error(`Error healing processedTx: ${error.message}`)
+        Logger.mainLogger.error(`Continuing with other data types despite processedTx healing errors`)
+      }
+    }
+  } else {
+    Logger.mainLogger.info(`Skipping processedTx healing as per configuration`)
   }
 
   Logger.mainLogger.info(`Initial healing pass complete.`)
@@ -2177,20 +2771,27 @@ async function getAllRemoteReceiptIds(
 }
 
 // Helper: Fetch all account IDs from all archivers
-async function getAllRemoteAccountIds(): Promise<
-  [Map<string, { count: number; cycle?: number; cycleNumber?: number }>, Map<string, any[]>]
-> {
+async function getAllRemoteAccountIds(
+  minCycle = 0,
+  maxCycleParam?: number
+): Promise<[Map<string, { count: number; cycle?: number; cycleNumber?: number }>, Map<string, any[]>]> {
   const archivers = useCustomArchivers ? customArchiversConfig : State.otherArchivers
-  let maxCycle = 0
-  const totalData = await getTotalDataFromArchivers()
-  for (const t of totalData) {
-    if (t.totalCycles > maxCycle) maxCycle = t.totalCycles
+  let maxCycle: number
+
+  if (typeof maxCycleParam === 'number') {
+    maxCycle = maxCycleParam
+  } else {
+    const totalData = await getTotalDataFromArchivers()
+    maxCycle = 0
+    for (const t of totalData) {
+      if (t.totalCycles > maxCycle) maxCycle = t.totalCycles
+    }
   }
   const idMap = new Map<string, { count: number; cycle?: number; cycleNumber?: number }>()
   const accountDetailsMap = new Map<string, any[]>() // Store all account versions
   const batchSize = healerConfig.batchSizes.accounts
   const MAX_CYCLE_RANGE = 100
-  for (let cycleStart = 0; cycleStart < maxCycle; cycleStart += MAX_CYCLE_RANGE) {
+  for (let cycleStart = minCycle; cycleStart < maxCycle; cycleStart += MAX_CYCLE_RANGE) {
     const cycleEnd = Math.min(cycleStart + MAX_CYCLE_RANGE - 1, maxCycle - 1)
     let page = 1
     let hasMore = true
@@ -2328,6 +2929,212 @@ async function getAllRemoteTxIds(
   return idMap
 }
 
+// Heal missing originalTxData using the missing data report
+async function healMissingOriginalTxData(missingOriginalTxData: MissingOriginalTxData[]): Promise<void> {
+  if (missingOriginalTxData.length === 0) {
+    Logger.mainLogger.info('No originalTxData to heal')
+    return
+  }
+  Logger.mainLogger.info(`Healing ${missingOriginalTxData.length} missing originalTxData...`)
+  const archivers = useCustomArchivers ? customArchiversConfig : State.otherArchivers
+  const batchSize = healerConfig.batchSizes.healing
+  const txsToInsert = []
+  for (let i = 0; i < missingOriginalTxData.length; i += batchSize) {
+    const batch = missingOriginalTxData.slice(i, i + batchSize)
+    const tasks = archivers.map((archiver) => async () => {
+      const txs = []
+      for (const missing of batch) {
+        try {
+          // Use both id and timestamp for fetching
+          const response = await fetchFromArchiver(archiver, RequestDataType.ORIGINALTX, {
+            txId: missing.id,
+            cycle: missing.cycle,
+            timestamp: missing.timestamp, // if available
+          })
+          if (response && response.originalTxs) {
+            if (Array.isArray(response.originalTxs)) {
+              txs.push(...response.originalTxs)
+            } else {
+              txs.push(response.originalTxs)
+            }
+          }
+        } catch (error) {
+          Logger.mainLogger.debug(
+            `Error fetching originalTxData ${missing.id} from ${archiver.ip}:${archiver.port}: ${error.message}`
+          )
+        }
+      }
+      return txs
+    })
+    const results = await processBatchesInParallel(tasks)
+    const allTxs = results.flat()
+    // Group by txId and timestamp
+    const txsByKey = new Map<string, any[]>()
+    for (const tx of allTxs) {
+      if (!tx.txId || typeof tx.timestamp === 'undefined') continue
+      const key = `${tx.txId}:${tx.timestamp}`
+      if (!txsByKey.has(key)) txsByKey.set(key, [])
+      txsByKey.get(key).push(tx)
+    }
+    for (const missing of batch) {
+      // Use both id and timestamp for key
+      const key =
+        typeof missing.timestamp !== 'undefined' ? `${missing.id}:${missing.timestamp}` : `${missing.id}:unknown`
+      const txs = txsByKey.get(key) || []
+      if (txs.length === 0) {
+        Logger.mainLogger.warn(
+          `No data found for originalTxData ${missing.id} (cycle: ${typeof missing.cycle === 'number' ? missing.cycle : 'unknown'})`
+        )
+        continue
+      }
+      let txToInsert = null
+      if (missing.majorityHash) {
+        txToInsert = txs.find((tx) => (tx.hash || StringUtils.safeStringify(tx)) === missing.majorityHash)
+        if (!txToInsert) {
+          txToInsert = await getMajorityItem(txs, (tx) => tx.hash || StringUtils.safeStringify(tx))
+        }
+      } else {
+        txToInsert = await getMajorityItem(txs, (tx) => tx.hash || StringUtils.safeStringify(tx))
+      }
+      if (txToInsert) {
+        txsToInsert.push(txToInsert)
+        Logger.mainLogger.debug(
+          `Using majority originalTxData for ${missing.id} (cycle: ${typeof missing.cycle === 'number' ? missing.cycle : 'unknown'}). Data: ${StringUtils.safeStringify(txToInsert).substring(0, 200)}...`
+        )
+      }
+    }
+    if (txsToInsert.length > 0) {
+      try {
+        Logger.mainLogger.info(`Attempting to insert ${txsToInsert.length} originalTxData`)
+        await OriginalTxsDataDB.bulkInsertOriginalTxsData(txsToInsert)
+        Logger.mainLogger.info(`Successfully inserted ${txsToInsert.length} originalTxData`)
+      } catch (err) {
+        Logger.mainLogger.error(`Error in originalTxData insertion: ${err.message}`)
+      }
+    }
+    await Utils.sleep(SLEEP_BETWEEN_BATCHES_MS)
+  }
+  Logger.mainLogger.info(`Completed healing of originalTxData`)
+}
+
+// Heal missing processedTx using the missing data report
+async function healMissingProcessedTx(missingProcessedTx: MissingProcessedTx[]): Promise<void> {
+  if (missingProcessedTx.length === 0) {
+    Logger.mainLogger.info('No processedTx to heal')
+    return
+  }
+  Logger.mainLogger.info(`Healing ${missingProcessedTx.length} missing processedTx...`)
+  const archivers = useCustomArchivers ? customArchiversConfig : State.otherArchivers
+  const batchSize = healerConfig.batchSizes.healing
+  const txsToInsert = []
+  for (let i = 0; i < missingProcessedTx.length; i += batchSize) {
+    const batch = missingProcessedTx.slice(i, i + batchSize)
+    const tasks = archivers.map((archiver) => async () => {
+      const txs = []
+      for (const missing of batch) {
+        try {
+          // Use both id and txTimestamp for fetching
+          const txResponse = await fetchFromArchiver(archiver, RequestDataType.TRANSACTION, {
+            txId: missing.id,
+            cycle: missing.cycle,
+          })
+          if (txResponse && txResponse.transactions) {
+            const txData = Array.isArray(txResponse.transactions)
+              ? txResponse.transactions.find((t) => t.txId === missing.id)
+              : txResponse.transactions
+            if (txData) {
+              // Now get the receipt for this transaction to get the apply timestamp
+              const receiptResponse = await fetchFromArchiver(archiver, RequestDataType.RECEIPT, {
+                txId: missing.id,
+              })
+              if (receiptResponse && receiptResponse.receipts) {
+                const receiptData = Array.isArray(receiptResponse.receipts)
+                  ? receiptResponse.receipts.find((r) => r.tx && r.tx.txId === missing.id)
+                  : receiptResponse.receipts
+                if (receiptData) {
+                  // Construct a processed transaction object from transaction + receipt data
+                  const processedTx = {
+                    txId: txData.txId,
+                    cycle: txData.cycleNumber || missing.cycle,
+                    txTimestamp: txData.timestamp || missing.txTimestamp || Date.now(),
+                    applyTimestamp: receiptData.applyTimestamp || receiptData.timestamp || Date.now(),
+                  }
+                  txs.push(processedTx)
+                }
+              }
+            }
+          }
+        } catch (error) {
+          Logger.mainLogger.debug(
+            `Error fetching data for processedTx ${missing.id} from ${archiver.ip}:${archiver.port}: ${error.message}`
+          )
+        }
+      }
+      return txs
+    })
+    const results = await processBatchesInParallel(tasks)
+    const allTxs = results.flat()
+    // Group by txId and txTimestamp
+    const txsByKey = new Map<string, any[]>()
+    for (const tx of allTxs) {
+      if (!tx.txId || typeof tx.txTimestamp === 'undefined') continue
+      const key = `${tx.txId}:${tx.txTimestamp}`
+      if (!txsByKey.has(key)) txsByKey.set(key, [])
+      txsByKey.get(key).push(tx)
+    }
+    for (const missing of batch) {
+      // Use both id and txTimestamp for key, but also try just by id as fallback
+      const keyWithTimestamp =
+        typeof missing.txTimestamp !== 'undefined' ? `${missing.id}:${missing.txTimestamp}` : `${missing.id}:unknown`
+
+      // First try with the exact timestamp
+      let txs = txsByKey.get(keyWithTimestamp) || []
+
+      // If no match with timestamp, try to find any tx with matching id
+      if (txs.length === 0) {
+        for (const [key, value] of txsByKey.entries()) {
+          if (key.startsWith(`${missing.id}:`)) {
+            txs = value
+            break
+          }
+        }
+      }
+      if (txs.length === 0) {
+        Logger.mainLogger.warn(
+          `No data found for processedTx ${missing.id} (cycle: ${typeof missing.cycle === 'number' ? missing.cycle : 'unknown'})`
+        )
+        continue
+      }
+      let txToInsert = null
+      if (missing.majorityHash) {
+        txToInsert = txs.find((tx) => (tx.hash || StringUtils.safeStringify(tx)) === missing.majorityHash)
+        if (!txToInsert) {
+          txToInsert = await getMajorityItem(txs, (tx) => tx.hash || StringUtils.safeStringify(tx))
+        }
+      } else {
+        txToInsert = await getMajorityItem(txs, (tx) => tx.hash || StringUtils.safeStringify(tx))
+      }
+      if (txToInsert) {
+        txsToInsert.push(txToInsert)
+        Logger.mainLogger.debug(
+          `Using majority processedTx for ${missing.id} (cycle: ${typeof missing.cycle === 'number' ? missing.cycle : 'unknown'}). Data: ${StringUtils.safeStringify(txToInsert).substring(0, 200)}...`
+        )
+      }
+    }
+    if (txsToInsert.length > 0) {
+      try {
+        Logger.mainLogger.info(`Attempting to insert ${txsToInsert.length} processedTx`)
+        await ProcessedTxsDB.bulkInsertProcessedTxs(txsToInsert)
+        Logger.mainLogger.info(`Successfully inserted ${txsToInsert.length} processedTx`)
+      } catch (err) {
+        Logger.mainLogger.error(`Error in processedTx insertion: ${err.message}`)
+      }
+    }
+    await Utils.sleep(SLEEP_BETWEEN_BATCHES_MS)
+  }
+  Logger.mainLogger.info(`Completed healing of processedTx`)
+}
+
 async function main() {
   console.log('Starting archiver healing script')
   try {
@@ -2386,6 +3193,18 @@ async function main() {
         ? process.argv[healTransactionsArgIndex + 1]
         : 'true'
     const healTransactions = healTransactionsArg.toLowerCase() !== 'false'
+    const healOriginalTxDataArgIndex = process.argv.indexOf('--heal-originaltx')
+    const healOriginalTxDataArg =
+      healOriginalTxDataArgIndex !== -1 && healOriginalTxDataArgIndex < process.argv.length - 1
+        ? process.argv[healOriginalTxDataArgIndex + 1]
+        : 'true'
+    const healOriginalTxData = healOriginalTxDataArg.toLowerCase() !== 'false'
+    const healProcessedTxArgIndex = process.argv.indexOf('--heal-processedtx')
+    const healProcessedTxArg =
+      healProcessedTxArgIndex !== -1 && healProcessedTxArgIndex < process.argv.length - 1
+        ? process.argv[healProcessedTxArgIndex + 1]
+        : 'true'
+    const healProcessedTx = healProcessedTxArg.toLowerCase() !== 'false'
 
     // Update the global flags with the command line arguments
     useLoggerFile = useLogger
@@ -2396,6 +3215,19 @@ async function main() {
       receipts: healReceipts,
       accounts: healAccounts,
       transactions: healTransactions,
+      originalTxData: healOriginalTxData,
+      processedTx: healProcessedTx,
+    }
+
+    // Also set the analyze flags based on the heal flags
+    // Only analyze data types that are enabled for healing
+    healerConfig.analyzeDataTypes = {
+      cycles: healCycles,
+      receipts: healReceipts,
+      accounts: healAccounts,
+      transactions: healTransactions,
+      originalTxData: healOriginalTxData,
+      processedTx: healProcessedTx,
     }
 
     const inputIndex = process.argv.indexOf('--input')
@@ -2439,6 +3271,8 @@ async function main() {
     Logger.mainLogger.info(`  - Receipts: ${healerConfig.healDataTypes.receipts ? 'YES' : 'NO'}`)
     Logger.mainLogger.info(`  - Accounts: ${healerConfig.healDataTypes.accounts ? 'YES' : 'NO'}`)
     Logger.mainLogger.info(`  - Transactions: ${healerConfig.healDataTypes.transactions ? 'YES' : 'NO'}`)
+    Logger.mainLogger.info(`  - OriginalTxData: ${healerConfig.healDataTypes.originalTxData ? 'YES' : 'NO'}`)
+    Logger.mainLogger.info(`  - ProcessedTx: ${healerConfig.healDataTypes.processedTx ? 'YES' : 'NO'}`)
 
     try {
       // Initialize database before any database operations
@@ -2492,6 +3326,11 @@ async function main() {
       }
     }
 
+    console.log('useCustomArchivers: ', useCustomArchivers)
+    console.log('useLoggerFile: ', useLoggerFile)
+    console.log('disableMajorityCheck: ', healerConfig.disableMajorityCheck)
+    console.log('healDataTypes: ', healerConfig.healDataTypes)
+
     // If verify-only mode is enabled, just verify the data and exit
     if (verifyOnly) {
       Logger.mainLogger.info('Running in verify-only mode...')
@@ -2501,14 +3340,24 @@ async function main() {
         await Utils.sleep(500)
         Logger.mainLogger.info('Verification complete. Exiting.')
         console.log('Verification complete. Check the logs for details.')
-        console.log('run totaltime: ', Date.now() - startTime)
-        await Utils.sleep(500)    // Add slight delay to ensure logs are flushed before exit
+        const totalTime = Date.now() - startTime
+        const seconds = Math.floor(totalTime / 1000)
+        const minutes = Math.floor(seconds / 60)
+        const hours = Math.floor(minutes / 60)
+        const formattedTime =
+          hours > 0
+            ? `${hours} hour(s), ${minutes % 60} minute(s), ${seconds % 60} second(s)`
+            : minutes > 0
+              ? `${minutes} minute(s), ${seconds % 60} second(s)`
+              : `${seconds} second(s)`
+        console.log('run totaltime: ', formattedTime)
+        await Utils.sleep(500) // Add slight delay to ensure logs are flushed before exit
 
         process.exit(0)
       } catch (error) {
         Logger.mainLogger.error(`Error in verification mode: ${error.message}`)
         console.log('run totaltime: ', Date.now() - startTime)
-        await Utils.sleep(500)    // Add slight delay to ensure logs are flushed before exit
+        await Utils.sleep(500) // Add slight delay to ensure logs are flushed before exit
 
         process.exit(1)
       }
@@ -2580,9 +3429,9 @@ async function main() {
 
       missingData = await findMissingData(minCycleToUse, maxCycleToUse)
 
-      // Save the missing data to a file
       saveMissingDataToJson(missingData)
 
+      // Save the missing data to a file and summary log ONLY if not in heal mode
       if (!heal) {
         Logger.mainLogger.info(`Missing data analysis complete. See ${MISSING_DATA_FILE} for details.`)
         Logger.mainLogger.info(`Run with --heal true to apply the healing process.`)
@@ -2590,7 +3439,7 @@ async function main() {
         // Log endpoint stats summary at the end
         logEndpointStatsSummary()
 
-        await Utils.sleep(500)    // Add slight delay to ensure logs are flushed before exit
+        await Utils.sleep(500) // Add slight delay to ensure logs are flushed before exit
 
         // Exit the process with success code
         process.exit(0)
@@ -2607,6 +3456,10 @@ async function main() {
           `Starting healing with ${missingData.cycles?.length || 0} cycles, ${missingData.receipts?.length || 0} receipts, ${missingData.accounts?.length || 0} accounts, and ${missingData.transactions?.length || 0} transactions`
         )
         await healAllMissingData(missingData)
+        fs.appendFileSync(
+          MISSING_DATA_SUMMARY_FILE,
+          '\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ===== SUMMARY AFTER HEALING =====  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n\n'
+        )
         Logger.mainLogger.info('Initial healing pass completed successfully')
       } catch (error) {
         Logger.mainLogger.error(`Error during healing process: ${error.message}`)
@@ -2651,6 +3504,7 @@ async function main() {
         console.log('minCycleToUse: ', minCycleToUse)
         console.log('maxCycleToUse: ', maxCycleToUse)
         console.log('offset: ', offset)
+
         // Find the still-missing data
         const remainingMissingData = await findMissingData(minCycleToUse, maxCycleToUse)
 
@@ -2659,7 +3513,9 @@ async function main() {
           (healerConfig.healDataTypes.cycles && remainingMissingData.cycles.length > 0) ||
           (healerConfig.healDataTypes.receipts && remainingMissingData.receipts.length > 0) ||
           (healerConfig.healDataTypes.accounts && remainingMissingData.accounts.length > 0) ||
-          (healerConfig.healDataTypes.transactions && remainingMissingData.transactions.length > 0)
+          (healerConfig.healDataTypes.transactions && remainingMissingData.transactions.length > 0) ||
+          (healerConfig.healDataTypes.processedTx && remainingMissingData.processedTx.length > 0) ||
+          (healerConfig.healDataTypes.originalTxData && remainingMissingData.originalTxData.length > 0)
 
         if (needsMoreHealing) {
           Logger.mainLogger.info('Found additional missing data in second pass. Healing...')
@@ -2702,22 +3558,6 @@ async function main() {
         Logger.mainLogger.error(`Error during final data sync: ${error.message}`)
       }
 
-      // Use Data.syncCyclesAndTxsDataBetweenCycles for cycle-specific sync if needed
-      try {
-        // Get maximum cycle from other archivers to ensure full sync
-        const maxCounts = await getMaxCounts()
-        const maxCycleCount = maxCounts[DataType.CYCLE]
-
-        if (healerConfig.healDataTypes.cycles && maxCycleCount > updatedCycleCount) {
-          Logger.mainLogger.info(
-            `Performing additional cycle-specific sync from ${updatedCycleCount} to ${maxCycleCount}`
-          )
-          await Data.syncCyclesAndTxsDataBetweenCycles(updatedCycleCount, maxCycleCount)
-        }
-      } catch (error) {
-        Logger.mainLogger.error(`Error during cycle-specific sync: ${error.message}`)
-      }
-
       Logger.mainLogger.info('Healing process complete.')
 
       // Get one final count after all sync operations
@@ -2735,7 +3575,7 @@ async function main() {
       // Log endpoint stats summary at the end
       logEndpointStatsSummary()
 
-      await Utils.sleep(500)    // Add slight delay to ensure logs are flushed before exit
+      await Utils.sleep(500) // Add slight delay to ensure logs are flushed before exit
 
       // Exit the process with success code
       process.exit(0)
@@ -2748,7 +3588,7 @@ async function main() {
     // Log endpoint stats summary at the end
     logEndpointStatsSummary()
 
-    await Utils.sleep(500)    // Add slight delay to ensure logs are flushed before exit
+    await Utils.sleep(500) // Add slight delay to ensure logs are flushed before exit
 
     // Exit the process with error code
     process.exit(1)
