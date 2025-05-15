@@ -40,6 +40,7 @@ const logFile = getArgValue('--log-file') || 'healArchiver.log'
 const jsonLogFile = getArgValue('--json-log') || 'missing-data-summary.json'
 const archiverIp = getArgValue('--archiver-ip') || '127.0.0.1'
 const archiverPort = parseInt(getArgValue('--archiver-port') || '4000')
+const removeTxGroupCycle = getArgValue('--remove-txgroupcycle') === 'true'
 
 /**
  * Display help message for command line arguments
@@ -67,6 +68,7 @@ Options:
   --json-log <filename>        JSON log file name (default: healArchiver-results.json)
   --archiver-ip <ip>           Remote archiver IP address (default: 127.0.0.1)
   --archiver-port <port>       Remote archiver port (default: 4000)
+  --remove-txgroupcycle <true|false> Remove txgroupcycle field from receipts before storing (default: false)
 
 Examples:
   # Check for missing data without healing
@@ -103,6 +105,9 @@ const missingData: {
   cycles: [],
   receipts: [],
 }
+
+// Counter for txgroupcycle occurrences
+let txGroupCycleCounter = 0
 
 // Table counts for summary
 let tableCounts: Record<string, number> = {}
@@ -415,6 +420,28 @@ async function getReceiptsByIds(txIdList: string[], cycle: number): Promise<any[
 }
 
 /**
+ * Process a receipt to remove txgroupcycle if flag is enabled
+ */
+function processReceipt(receipt: any): any {
+  // Create a copy of the receipt to avoid modifying the original
+  const processedReceipt = { ...receipt }
+
+  // Check if receipt has txgroupcycle field
+  if (processedReceipt.txgroupcycle !== undefined) {
+    txGroupCycleCounter++
+    mainLogger.info(`Found txgroupcycle in receipt with id: ${processedReceipt.id}`)
+
+    // Remove txgroupcycle if flag is enabled
+    if (removeTxGroupCycle) {
+      delete processedReceipt.txgroupcycle
+      mainLogger.info(`Removed txgroupcycle from receipt with id: ${processedReceipt.id}`)
+    }
+  }
+
+  return processedReceipt
+}
+
+/**
  * Check and compare cycles between local and remote, and heal if in healing mode
  */
 async function checkAndHealCycles(maxCycleToCheck: number): Promise<void> {
@@ -616,12 +643,13 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
 
       // Process each receipt for analysis
       for (const remoteReceipt of allReceiptsForCycleRange) {
-        const receiptId = remoteReceipt.receiptId || remoteReceipt.id || remoteReceipt.txId
-        const cycle = remoteReceipt.cycle || startCycle // Use the receipt's cycle if available, otherwise use startCycle
+        const processedReceipt = processReceipt(remoteReceipt)
+        const receiptId = processedReceipt.receiptId || processedReceipt.id || processedReceipt.txId
+        const cycle = processedReceipt.cycle || startCycle // Use the receipt's cycle if available, otherwise use startCycle
 
         if (!receiptId) {
           mainLogger.warn(
-            `Receipt without ID found in cycle range ${startCycle}-${endCycle}: ${StringUtils.safeStringify(remoteReceipt).substring(0, 100)}...`
+            `Receipt without ID found in cycle range ${startCycle}-${endCycle}: ${StringUtils.safeStringify(processedReceipt).substring(0, 100)}...`
           )
           continue
         }
@@ -636,7 +664,7 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
         const localReceipt = await ReceiptDB.queryReceiptByReceiptId(receiptId)
 
         // Calculate hash for comparison
-        const remoteHash = Crypto.hash(StringUtils.safeStringify(remoteReceipt))
+        const remoteHash = Crypto.hash(StringUtils.safeStringify(processedReceipt))
 
         if (!localReceipt) {
           // Missing receipt
@@ -648,7 +676,7 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
             hash: remoteHash,
             missing: true,
           })
-          missingReceipts.push(remoteReceipt)
+          missingReceipts.push(processedReceipt)
         } else {
           // Compare hashes
           const localHash = Crypto.hash(StringUtils.safeStringify(localReceipt))
@@ -661,7 +689,7 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
               hash: remoteHash,
               missing: false,
             })
-            mismatchedReceipts.push(remoteReceipt)
+            mismatchedReceipts.push(processedReceipt)
           }
         }
       }
@@ -674,7 +702,7 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
       // Heal receipts if in healing mode
       if (healingMode) {
         // Determine which receipts to heal - either all or just missing/mismatched
-        const receiptsToHeal = allReceiptsForCycleRange // Heal all receipts
+        const receiptsToHeal = allReceiptsForCycleRange.map((receipt) => processReceipt(receipt)) // Process all receipts
 
         if (receiptsToHeal.length > 0) {
           mainLogger.info(`Healing ${receiptsToHeal.length} receipts for cycle range ${startCycle}-${endCycle}`)
@@ -779,6 +807,8 @@ function saveResultsToJson(): void {
       mismatchedCycles: missingData.cycles.filter((c) => !c.missing).length,
       missingReceipts: missingData.receipts.filter((r) => r.missing).length,
       mismatchedReceipts: missingData.receipts.filter((r) => !r.missing).length,
+      receiptsWithTxGroupCycle: txGroupCycleCounter,
+      txGroupCycleRemoved: removeTxGroupCycle,
       totalRunTimeMs: Date.now() - startTime,
     },
   }
@@ -837,7 +867,12 @@ function createDetailedLogSummary(): void {
   summary += `Test Range: minCycle:${minCycle}   maxCycle:${maxCycle !== undefined ? maxCycle : 'MAX'}\n\n`
 
   summary += `Cycles:  missing: ${missingCycles.length}  mismatched: ${mismatchedCycles.length} total: ${maxCycle !== undefined ? maxCycle + 1 - minCycle : tableCounts['cycles']}\n`
-  summary += `Receipts: missing: ${missingReceipts.length}  mismatched: ${mismatchedReceipts.length} total: ${tableCounts['receipts'] || 0}\n\n`
+  summary += `Receipts: missing: ${missingReceipts.length}  mismatched: ${mismatchedReceipts.length} total: ${tableCounts['receipts'] || 0}\n`
+  summary += `Receipts with txgroupcycle: ${txGroupCycleCounter}\n`
+  if (removeTxGroupCycle) {
+    summary += `txgroupcycle field removed: ${removeTxGroupCycle ? 'yes' : 'no'}\n`
+  }
+  summary += '\n'
 
   summary += '===== MISSING/MISMATCHED DATA BY COUNTS =====\n\n'
 
@@ -925,6 +960,10 @@ function printMissingDataSummary() {
   console.log(
     `Receipts: missing: ${missingReceipts}  mismatched: ${mismatchedReceipts} total: ${tableCounts['receipts'] || 0}`
   )
+  console.log(`Receipts with txgroupcycle: ${txGroupCycleCounter}`)
+  if (removeTxGroupCycle) {
+    console.log(`txgroupcycle field removed: ${removeTxGroupCycle ? 'yes' : 'no'}`)
+  }
 
   // Group receipts by cycle for better reporting
   const receiptsByCycle = new Map<number, { missing: number; mismatched: number }>()
@@ -1034,6 +1073,10 @@ async function main() {
     mainLogger.info(`Mismatched cycles: ${mismatchedCyclesCount}`)
     mainLogger.info(`Missing receipts: ${missingReceiptsCount}`)
     mainLogger.info(`Mismatched receipts: ${mismatchedReceiptsCount}`)
+    mainLogger.info(`Receipts with txgroupcycle field: ${txGroupCycleCounter}`)
+    if (removeTxGroupCycle) {
+      mainLogger.info(`txgroupcycle field removed from ${txGroupCycleCounter} receipts`)
+    }
 
     // Log table counts
     mainLogger.info('=== Database Table Counts ===')
