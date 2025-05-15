@@ -836,6 +836,10 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
         )
       }
 
+      // Clear large arrays to free memory
+      allReceiptsForCycleRange = []
+      receiptsWithTxGroupCycle.clear()
+
       // Sleep between cycle ranges to avoid overwhelming the system
       await Utils.sleep(sleepBetweenBatchesMs)
     } catch (error) {
@@ -888,7 +892,6 @@ function saveResultsToJson(): void {
       missingReceipts: missingData.receipts.filter((r) => r.missing).length,
       mismatchedReceipts: missingData.receipts.filter((r) => !r.missing).length,
       receiptsWithTxGroupCycle: txGroupCycleCounter,
-      uniqueReceiptsWithTxGroupCycle: receiptsWithTxGroupCycle.size,
       txGroupCycleRemoved: removeTxGroupCycle,
       totalRunTimeMs: Date.now() - startTime,
     },
@@ -1043,7 +1046,7 @@ function printMissingDataSummary() {
   console.log(
     `Receipts: missing: ${missingReceipts}  mismatched: ${mismatchedReceipts} total: ${tableCounts['receipts'] || 0}`
   )
-  console.log(`Receipts with txgroupcycle: ${txGroupCycleCounter} (unique: ${receiptsWithTxGroupCycle.size})`)
+  console.log(`Receipts with txgroupcycle: ${txGroupCycleCounter} (unique: ${txGroupCycleCounter})`)
   if (removeTxGroupCycle) {
     console.log(`txgroupcycle field removed: ${removeTxGroupCycle ? 'yes' : 'no'}`)
   }
