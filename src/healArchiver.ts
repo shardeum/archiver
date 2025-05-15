@@ -407,7 +407,6 @@ async function getReceipts(startCycle: number, endCycle: number, page: number = 
   }
 }
 
-
 /**
  * Process a receipt to remove txgroupcycle if flag is enabled
  * Note: This function is now only used when the removeTxGroupCycle flag is true
@@ -681,7 +680,7 @@ async function healCycles(cyclesToHeal: { counter: number }[]): Promise<number> 
       const cyclesToInsert = batchCycles.map((cycle) => ({
         counter: cycle.counter,
         cycleMarker: cycle.marker,
-        cycleRecord: JSON.parse(StringUtils.safeStringify(cycle)),
+        cycleRecord: StringUtils.safeJsonParse(StringUtils.safeStringify(cycle)),
       }))
 
       await CycleDB.bulkInsertCycles(cyclesToInsert)
@@ -699,7 +698,7 @@ async function healCycles(cyclesToHeal: { counter: number }[]): Promise<number> 
           await CycleDB.insertCycle({
             counter: cycle.counter,
             cycleMarker: cycle.marker,
-            cycleRecord: JSON.parse(StringUtils.safeStringify(cycle)),
+            cycleRecord: StringUtils.safeJsonParse(StringUtils.safeStringify(cycle)),
           })
           mainLogger.info(`Successfully healed cycle ${cycle.counter}`)
           healedCount++
