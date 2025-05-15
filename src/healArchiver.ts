@@ -66,13 +66,13 @@ Options:
 
 Examples:
   # Check for missing data without healing
-  node healArchiver.js --min-cycle 1000 --max-cycle 2000
+  ts-node healArchiver.ts --min-cycle 1000 --max-cycle 2000
 
   # Heal missing data for all cycles
-  node healArchiver.js --heal true
+  ts-node healArchiver.ts --heal true
 
   # Heal missing data with custom batch sizes
-  node healArchiver.js --heal true --cycle-batch-size 5 --receipt-batch-size 200
+  ts-node healArchiver.ts --heal true --cycle-batch-size 5 --receipt-batch-size 200
 `)
   process.exit(0)
 }
@@ -982,9 +982,9 @@ async function main() {
       mainLogger.info(`Max cycle from remote archiver: ${maxCycleToCheck}`)
     }
 
-    // if (maxCycleToCheck - 30 < maxCycle) {
-    //   throw new Error('Max cycle to check should be less than 30 cycles from networks max cycle')
-    // }
+    if (maxCycleToCheck - 30 < maxCycle) {
+      throw new Error('Max cycle to check should be less than 30 cycles from networks max cycle')
+    }
 
     // Combined check and heal for cycles
     await checkAndHealCycles(maxCycleToCheck)
