@@ -32,6 +32,7 @@ const showHelp = args.includes('--help') || args.includes('-h')
 const healingMode = getArgValue('--heal') === 'true'
 const minCycle = parseInt(getArgValue('--min-cycle') || '0')
 const maxCycle = getArgValue('--max-cycle') ? parseInt(getArgValue('--max-cycle')) : undefined
+const cycleOffset = parseInt(getArgValue('--offset') || '0')
 const batchSize = parseInt(getArgValue('--batch-size') || '100')
 const receiptBatchSize = parseInt(getArgValue('--receipt-batch-size') || '10')
 const cycleBatchSize = parseInt(getArgValue('--cycle-batch-size') || '10')
@@ -61,6 +62,7 @@ Options:
   --heal <true|false>          Enable healing mode (default: false)
   --min-cycle <number>         Minimum cycle to check (default: 0)
   --max-cycle <number>         Maximum cycle to check (default: max cycle from remote)
+  --offset <number>            Offset to subtract from max cycle (default: 0)
   --batch-size <number>        General batch size for operations (default: 100)
   --cycle-batch-size <number>  Number of cycles to process in each batch for receipts (default: 10)
   --receipt-batch-size <number> Number of receipts to process in each batch (default: 500)
@@ -81,6 +83,9 @@ Examples:
 
   # Heal only missing or mismatched receipts
   ts-node healArchiver.ts --heal true --disable-receipt-override true
+
+  # Heal missing data with an offset from the max cycle
+  ts-node healArchiver.ts --heal true --offset 100
 
   # Heal missing data with custom batch sizes
   ts-node healArchiver.ts --heal true --cycle-batch-size 5 --receipt-batch-size 200
@@ -880,9 +885,9 @@ function createDetailedLogSummary(): void {
 
   // Create the summary content
   let summary = '===== MISSING/MISMATCHED DATA BASIC SUMMARY =====\n'
-  summary += `Test Range: minCycle:${minCycle}   maxCycle:${maxCycle !== undefined ? maxCycle : 'MAX'}\n\n`
+  summary += `Test Range: minCycle:${minCycle}   maxCycle:${maxCycle !== undefined ? maxCycle : 'MAX'}${cycleOffset > 0 ? ` (with offset:${cycleOffset})` : ''}
 
-  summary += `Cycles:  missing: ${missingCycles.length}  mismatched: ${mismatchedCycles.length} total: ${maxCycle !== undefined ? maxCycle + 1 - minCycle : tableCounts['cycles']}\n`
+Cycles:  missing: ${missingCycles.length}  mismatched: ${mismatchedCycles.length} total: ${maxCycle !== undefined ? maxCycle + 1 - minCycle : tableCounts['cycles']}\n`
   summary += `Receipts: missing: ${missingReceipts.length}  mismatched: ${mismatchedReceipts.length} total: ${tableCounts['receipts'] || 0}\n`
   summary += `Receipts with txgroupcycle: ${txGroupCycleCounter}\n`
   if (removeTxGroupCycle) {
@@ -968,7 +973,9 @@ function printMissingDataSummary() {
   const mismatchedReceipts = missingData.receipts.filter((r) => !r.missing).length
 
   console.log('\n===== MISSING/MISMATCHED DATA BASIC SUMMARY =====')
-  console.log(`Test Range: minCycle:${minCycle}   maxCycle:${maxCycle !== undefined ? maxCycle : 'MAX'}`)
+  console.log(
+    `Test Range: minCycle:${minCycle}   maxCycle:${maxCycle !== undefined ? maxCycle : 'MAX'}${cycleOffset > 0 ? ` (with offset:${cycleOffset})` : ''}`
+  )
   console.log('')
   console.log(
     `Cycles:  missing: ${missingCycles}  mismatched: ${mismatchedCycles} total: ${maxCycle !== undefined ? maxCycle + 1 - minCycle : tableCounts['cycles']}`
@@ -1049,6 +1056,15 @@ async function main() {
     if (maxCycleToCheck === undefined) {
       maxCycleToCheck = await getMaxCycleFromRemote()
       console.log(`Max cycle from remote archiver: ${maxCycleToCheck}`)
+    }
+
+    // Apply offset if specified
+    if (cycleOffset > 0) {
+      const originalMaxCycle = maxCycleToCheck
+      maxCycleToCheck = Math.max(minCycle, maxCycleToCheck - cycleOffset)
+      console.log(
+        `Applying offset of ${cycleOffset}, adjusting max cycle from ${originalMaxCycle} to ${maxCycleToCheck}`
+      )
     }
 
     // if (maxCycleToCheck - 30 < maxCycle) {
