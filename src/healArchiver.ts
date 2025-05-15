@@ -943,6 +943,7 @@ function printMissingDataSummary() {
  * Main function
  */
 async function main() {
+  console.log('Starting Archiver Healing Script')
   try {
     // Show help if requested and not already displayed
     if (showHelp) {
@@ -972,6 +973,8 @@ async function main() {
       process.exit(1)
     }
 
+    console.log('Initializing database and verifying counts')
+
     // Initialize database and verify counts
     await initializeAndVerifyDB()
 
@@ -982,12 +985,16 @@ async function main() {
       mainLogger.info(`Max cycle from remote archiver: ${maxCycleToCheck}`)
     }
 
-    if (maxCycleToCheck - 30 < maxCycle) {
-      throw new Error('Max cycle to check should be less than 30 cycles from networks max cycle')
-    }
+    // if (maxCycleToCheck - 30 < maxCycle) {
+    //   throw new Error('Max cycle to check should be less than 30 cycles from networks max cycle')
+    // }
+
+    console.log('Checking and healing cycles')
 
     // Combined check and heal for cycles
     await checkAndHealCycles(maxCycleToCheck)
+
+    console.log('Checking and healing receipts')
 
     // Combined check and heal for receipts
     await checkAndHealReceipts(minCycle, maxCycleToCheck)
