@@ -119,6 +119,8 @@ const missingData: {
 
 // Counter for txgroupcycle occurrences
 let txGroupCycleCounter = 0
+// Set to track unique receipt IDs with txGroupCycle to avoid double counting
+const receiptsWithTxGroupCycle = new Set<string>()
 
 // Table counts for summary
 let tableCounts: Record<string, number> = {}
@@ -441,17 +443,25 @@ function processReceipt(receipt: any): any {
 
   // Check if receipt has txgroupcycle field
   if (processedReceipt?.signedReceipt?.txGroupCycle !== undefined) {
-    txGroupCycleCounter++
-    mainLogger.info(
-      `Found txgroupcycle in receipt with id: ${processedReceipt.id || processedReceipt.receiptId || processedReceipt.txId || processedReceipt?.tx?.txId || processedReceipt?.appReceiptData?.data?.txId || 'unknown'}`
-    )
+    const receiptId =
+      processedReceipt.id ||
+      processedReceipt.receiptId ||
+      processedReceipt.txId ||
+      processedReceipt?.tx?.txId ||
+      processedReceipt?.appReceiptData?.data?.txId ||
+      'unknown'
+
+    // Only count unique receipts
+    if (!receiptsWithTxGroupCycle.has(receiptId)) {
+      receiptsWithTxGroupCycle.add(receiptId)
+      txGroupCycleCounter++
+      mainLogger.info(`Found txgroupcycle in receipt with id: ${receiptId}`)
+    }
 
     // Remove txgroupcycle if flag is enabled
     if (removeTxGroupCycle) {
       delete processedReceipt?.signedReceipt?.txGroupCycle
-      mainLogger.info(
-        `Removed txgroupcycle from receipt with id: ${processedReceipt.id || processedReceipt.receiptId || processedReceipt.txId || processedReceipt?.tx?.txId || processedReceipt?.appReceiptData?.data?.txId || 'unknown'}`
-      )
+      mainLogger.info(`Removed txgroupcycle from receipt with id: ${receiptId}`)
     }
   }
 
@@ -467,6 +477,21 @@ function getReceiptForHashComparison(receipt: any): any {
 
   // Remove txGroupCycle field if it exists
   if (receiptCopy?.signedReceipt?.txGroupCycle !== undefined) {
+    const receiptId =
+      receiptCopy.id ||
+      receiptCopy.receiptId ||
+      receiptCopy.txId ||
+      receiptCopy?.tx?.txId ||
+      receiptCopy?.appReceiptData?.data?.txId ||
+      'unknown'
+
+    // Only count unique receipts if not already counted by processReceipt
+    if (!receiptsWithTxGroupCycle.has(receiptId)) {
+      receiptsWithTxGroupCycle.add(receiptId)
+      txGroupCycleCounter++
+      mainLogger.debug(`Found and removed txgroupcycle for hash comparison in receipt with id: ${receiptId}`)
+    }
+
     delete receiptCopy.signedReceipt.txGroupCycle
   }
 
@@ -863,6 +888,7 @@ function saveResultsToJson(): void {
       missingReceipts: missingData.receipts.filter((r) => r.missing).length,
       mismatchedReceipts: missingData.receipts.filter((r) => !r.missing).length,
       receiptsWithTxGroupCycle: txGroupCycleCounter,
+      uniqueReceiptsWithTxGroupCycle: receiptsWithTxGroupCycle.size,
       txGroupCycleRemoved: removeTxGroupCycle,
       totalRunTimeMs: Date.now() - startTime,
     },
@@ -1017,7 +1043,7 @@ function printMissingDataSummary() {
   console.log(
     `Receipts: missing: ${missingReceipts}  mismatched: ${mismatchedReceipts} total: ${tableCounts['receipts'] || 0}`
   )
-  console.log(`Receipts with txgroupcycle: ${txGroupCycleCounter}`)
+  console.log(`Receipts with txgroupcycle: ${txGroupCycleCounter} (unique: ${receiptsWithTxGroupCycle.size})`)
   if (removeTxGroupCycle) {
     console.log(`txgroupcycle field removed: ${removeTxGroupCycle ? 'yes' : 'no'}`)
   }
