@@ -1006,6 +1006,112 @@ async function readMissingDataFromJson(jsonFilePath: string): Promise<{
 }
 
 /**
+ * Analyze receipts between local and remote
+ */
+async function analyzeReceipts(minCycleToCheck: number, maxCycleToCheck: number): Promise<{ missingCount: number; mismatchedCount: number }> {
+  mainLogger.info(`Analyzing receipts from cycle ${minCycleToCheck} to ${maxCycleToCheck}`)
+
+  let totalMissing = 0
+  let totalMismatched = 0
+
+  // Process in batches of multiple cycles
+  const CYCLE_BATCH_SIZE = cycleBatchSize
+
+  for (let startCycle = minCycleToCheck; startCycle <= maxCycleToCheck; startCycle += CYCLE_BATCH_SIZE) {
+    const endCycle = Math.min(startCycle + CYCLE_BATCH_SIZE - 1, maxCycleToCheck)
+    logProgress(startCycle - minCycleToCheck, maxCycleToCheck - minCycleToCheck, 'Analyzing receipts for cycles')
+
+    try {
+      // Process receipts with pagination
+      let page = 1
+      let allReceiptsForCycleRange: any[] = []
+      let hasMorePages = true
+
+      while (hasMorePages) {
+        mainLogger.info(`Fetching receipts for cycle range ${startCycle}-${endCycle}, page ${page}`)
+        const remoteReceipts = await getReceipts(startCycle, endCycle, page)
+
+        if (!remoteReceipts || remoteReceipts.length === 0) {
+          mainLogger.debug(`No remote receipts found for cycle range ${startCycle}-${endCycle}, page ${page}`)
+          hasMorePages = false
+          break
+        }
+
+        allReceiptsForCycleRange = allReceiptsForCycleRange.concat(remoteReceipts)
+
+        if (remoteReceipts.length < MAX_RECEIPTS_PER_REQUEST) {
+          hasMorePages = false
+        } else {
+          page++
+        }
+
+        await Utils.sleep(sleepBetweenBatchesMs)
+      }
+
+      const receiptCount = allReceiptsForCycleRange.length
+      mainLogger.info(`Found total ${receiptCount} receipts for cycle range ${startCycle}-${endCycle} across ${page} page(s)`)
+
+      if (receiptCount === 0) {
+        continue
+      }
+
+      // Analyze each receipt
+      for (const remoteReceipt of allReceiptsForCycleRange) {
+        const processedReceipt = processReceipt(remoteReceipt)
+        const receiptId = processedReceipt.receiptId || processedReceipt.id || processedReceipt.txId || 
+                         processedReceipt?.tx?.txId || processedReceipt?.appReceiptData?.data?.txId
+        const cycle = processedReceipt.cycle || startCycle
+
+        if (!receiptId) {
+          mainLogger.warn(`Receipt without ID found in cycle range ${startCycle}-${endCycle}`)
+          continue
+        }
+
+        // Check if receipt exists locally
+        const localReceipt = await ReceiptDB.queryReceiptByReceiptId(receiptId)
+
+        // Calculate hash for comparison
+        const remoteReceiptForHash = getReceiptForHashComparison(remoteReceipt)
+        const remoteHash = Crypto.hash(StringUtils.safeStringify(remoteReceiptForHash))
+
+        if (!localReceipt) {
+          totalMissing++
+          missingData.receipts.push({
+            id: receiptId,
+            cycle,
+            hash: remoteHash,
+            missing: true,
+          })
+        } else {
+          const localReceiptForHash = getReceiptForHashComparison(localReceipt)
+          const localHash = Crypto.hash(StringUtils.safeStringify(localReceiptForHash))
+          if (localHash !== remoteHash) {
+            totalMismatched++
+            missingData.receipts.push({
+              id: receiptId,
+              cycle,
+              hash: remoteHash,
+              missing: false,
+            })
+          }
+        }
+      }
+
+      // Clear large arrays to free memory
+      allReceiptsForCycleRange = []
+      receiptsWithTxGroupCycle.clear()
+
+      await Utils.sleep(sleepBetweenBatchesMs)
+    } catch (error) {
+      mainLogger.error(`Error processing cycle range ${startCycle}-${endCycle}:`, error)
+    }
+  }
+
+  mainLogger.info(`Receipt analysis complete. Missing: ${totalMissing}, Mismatched: ${totalMismatched}`)
+  return { missingCount: totalMissing, mismatchedCount: totalMismatched }
+}
+
+/**
  * Main function
  */
 async function main() {
@@ -1104,14 +1210,20 @@ async function main() {
       // ANALYSIS MODE
       mainLogger.info('=== Starting Analysis Mode ===')
 
-      // Run analysis
+      // Run analysis for both cycles and receipts
       const { missingCount: missingCycles, mismatchedCount: mismatchedCycles } = await analyzeCycles(maxCycleToCheck)
+      const { missingCount: missingReceipts, mismatchedCount: mismatchedReceipts } = await analyzeReceipts(
+        minCycle,
+        maxCycleToCheck
+      )
 
       // Log analysis results
       mainLogger.info('=== Analysis Results ===')
       mainLogger.info(`Total cycles checked: ${maxCycleToCheck + 1 - minCycle}`)
       mainLogger.info(`Missing cycles: ${missingCycles}`)
       mainLogger.info(`Mismatched cycles: ${mismatchedCycles}`)
+      mainLogger.info(`Missing receipts: ${missingReceipts}`)
+      mainLogger.info(`Mismatched receipts: ${mismatchedReceipts}`)
       mainLogger.info(`Receipts with txgroupcycle field: ${txGroupCycleCounter}`)
       if (removeTxGroupCycle) {
         mainLogger.info(`txgroupcycle field removed from ${txGroupCycleCounter} receipts`)
