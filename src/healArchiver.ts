@@ -72,6 +72,7 @@ Options:
   --archiver-ip <ip>           Remote archiver IP address (default: 127.0.0.1)
   --archiver-port <port>       Remote archiver port (default: 4000)
   --remove-txgroupcycle <true|false> Remove txgroupcycle field from receipts before storing (default: false)
+                                     Note: For hash comparison, txgroupcycle is always ignored regardless of this flag
   --disable-receipt-override <true|false> Only insert missing or mismatched receipts (default: false)
 
 Examples:
@@ -431,24 +432,41 @@ async function getReceiptsByIds(txIdList: string[], cycle: number): Promise<any[
 
 /**
  * Process a receipt to remove txgroupcycle if flag is enabled
+ * Note: This function is now only used when the removeTxGroupCycle flag is true
+ * For hash comparison purposes, use getReceiptForHashComparison instead
  */
 function processReceipt(receipt: any): any {
   // Create a copy of the receipt to avoid modifying the original
   const processedReceipt = { ...receipt }
 
   // Check if receipt has txgroupcycle field
-  if (processedReceipt.txgroupcycle !== undefined) {
+  if (processedReceipt?.signedReceipt?.txGroupCycle !== undefined) {
     txGroupCycleCounter++
     mainLogger.info(`Found txgroupcycle in receipt with id: ${processedReceipt.id}`)
 
     // Remove txgroupcycle if flag is enabled
     if (removeTxGroupCycle) {
-      delete processedReceipt.txgroupcycle
+      delete processedReceipt?.signedReceipt?.txGroupCycle
       mainLogger.info(`Removed txgroupcycle from receipt with id: ${processedReceipt.id}`)
     }
   }
 
   return processedReceipt
+}
+
+/**
+ * Creates a copy of receipt with txGroupCycle removed for hash comparison purposes
+ */
+function getReceiptForHashComparison(receipt: any): any {
+  // Create a deep copy of the receipt to avoid modifying the original
+  const receiptCopy = JSON.parse(JSON.stringify(receipt))
+
+  // Remove txGroupCycle field if it exists
+  if (receiptCopy?.signedReceipt?.txGroupCycle !== undefined) {
+    delete receiptCopy.signedReceipt.txGroupCycle
+  }
+
+  return receiptCopy
 }
 
 /**
@@ -673,8 +691,9 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
         // Check if receipt exists locally
         const localReceipt = await ReceiptDB.queryReceiptByReceiptId(receiptId)
 
-        // Calculate hash for comparison
-        const remoteHash = Crypto.hash(StringUtils.safeStringify(processedReceipt))
+        // Calculate hash for comparison - use modified receipt with txGroupCycle removed for hash comparison
+        const remoteReceiptForHash = getReceiptForHashComparison(remoteReceipt)
+        const remoteHash = Crypto.hash(StringUtils.safeStringify(remoteReceiptForHash))
 
         if (!localReceipt) {
           // Missing receipt
@@ -686,10 +705,11 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
             hash: remoteHash,
             missing: true,
           })
-          missingReceipts.push(processedReceipt)
+          missingReceipts.push(remoteReceipt) // Store original receipt
         } else {
-          // Compare hashes
-          const localHash = Crypto.hash(StringUtils.safeStringify(localReceipt))
+          // Compare hashes - use modified local receipt with txGroupCycle removed for hash comparison
+          const localReceiptForHash = getReceiptForHashComparison(localReceipt)
+          const localHash = Crypto.hash(StringUtils.safeStringify(localReceiptForHash))
           if (localHash !== remoteHash) {
             totalMismatched++
             cycleReceiptCounts.get(cycle)!.mismatched++
@@ -699,7 +719,7 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
               hash: remoteHash,
               missing: false,
             })
-            mismatchedReceipts.push(processedReceipt)
+            mismatchedReceipts.push(remoteReceipt) // Store original receipt
           }
         }
       }
@@ -715,13 +735,13 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
         let receiptsToHeal
         if (disableReceiptOverride) {
           // Only heal missing or mismatched receipts
-          receiptsToHeal = [...missingReceipts, ...mismatchedReceipts].map((receipt) => processReceipt(receipt))
+          receiptsToHeal = [...missingReceipts, ...mismatchedReceipts]
           mainLogger.info(
             `Only healing ${receiptsToHeal.length} missing/mismatched receipts (disableReceiptOverride=true)`
           )
         } else {
           // Heal all receipts
-          receiptsToHeal = allReceiptsForCycleRange.map((receipt) => processReceipt(receipt))
+          receiptsToHeal = allReceiptsForCycleRange
           mainLogger.info(`Healing all ${receiptsToHeal.length} receipts (disableReceiptOverride=false)`)
         }
 
@@ -742,7 +762,12 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
               )
 
               // Store all receipts, overwriting existing ones
-              await Collector.storeReceiptData(receiptBatch, 'archiver-heal', false)
+              // Process receipts if removeTxGroupCycle flag is true
+              const receiptsToStore = removeTxGroupCycle
+                ? receiptBatch.map((receipt) => processReceipt(receipt))
+                : receiptBatch
+
+              await Collector.storeReceiptData(receiptsToStore, 'archiver-heal', false)
               totalHealed += receiptBatch.length
 
               // Update cycle counts
