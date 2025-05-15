@@ -743,23 +743,21 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
  * Initialize database and verify table counts
  */
 async function initializeAndVerifyDB(): Promise<void> {
-  mainLogger.info('Initializing database connection')
+  console.log('Initializing database connection')
   await dbstore.initializeDB(config)
 
   // Verify table counts
-  mainLogger.info('Verifying table counts')
+  console.log('Verifying table counts')
 
   // Get cycle count
   const cycleCount = await CycleDB.queryCyleCount()
   tableCounts['cycles'] = cycleCount
-  mainLogger.info(`Cycle table count: ${cycleCount}`)
+  console.log(`Cycle table count: ${cycleCount}`)
 
   // Get receipt count
   const receiptCount = await ReceiptDB.queryReceiptCount()
   tableCounts['receipts'] = receiptCount
-  mainLogger.info(`Receipt table count: ${receiptCount}`)
-
-  // Add any other relevant tables here
+  console.log(`Receipt table count: ${receiptCount}`)
 }
 
 /**
