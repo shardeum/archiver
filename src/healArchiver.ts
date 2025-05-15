@@ -122,6 +122,7 @@ function getArgValue(flag: string): string | undefined {
  */
 function initLogger() {
   try {
+    console.log('Initializing logger')
     // Try to load the logger config from file
     let logsConfig
     try {
@@ -949,9 +950,12 @@ async function main() {
       displayHelp() // This will exit the process if called
     }
 
+    console.log('Initializing logger')
     // Initialize logger and AJV
     initLogger()
+    console.log('Initializing AJV schemas')
     initAjvSchemas()
+    console.log('Initializing serialization')
     initializeSerialization()
 
     // Ensure mainLogger is available before using it
@@ -960,14 +964,14 @@ async function main() {
       return
     }
 
-    mainLogger.info('Archiver Healing Script Started')
-    mainLogger.info(`Mode: ${healingMode ? 'Healing' : 'Analysis'}`)
-    mainLogger.info(`Target Archiver: ${archiverIp}:${archiverPort}`)
+    console.log('Logging Archiver Healing Script Started')
+    console.log(`Mode: ${healingMode ? 'Healing' : 'Analysis'}`)
+    console.log(`Target Archiver: ${archiverIp}:${archiverPort}`)
 
     // Check if crypto keys are properly set
     if (!config.ARCHIVER_PUBLIC_KEY || !config.ARCHIVER_SECRET_KEY) {
-      mainLogger.error('ARCHIVER_PUBLIC_KEY or ARCHIVER_SECRET_KEY not set in config. Cannot proceed with API calls.')
-      mainLogger.info('Please set these values in your environment or config file.')
+      console.error('ARCHIVER_PUBLIC_KEY or ARCHIVER_SECRET_KEY not set in config. Cannot proceed with API calls.')
+      console.log('Please set these values in your environment or config file.')
       process.exit(1)
     }
 
@@ -976,11 +980,13 @@ async function main() {
     // Initialize database and verify counts
     await initializeAndVerifyDB()
 
+    console.log('Getting max cycle from remote archiver')
+
     // Determine max cycle to check
     let maxCycleToCheck = maxCycle
     if (maxCycleToCheck === undefined) {
       maxCycleToCheck = await getMaxCycleFromRemote()
-      mainLogger.info(`Max cycle from remote archiver: ${maxCycleToCheck}`)
+      console.log(`Max cycle from remote archiver: ${maxCycleToCheck}`)
     }
 
     // if (maxCycleToCheck - 30 < maxCycle) {
