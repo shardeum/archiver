@@ -877,10 +877,18 @@ async function initializeAndVerifyDB(): Promise<void> {
   console.log(`Receipt table count: ${receiptCount}`)
 }
 
+function getUniqueFilename(baseFilename: string): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const extension = path.extname(baseFilename)
+  const basename = path.basename(baseFilename, extension)
+  return `${basename}-${timestamp}${extension}`
+}
+
 /**
  * Save results to JSON file
  */
 function saveResultsToJson(): void {
+  const uniqueJsonFile = getUniqueFilename(jsonLogFile)
   const results = {
     cycles: missingData.cycles,
     receipts: missingData.receipts,
@@ -897,20 +905,20 @@ function saveResultsToJson(): void {
     },
   }
 
-  // Save to the root directory
-  fs.writeFileSync(jsonLogFile, StringUtils.safeStringify(results))
+  // Save to the root directory with unique filename
+  fs.writeFileSync(uniqueJsonFile, StringUtils.safeStringify(results))
 
-  mainLogger.info(`Results saved to ${jsonLogFile}`)
+  mainLogger.info(`Results saved to ${uniqueJsonFile}`)
 
-  // Also create a detailed log summary
-  createDetailedLogSummary()
+  // Also create a detailed log summary with unique filename
+  createDetailedLogSummary(uniqueJsonFile)
 }
 
 /**
  * Create a detailed log summary as requested
  */
-function createDetailedLogSummary(): void {
-  const summaryLogFile = 'missing-data-summary.log'
+function createDetailedLogSummary(jsonFilePath: string): void {
+  const summaryLogFile = jsonFilePath.replace('.json', '-summary.log')
   const missingCycles = missingData.cycles.filter((c) => c.missing)
   const mismatchedCycles = missingData.cycles.filter((c) => !c.missing)
   const missingReceipts = missingData.receipts.filter((r) => r.missing)
@@ -1021,7 +1029,7 @@ Cycles:  missing: ${missingCycles.length}  mismatched: ${mismatchedCycles.length
   // Add API endpoint stats
   summary += '\n'
 
-  // Write the summary to file in the root directory
+  // Write the summary to file in the root directory with unique filename
   fs.writeFileSync(summaryLogFile, summary)
   mainLogger.info(`Detailed summary saved to ${summaryLogFile}`)
 }
