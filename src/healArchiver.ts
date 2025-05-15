@@ -459,7 +459,7 @@ function processReceipt(receipt: any): any {
  */
 function getReceiptForHashComparison(receipt: any): any {
   // Create a deep copy of the receipt to avoid modifying the original
-  const receiptCopy = JSON.parse(JSON.stringify(receipt))
+  const receiptCopy = StringUtils.safeJsonParse(StringUtils.safeStringify(receipt))
 
   // Remove txGroupCycle field if it exists
   if (receiptCopy?.signedReceipt?.txGroupCycle !== undefined) {
