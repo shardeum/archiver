@@ -41,6 +41,7 @@ const jsonLogFile = getArgValue('--json-log') || 'missing-data-summary.json'
 const archiverIp = getArgValue('--archiver-ip') || '127.0.0.1'
 const archiverPort = parseInt(getArgValue('--archiver-port') || '4000')
 const removeTxGroupCycle = getArgValue('--remove-txgroupcycle') === 'true'
+const disableReceiptOverride = getArgValue('--disable-receipt-override') === 'true'
 
 /**
  * Display help message for command line arguments
@@ -69,6 +70,7 @@ Options:
   --archiver-ip <ip>           Remote archiver IP address (default: 127.0.0.1)
   --archiver-port <port>       Remote archiver port (default: 4000)
   --remove-txgroupcycle <true|false> Remove txgroupcycle field from receipts before storing (default: false)
+  --disable-receipt-override <true|false> Only insert missing or mismatched receipts (default: false)
 
 Examples:
   # Check for missing data without healing
@@ -76,6 +78,9 @@ Examples:
 
   # Heal missing data for all cycles
   ts-node healArchiver.ts --heal true
+
+  # Heal only missing or mismatched receipts
+  ts-node healArchiver.ts --heal true --disable-receipt-override true
 
   # Heal missing data with custom batch sizes
   ts-node healArchiver.ts --heal true --cycle-batch-size 5 --receipt-batch-size 200
@@ -701,8 +706,19 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
 
       // Heal receipts if in healing mode
       if (healingMode) {
-        // Determine which receipts to heal - either all or just missing/mismatched
-        const receiptsToHeal = allReceiptsForCycleRange.map((receipt) => processReceipt(receipt)) // Process all receipts
+        // Determine which receipts to heal based on the disableReceiptOverride flag
+        let receiptsToHeal
+        if (disableReceiptOverride) {
+          // Only heal missing or mismatched receipts
+          receiptsToHeal = [...missingReceipts, ...mismatchedReceipts].map((receipt) => processReceipt(receipt))
+          mainLogger.info(
+            `Only healing ${receiptsToHeal.length} missing/mismatched receipts (disableReceiptOverride=true)`
+          )
+        } else {
+          // Heal all receipts
+          receiptsToHeal = allReceiptsForCycleRange.map((receipt) => processReceipt(receipt))
+          mainLogger.info(`Healing all ${receiptsToHeal.length} receipts (disableReceiptOverride=false)`)
+        }
 
         if (receiptsToHeal.length > 0) {
           mainLogger.info(`Healing ${receiptsToHeal.length} receipts for cycle range ${startCycle}-${endCycle}`)
@@ -964,6 +980,7 @@ function printMissingDataSummary() {
   if (removeTxGroupCycle) {
     console.log(`txgroupcycle field removed: ${removeTxGroupCycle ? 'yes' : 'no'}`)
   }
+  console.log(`Only heal missing/mismatched receipts: ${disableReceiptOverride ? 'yes' : 'no'}`)
 
   // Group receipts by cycle for better reporting
   const receiptsByCycle = new Map<number, { missing: number; mismatched: number }>()
