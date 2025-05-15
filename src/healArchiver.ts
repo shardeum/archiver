@@ -442,12 +442,16 @@ function processReceipt(receipt: any): any {
   // Check if receipt has txgroupcycle field
   if (processedReceipt?.signedReceipt?.txGroupCycle !== undefined) {
     txGroupCycleCounter++
-    mainLogger.info(`Found txgroupcycle in receipt with id: ${processedReceipt.id}`)
+    mainLogger.info(
+      `Found txgroupcycle in receipt with id: ${processedReceipt.id || processedReceipt.receiptId || processedReceipt.txId || processedReceipt?.tx?.txId || processedReceipt?.appReceiptData?.data?.txId || 'unknown'}`
+    )
 
     // Remove txgroupcycle if flag is enabled
     if (removeTxGroupCycle) {
       delete processedReceipt?.signedReceipt?.txGroupCycle
-      mainLogger.info(`Removed txgroupcycle from receipt with id: ${processedReceipt.id}`)
+      mainLogger.info(
+        `Removed txgroupcycle from receipt with id: ${processedReceipt.id || processedReceipt.receiptId || processedReceipt.txId || processedReceipt?.tx?.txId || processedReceipt?.appReceiptData?.data?.txId || 'unknown'}`
+      )
     }
   }
 
@@ -672,7 +676,12 @@ async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: nu
       // Process each receipt for analysis
       for (const remoteReceipt of allReceiptsForCycleRange) {
         const processedReceipt = processReceipt(remoteReceipt)
-        const receiptId = processedReceipt.receiptId || processedReceipt.id || processedReceipt.txId
+        const receiptId =
+          processedReceipt.receiptId ||
+          processedReceipt.id ||
+          processedReceipt.txId ||
+          processedReceipt?.tx?.txId ||
+          processedReceipt?.appReceiptData?.data?.txId
         const cycle = processedReceipt.cycle || startCycle // Use the receipt's cycle if available, otherwise use startCycle
 
         if (!receiptId) {
