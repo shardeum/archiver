@@ -407,30 +407,6 @@ async function getReceipts(startCycle: number, endCycle: number, page: number = 
   }
 }
 
-/**
- * Get receipt data from remote archiver for specific receipt IDs
- */
-async function getReceiptsByIds(txIdList: string[], cycle: number): Promise<any[]> {
-  try {
-    // Format the txIdList as expected by the API
-    const formattedTxIdList = txIdList.map((id) => [id, 0]) // Using 0 as timestamp since we don't have it
-
-    const response = await callArchiverApi('/receipt', {
-      txIdList: formattedTxIdList,
-      startCycle: cycle,
-      endCycle: cycle,
-    })
-
-    if (!response || !response.receipts) {
-      return []
-    }
-
-    return response.receipts
-  } catch (error) {
-    mainLogger.error(`Error fetching receipts by IDs for cycle ${cycle}:`, error)
-    return []
-  }
-}
 
 /**
  * Process a receipt to remove txgroupcycle if flag is enabled
@@ -499,20 +475,22 @@ function getReceiptForHashComparison(receipt: any): any {
 }
 
 /**
- * Check and compare cycles between local and remote, and heal if in healing mode
+ * Analyze cycles between local and remote
  */
-async function checkAndHealCycles(maxCycleToCheck: number): Promise<void> {
-  mainLogger.info(`Checking cycles from ${minCycle} to ${maxCycleToCheck}`)
+async function analyzeCycles(
+  maxCycleToCheck: number
+): Promise<{ cyclesToHeal: any[]; missingCount: number; mismatchedCount: number }> {
+  mainLogger.info(`Analyzing cycles from ${minCycle} to ${maxCycleToCheck}`)
 
   // Track counts for summary
   let missingCount = 0
   let mismatchedCount = 0
-  let healedCount = 0
+  const cyclesToHeal: any[] = []
 
   // Process in batches of MAX_CYCLES_PER_REQUEST
   for (let start = minCycle; start <= maxCycleToCheck; start += MAX_CYCLES_PER_REQUEST) {
     const end = Math.min(start + MAX_CYCLES_PER_REQUEST - 1, maxCycleToCheck)
-    logProgress(start, maxCycleToCheck, 'Checking cycles')
+    logProgress(start, maxCycleToCheck, 'Analyzing cycles')
 
     // Get remote cycles for this range
     const remoteCycles = await getCycleInfo(start, end)
@@ -528,9 +506,6 @@ async function checkAndHealCycles(maxCycleToCheck: number): Promise<void> {
       localCycleMap.set(cycle.counter, cycle)
     })
 
-    // Cycles to heal in this batch
-    const cyclesToHeal = []
-
     // Compare each remote cycle with local
     for (const remoteCycle of remoteCycles) {
       const counter = remoteCycle.counter
@@ -544,18 +519,14 @@ async function checkAndHealCycles(maxCycleToCheck: number): Promise<void> {
         missingCount++
         missingData.cycles.push({ counter, hash: remoteHash, missing: true })
 
-        // Add to healing list if in healing mode
-        if (healingMode) {
-          // Ensure cycleMarker is set to avoid SQL constraint error
-          const cycleMarker = remoteCycle.marker
-          // Format the cycle data properly for insertion
-          const cycleRecord = StringUtils.safeStringify(remoteCycle)
-          cyclesToHeal.push({
-            counter: remoteCycle.counter,
-            cycleMarker: cycleMarker,
-            cycleRecord: cycleRecord,
-          })
-        }
+        // Add to healing list
+        const cycleMarker = remoteCycle.marker
+        const cycleRecord = StringUtils.safeStringify(remoteCycle)
+        cyclesToHeal.push({
+          counter: remoteCycle.counter,
+          cycleMarker: cycleMarker,
+          cycleRecord: cycleRecord,
+        })
       } else {
         // Compare hashes
         const localHash = Crypto.hash(StringUtils.safeStringify(localCycle))
@@ -563,59 +534,16 @@ async function checkAndHealCycles(maxCycleToCheck: number): Promise<void> {
           mismatchedCount++
           missingData.cycles.push({ counter, hash: remoteHash, missing: false })
 
-          // Add to healing list if in healing mode
-          if (healingMode) {
-            // Ensure cycleMarker is set to avoid SQL constraint error
-            const cycleMarker = remoteCycle.marker
-            // Format the cycle data properly for insertion
-            const cycleRecord = StringUtils.safeStringify(remoteCycle)
-            cyclesToHeal.push({
-              counter: remoteCycle.counter,
-              cycleMarker: cycleMarker,
-              cycleRecord: cycleRecord,
-            })
-          }
+          // Add to healing list
+          const cycleMarker = remoteCycle.marker
+          const cycleRecord = StringUtils.safeStringify(remoteCycle)
+          cyclesToHeal.push({
+            counter: remoteCycle.counter,
+            cycleMarker: cycleMarker,
+            cycleRecord: cycleRecord,
+          })
         }
       }
-    }
-
-    // Heal cycles if in healing mode and we have cycles to heal
-    if (healingMode && cyclesToHeal.length > 0) {
-      mainLogger.info(`Healing ${cyclesToHeal.length} cycles in batch (${start}-${end})`)
-
-      // Insert cycles in batches
-      const BATCH_INSERT_SIZE = 20 // Number of cycles to insert in a single batch
-      for (let i = 0; i < cyclesToHeal.length; i += BATCH_INSERT_SIZE) {
-        const batchCycles = cyclesToHeal.slice(i, i + BATCH_INSERT_SIZE)
-        if (batchCycles.length === 0) continue
-
-        try {
-          await CycleDB.bulkInsertCycles(batchCycles)
-          mainLogger.info(
-            `Successfully healed ${batchCycles.length} cycles in batch (${batchCycles[0].counter}-${batchCycles[batchCycles.length - 1].counter})`
-          )
-          healedCount += batchCycles.length
-        } catch (error) {
-          mainLogger.error(`Error batch healing cycles: ${error}`)
-
-          // Try inserting one by one if batch insert fails
-          mainLogger.info('Attempting to insert cycles one by one')
-          for (const cycle of batchCycles) {
-            try {
-              await CycleDB.insertCycle(cycle)
-              mainLogger.info(`Successfully healed cycle ${cycle.counter}`)
-              healedCount++
-            } catch (cycleError) {
-              mainLogger.error(`Error healing cycle ${cycle.counter}: ${cycleError}`)
-            }
-          }
-        }
-      }
-    }
-
-    // Log batch summary
-    if (missingCount > 0 || mismatchedCount > 0) {
-      mainLogger.info(`Batch ${start}-${end}: Missing cycles: ${missingCount}, Mismatched cycles: ${mismatchedCount}`)
     }
 
     // Sleep between batches to avoid overwhelming the system
@@ -626,234 +554,216 @@ async function checkAndHealCycles(maxCycleToCheck: number): Promise<void> {
     }
   }
 
-  mainLogger.info(`Cycle check complete. Missing: ${missingCount}, Mismatched: ${mismatchedCount}`)
-  if (healingMode) {
-    mainLogger.info(`Cycles healed: ${healedCount}`)
-  }
+  mainLogger.info(`Cycle analysis complete. Missing: ${missingCount}, Mismatched: ${mismatchedCount}`)
+  return { cyclesToHeal, missingCount, mismatchedCount }
 }
 
 /**
- * Check and compare receipts between local and remote, and heal if in healing mode
+ * Heal cycles that were found to be missing or mismatched
  */
-async function checkAndHealReceipts(minCycleToCheck: number, maxCycleToCheck: number): Promise<void> {
-  mainLogger.info(`Checking receipts from cycle ${minCycleToCheck} to ${maxCycleToCheck}`)
+async function fetchRemoteCycleData(cycleNumbers: number[]): Promise<any[]> {
+  const remoteCycles: any[] = []
+  const BATCH_SIZE = MAX_CYCLES_PER_REQUEST
 
-  // Track counts by cycle for summary
-  const cycleReceiptCounts: Map<number, { missing: number; mismatched: number; total: number; healed: number }> =
-    new Map()
-  let totalMissing = 0
-  let totalMismatched = 0
-  let totalReceipts = 0
-  let totalHealed = 0
+  // Process in batches to avoid overwhelming the remote archiver
+  for (let i = 0; i < cycleNumbers.length; i += BATCH_SIZE) {
+    const batchCycles = cycleNumbers.slice(i, i + BATCH_SIZE)
+    if (batchCycles.length === 0) continue
 
-  // Process in batches of multiple cycles
-  const CYCLE_BATCH_SIZE = cycleBatchSize
-
-  for (let startCycle = minCycleToCheck; startCycle <= maxCycleToCheck; startCycle += CYCLE_BATCH_SIZE) {
-    const endCycle = Math.min(startCycle + CYCLE_BATCH_SIZE - 1, maxCycleToCheck)
-    logProgress(startCycle - minCycleToCheck, maxCycleToCheck - minCycleToCheck, 'Processing receipts for cycles')
+    const minCycle = Math.min(...batchCycles)
+    const maxCycle = Math.max(...batchCycles)
 
     try {
-      // Process receipts with pagination
-      let page = 1
-      let allReceiptsForCycleRange: any[] = []
-      let hasMorePages = true
-
-      while (hasMorePages) {
-        // Get remote receipts for this cycle range and page
-        mainLogger.info(`Fetching receipts for cycle range ${startCycle}-${endCycle}, page ${page}`)
-        const remoteReceipts = await getReceipts(startCycle, endCycle, page)
-
-        if (!remoteReceipts || remoteReceipts.length === 0) {
-          mainLogger.debug(`No remote receipts found for cycle range ${startCycle}-${endCycle}, page ${page}`)
-          hasMorePages = false
-          break
-        }
-
-        // Add to our collection
-        allReceiptsForCycleRange = allReceiptsForCycleRange.concat(remoteReceipts)
-
-        // Check if we likely have more pages
-        if (remoteReceipts.length < MAX_RECEIPTS_PER_REQUEST) {
-          hasMorePages = false
-        } else {
-          page++
-        }
-
-        // Sleep between page requests to avoid overwhelming the system
-        await Utils.sleep(sleepBetweenBatchesMs)
+      const cycleInfo = await getCycleInfo(minCycle, maxCycle)
+      if (cycleInfo && cycleInfo.length > 0) {
+        // Filter to only get the cycles we want
+        const relevantCycles = cycleInfo.filter((cycle) => batchCycles.includes(cycle.counter))
+        remoteCycles.push(...relevantCycles)
       }
-
-      const receiptCount = allReceiptsForCycleRange.length
-      mainLogger.info(
-        `Found total ${receiptCount} receipts for cycle range ${startCycle}-${endCycle} across ${page} page(s)`
-      )
-      totalReceipts += receiptCount
-
-      if (receiptCount === 0) {
-        continue
-      }
-
-      // Analyze receipts first
-      const missingReceipts = []
-      const mismatchedReceipts = []
-
-      // Process each receipt for analysis
-      for (const remoteReceipt of allReceiptsForCycleRange) {
-        const processedReceipt = processReceipt(remoteReceipt)
-        const receiptId =
-          processedReceipt.receiptId ||
-          processedReceipt.id ||
-          processedReceipt.txId ||
-          processedReceipt?.tx?.txId ||
-          processedReceipt?.appReceiptData?.data?.txId
-        const cycle = processedReceipt.cycle || startCycle // Use the receipt's cycle if available, otherwise use startCycle
-
-        if (!receiptId) {
-          mainLogger.warn(
-            `Receipt without ID found in cycle range ${startCycle}-${endCycle}: ${StringUtils.safeStringify(processedReceipt).substring(0, 100)}...`
-          )
-          continue
-        }
-
-        // Initialize cycle counts if not exists
-        if (!cycleReceiptCounts.has(cycle)) {
-          cycleReceiptCounts.set(cycle, { missing: 0, mismatched: 0, total: 0, healed: 0 })
-        }
-        cycleReceiptCounts.get(cycle)!.total++
-
-        // Check if receipt exists locally
-        const localReceipt = await ReceiptDB.queryReceiptByReceiptId(receiptId)
-
-        // Calculate hash for comparison - use modified receipt with txGroupCycle removed for hash comparison
-        const remoteReceiptForHash = getReceiptForHashComparison(remoteReceipt)
-        const remoteHash = Crypto.hash(StringUtils.safeStringify(remoteReceiptForHash))
-
-        if (!localReceipt) {
-          // Missing receipt
-          totalMissing++
-          cycleReceiptCounts.get(cycle)!.missing++
-          missingData.receipts.push({
-            id: receiptId,
-            cycle,
-            hash: remoteHash,
-            missing: true,
-          })
-          missingReceipts.push(remoteReceipt) // Store original receipt
-        } else {
-          // Compare hashes - use modified local receipt with txGroupCycle removed for hash comparison
-          const localReceiptForHash = getReceiptForHashComparison(localReceipt)
-          const localHash = Crypto.hash(StringUtils.safeStringify(localReceiptForHash))
-          if (localHash !== remoteHash) {
-            totalMismatched++
-            cycleReceiptCounts.get(cycle)!.mismatched++
-            missingData.receipts.push({
-              id: receiptId,
-              cycle,
-              hash: remoteHash,
-              missing: false,
-            })
-            mismatchedReceipts.push(remoteReceipt) // Store original receipt
-          }
-        }
-      }
-
-      // Log analysis for this cycle range
-      mainLogger.info(
-        `Cycle range ${startCycle}-${endCycle}: Found ${receiptCount} receipts, Missing: ${missingReceipts.length}, Mismatched: ${mismatchedReceipts.length}`
-      )
-
-      // Heal receipts if in healing mode
-      if (healingMode) {
-        // Determine which receipts to heal based on the disableReceiptOverride flag
-        let receiptsToHeal
-        if (disableReceiptOverride) {
-          // Only heal missing or mismatched receipts
-          receiptsToHeal = [...missingReceipts, ...mismatchedReceipts]
-          mainLogger.info(
-            `Only healing ${receiptsToHeal.length} missing/mismatched receipts (disableReceiptOverride=true)`
-          )
-        } else {
-          // Heal all receipts
-          receiptsToHeal = allReceiptsForCycleRange
-          mainLogger.info(`Healing all ${receiptsToHeal.length} receipts (disableReceiptOverride=false)`)
-        }
-
-        if (receiptsToHeal.length > 0) {
-          mainLogger.info(`Healing ${receiptsToHeal.length} receipts for cycle range ${startCycle}-${endCycle}`)
-
-          // Process receipts in smaller batches to manage memory usage
-          const RECEIPT_BATCH_SIZE = receiptBatchSize
-          const totalBatches = Math.ceil(receiptsToHeal.length / RECEIPT_BATCH_SIZE)
-
-          for (let i = 0; i < receiptsToHeal.length; i += RECEIPT_BATCH_SIZE) {
-            const batchNumber = Math.floor(i / RECEIPT_BATCH_SIZE) + 1
-            const receiptBatch = receiptsToHeal.slice(i, i + RECEIPT_BATCH_SIZE)
-
-            try {
-              mainLogger.info(
-                `Processing batch ${batchNumber}/${totalBatches} with ${receiptBatch.length} receipts for cycle range ${startCycle}-${endCycle}`
-              )
-
-              // Store all receipts, overwriting existing ones
-              // Process receipts if removeTxGroupCycle flag is true
-              const receiptsToStore = removeTxGroupCycle
-                ? receiptBatch.map((receipt) => processReceipt(receipt))
-                : receiptBatch
-
-              await Collector.storeReceiptData(receiptsToStore, 'archiver-heal', false)
-              totalHealed += receiptBatch.length
-
-              // Update cycle counts
-              for (const receipt of receiptBatch) {
-                const cycle = receipt.cycle || startCycle
-                if (cycleReceiptCounts.has(cycle)) {
-                  cycleReceiptCounts.get(cycle)!.healed++
-                }
-              }
-
-              mainLogger.info(
-                `Successfully healed batch ${batchNumber}/${totalBatches} with ${receiptBatch.length} receipts for cycle range ${startCycle}-${endCycle}`
-              )
-            } catch (error) {
-              mainLogger.error(
-                `Error healing receipts batch ${batchNumber}/${totalBatches} for cycle range ${startCycle}-${endCycle}:`,
-                error
-              )
-            }
-
-            // Sleep between batches to avoid overwhelming the system
-            await Utils.sleep(sleepBetweenBatchesMs)
-          }
-        }
-      }
-
-      // Log memory usage if available
-      if (process.memoryUsage) {
-        const memUsage = process.memoryUsage()
-        mainLogger.info(
-          `Memory usage after cycle range ${startCycle}-${endCycle}: RSS: ${Math.round(memUsage.rss / 1024 / 1024)}MB, Heap: ${Math.round(memUsage.heapUsed / 1024 / 1024)}/${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`
-        )
-      }
-
-      // Clear large arrays to free memory
-      allReceiptsForCycleRange = []
-      receiptsWithTxGroupCycle.clear()
-
-      // Sleep between cycle ranges to avoid overwhelming the system
-      await Utils.sleep(sleepBetweenBatchesMs)
     } catch (error) {
-      mainLogger.error(`Error processing cycle range ${startCycle}-${endCycle}:`, error)
+      mainLogger.error(`Error fetching remote cycle data for range ${minCycle}-${maxCycle}:`, error)
     }
+
+    await Utils.sleep(sleepBetweenBatchesMs)
   }
 
-  // Log summary
-  mainLogger.info(
-    `Receipt check complete. Total: ${totalReceipts}, Missing: ${totalMissing}, Mismatched: ${totalMismatched}`
-  )
-  if (healingMode) {
-    mainLogger.info(`Receipts healed: ${totalHealed}`)
+  return remoteCycles
+}
+
+/**
+ * Fetch current receipt data from remote archiver for a list of receipt IDs
+ */
+async function fetchRemoteReceiptData(receiptIds: { id: string; cycle: number }[]): Promise<any[]> {
+  const remoteReceipts: any[] = []
+  const BATCH_SIZE = MAX_RECEIPTS_PER_REQUEST
+
+  // Process in batches to avoid overwhelming the remote archiver
+  for (let i = 0; i < receiptIds.length; i += BATCH_SIZE) {
+    const batchReceipts = receiptIds.slice(i, i + BATCH_SIZE)
+    if (batchReceipts.length === 0) continue
+
+    try {
+      // Format the txIdList as expected by the API
+      const formattedTxIdList = batchReceipts.map((receipt) => [receipt.id, 0]) // Using 0 as timestamp
+
+      // Find min and max cycle in this batch
+      const minCycle = Math.min(...batchReceipts.map((r) => r.cycle))
+      const maxCycle = Math.max(...batchReceipts.map((r) => r.cycle))
+
+      mainLogger.info(
+        `Fetching receipts batch ${i / BATCH_SIZE + 1}, IDs: [${batchReceipts.map((r) => r.id).join(', ')}]`
+      )
+
+      const response = await callArchiverApi('/receipt', {
+        txIdList: formattedTxIdList,
+        startCycle: minCycle,
+        endCycle: maxCycle,
+      })
+
+      if (response && response.receipts) {
+        // Verify we got all the receipts we asked for
+        const receivedIds = new Set(
+          response.receipts.map((r) => r.receiptId || r.id || r.txId || r?.tx?.txId || r?.appReceiptData?.data?.txId)
+        )
+        const missingIds = batchReceipts.filter((r) => !receivedIds.has(r.id))
+
+        if (missingIds.length > 0) {
+          mainLogger.warn(`Did not receive data for some receipts: [${missingIds.map((r) => r.id).join(', ')}]`)
+        }
+
+        remoteReceipts.push(...response.receipts)
+        mainLogger.info(`Received ${response.receipts.length} receipts from remote archiver`)
+      } else {
+        mainLogger.warn(`No receipts returned for batch ${i / BATCH_SIZE + 1}`)
+      }
+    } catch (error) {
+      mainLogger.error(`Error fetching remote receipt data for batch ${i / BATCH_SIZE + 1}:`, error)
+    }
+
+    await Utils.sleep(sleepBetweenBatchesMs)
   }
+
+  return remoteReceipts
+}
+
+/**
+ * Heal cycles that were found to be missing or mismatched
+ */
+async function healCycles(cyclesToHeal: { counter: number }[]): Promise<number> {
+  let healedCount = 0
+
+  if (cyclesToHeal.length === 0) {
+    return healedCount
+  }
+
+  mainLogger.info(`Fetching current data for ${cyclesToHeal.length} cycles from remote archiver`)
+
+  // Get current data from remote archiver
+  const cycleNumbers = cyclesToHeal.map((cycle) => cycle.counter)
+  const remoteCycles = await fetchRemoteCycleData(cycleNumbers)
+
+  if (remoteCycles.length === 0) {
+    mainLogger.error('No cycle data received from remote archiver')
+    return healedCount
+  }
+
+  mainLogger.info(`Received ${remoteCycles.length} cycles from remote archiver`)
+  mainLogger.info(`Healing ${remoteCycles.length} cycles`)
+
+  // Insert cycles in batches
+  const BATCH_INSERT_SIZE = 20
+  for (let i = 0; i < remoteCycles.length; i += BATCH_INSERT_SIZE) {
+    const batchCycles = remoteCycles.slice(i, i + BATCH_INSERT_SIZE)
+    if (batchCycles.length === 0) continue
+
+    try {
+      // Format cycles for insertion - parse cycleRecord as JSON to match CycleData type
+      const cyclesToInsert = batchCycles.map((cycle) => ({
+        counter: cycle.counter,
+        cycleMarker: cycle.marker,
+        cycleRecord: JSON.parse(StringUtils.safeStringify(cycle)),
+      }))
+
+      await CycleDB.bulkInsertCycles(cyclesToInsert)
+      mainLogger.info(
+        `Successfully healed ${batchCycles.length} cycles in batch (${batchCycles[0].counter}-${batchCycles[batchCycles.length - 1].counter})`
+      )
+      healedCount += batchCycles.length
+    } catch (error) {
+      mainLogger.error(`Error batch healing cycles: ${error}`)
+
+      // Try inserting one by one if batch insert fails
+      mainLogger.info('Attempting to insert cycles one by one')
+      for (const cycle of batchCycles) {
+        try {
+          await CycleDB.insertCycle({
+            counter: cycle.counter,
+            cycleMarker: cycle.marker,
+            cycleRecord: JSON.parse(StringUtils.safeStringify(cycle)),
+          })
+          mainLogger.info(`Successfully healed cycle ${cycle.counter}`)
+          healedCount++
+        } catch (cycleError) {
+          mainLogger.error(`Error healing cycle ${cycle.counter}: ${cycleError}`)
+        }
+      }
+    }
+
+    await Utils.sleep(sleepBetweenBatchesMs)
+  }
+
+  return healedCount
+}
+
+/**
+ * Heal receipts that were found to be missing or mismatched
+ */
+async function healReceipts(receiptsToHeal: { id: string; cycle: number }[]): Promise<number> {
+  let healedCount = 0
+
+  if (receiptsToHeal.length === 0) {
+    return healedCount
+  }
+
+  mainLogger.info(`Fetching current data for ${receiptsToHeal.length} receipts from remote archiver`)
+
+  // Get current data from remote archiver
+  const remoteReceipts = await fetchRemoteReceiptData(receiptsToHeal)
+
+  if (remoteReceipts.length === 0) {
+    mainLogger.error('No receipt data received from remote archiver')
+    return healedCount
+  }
+
+  mainLogger.info(`Received ${remoteReceipts.length} receipts from remote archiver`)
+  mainLogger.info(`Healing ${remoteReceipts.length} receipts`)
+
+  // Process receipts in smaller batches
+  const RECEIPT_BATCH_SIZE = receiptBatchSize
+  const totalBatches = Math.ceil(remoteReceipts.length / RECEIPT_BATCH_SIZE)
+
+  for (let i = 0; i < remoteReceipts.length; i += RECEIPT_BATCH_SIZE) {
+    const batchNumber = Math.floor(i / RECEIPT_BATCH_SIZE) + 1
+    const receiptBatch = remoteReceipts.slice(i, i + RECEIPT_BATCH_SIZE)
+
+    try {
+      mainLogger.info(`Processing batch ${batchNumber}/${totalBatches} with ${receiptBatch.length} receipts`)
+
+      // Process receipts if removeTxGroupCycle flag is true
+      const receiptsToStore = removeTxGroupCycle ? receiptBatch.map((receipt) => processReceipt(receipt)) : receiptBatch
+
+      await Collector.storeReceiptData(receiptsToStore, 'archiver-heal', false)
+      healedCount += receiptBatch.length
+
+      mainLogger.info(`Successfully healed batch ${batchNumber}/${totalBatches} with ${receiptBatch.length} receipts`)
+    } catch (error) {
+      mainLogger.error(`Error healing receipts batch ${batchNumber}/${totalBatches}:`, error)
+    }
+
+    await Utils.sleep(sleepBetweenBatchesMs)
+  }
+
+  return healedCount
 }
 
 /**
@@ -1077,26 +987,43 @@ function printMissingDataSummary() {
 }
 
 /**
+ * Read missing data from a JSON file
+ */
+async function readMissingDataFromJson(jsonFilePath: string): Promise<{
+  cycles: { counter: number; hash: string; missing: boolean }[]
+  receipts: { id: string; cycle: number; hash: string; missing: boolean }[]
+}> {
+  try {
+    const fileContent = fs.readFileSync(jsonFilePath, 'utf8')
+    const data = StringUtils.safeJsonParse(fileContent)
+    return {
+      cycles: data.cycles || [],
+      receipts: data.receipts || [],
+    }
+  } catch (error) {
+    mainLogger.error(`Error reading missing data from ${jsonFilePath}:`, error)
+    throw new Error(`Failed to read missing data from ${jsonFilePath}. Please run analysis mode first.`)
+  }
+}
+
+/**
  * Main function
  */
 async function main() {
   console.log('Starting Archiver Healing Script')
   try {
-    // Show help if requested and not already displayed
+    // Show help if requested
     if (showHelp) {
-      // Check if process is still running (help not already displayed)
-      displayHelp() // This will exit the process if called
+      displayHelp()
     }
 
     console.log('Initializing logger')
-    // Initialize logger and AJV
     initLogger()
     console.log('Initializing AJV schemas')
     initAjvSchemas()
     console.log('Initializing serialization')
     initializeSerialization()
 
-    // Ensure mainLogger is available before using it
     if (!mainLogger) {
       console.error('Failed to initialize mainLogger')
       return
@@ -1116,20 +1043,15 @@ async function main() {
     }
 
     console.log('Initializing database and verifying counts')
-
-    // Initialize database and verify counts
     await initializeAndVerifyDB()
 
     console.log('Getting max cycle from remote archiver')
-
-    // Determine max cycle to check
     let maxCycleToCheck = maxCycle
     if (maxCycleToCheck === undefined) {
       maxCycleToCheck = await getMaxCycleFromRemote()
       console.log(`Max cycle from remote archiver: ${maxCycleToCheck}`)
     }
 
-    // Apply offset if specified
     if (cycleOffset > 0) {
       const originalMaxCycle = maxCycleToCheck
       maxCycleToCheck = Math.max(minCycle, maxCycleToCheck - cycleOffset)
@@ -1138,79 +1060,83 @@ async function main() {
       )
     }
 
-    // if (maxCycleToCheck - 30 < maxCycle) {
-    //   throw new Error('Max cycle to check should be less than 30 cycles from networks max cycle')
-    // }
-
-    console.log('Checking and healing cycles')
-
-    // Combined check and heal for cycles
-    await checkAndHealCycles(maxCycleToCheck)
-
-    console.log('Checking and healing receipts')
-
-    // Combined check and heal for receipts
-    await checkAndHealReceipts(minCycle, maxCycleToCheck)
-
-    // Get updated counts after healing if in healing mode
     if (healingMode) {
+      // HEALING MODE
+      mainLogger.info('=== Starting Healing Mode ===')
+
+      // Read missing data from JSON file
+      const missingDataFromJson = await readMissingDataFromJson(jsonLogFile)
+
+      // Update global missingData with data from JSON
+      missingData.cycles = missingDataFromJson.cycles
+      missingData.receipts = missingDataFromJson.receipts
+
+      mainLogger.info(`Found ${missingData.cycles.length} cycles and ${missingData.receipts.length} receipts to heal`)
+
+      // Prepare data for healing
+      const cyclesToHeal = missingData.cycles.map((cycle) => ({
+        counter: cycle.counter,
+      }))
+
+      const receiptsToHeal = missingData.receipts.map((receipt) => ({
+        id: receipt.id,
+        cycle: receipt.cycle,
+      }))
+
+      // Perform healing
+      const healedCycles = await healCycles(cyclesToHeal)
+      const healedReceipts = await healReceipts(receiptsToHeal)
+
+      // Log healing results
+      mainLogger.info('=== Healing Results ===')
+      mainLogger.info(`Cycles healed: ${healedCycles}`)
+      mainLogger.info(`Receipts healed: ${healedReceipts}`)
+
+      // Get updated counts after healing
       mainLogger.info('=== Updated Database Table Counts ===')
       const updatedCycleCount = await CycleDB.queryCyleCount()
       const updatedReceiptCount = await ReceiptDB.queryReceiptCount()
       mainLogger.info(`Cycles: ${updatedCycleCount} (${updatedCycleCount - tableCounts['cycles']} added)`)
       mainLogger.info(`Receipts: ${updatedReceiptCount} (${updatedReceiptCount - tableCounts['receipts']} added)`)
 
-      // Update counts for JSON output
       tableCounts['cycles_after_healing'] = updatedCycleCount
       tableCounts['receipts_after_healing'] = updatedReceiptCount
+    } else {
+      // ANALYSIS MODE
+      mainLogger.info('=== Starting Analysis Mode ===')
+
+      // Run analysis
+      const { missingCount: missingCycles, mismatchedCount: mismatchedCycles } = await analyzeCycles(maxCycleToCheck)
+
+      // Log analysis results
+      mainLogger.info('=== Analysis Results ===')
+      mainLogger.info(`Total cycles checked: ${maxCycleToCheck + 1 - minCycle}`)
+      mainLogger.info(`Missing cycles: ${missingCycles}`)
+      mainLogger.info(`Mismatched cycles: ${mismatchedCycles}`)
+      mainLogger.info(`Receipts with txgroupcycle field: ${txGroupCycleCounter}`)
+      if (removeTxGroupCycle) {
+        mainLogger.info(`txgroupcycle field removed from ${txGroupCycleCounter} receipts`)
+      }
+
+      // Save analysis results to JSON
+      saveResultsToJson()
+      mainLogger.info(`Analysis results saved to ${jsonLogFile}. Use this file for healing mode.`)
     }
-
-    // Log summary of findings
-    mainLogger.info('=== Analysis Summary ===')
-    mainLogger.info(`Total cycles checked: ${maxCycleToCheck + 1 - minCycle}`)
-    const missingCyclesCount = missingData.cycles.filter((c) => c.missing).length
-    const mismatchedCyclesCount = missingData.cycles.filter((c) => !c.missing).length
-    const missingReceiptsCount = missingData.receipts.filter((r) => r.missing).length
-    const mismatchedReceiptsCount = missingData.receipts.filter((r) => !r.missing).length
-
-    mainLogger.info(`Missing cycles: ${missingCyclesCount}`)
-    mainLogger.info(`Mismatched cycles: ${mismatchedCyclesCount}`)
-    mainLogger.info(`Missing receipts: ${missingReceiptsCount}`)
-    mainLogger.info(`Mismatched receipts: ${mismatchedReceiptsCount}`)
-    mainLogger.info(`Receipts with txgroupcycle field: ${txGroupCycleCounter}`)
-    if (removeTxGroupCycle) {
-      mainLogger.info(`txgroupcycle field removed from ${txGroupCycleCounter} receipts`)
-    }
-
-    // Log table counts
-    mainLogger.info('=== Database Table Counts ===')
-    for (const [table, count] of Object.entries(tableCounts)) {
-      mainLogger.info(`${table}: ${count}`)
-    }
-
-    // Save results to JSON
-    saveResultsToJson()
 
     // Print summary information to console
     printMissingDataSummary()
 
-    logEndpointStatsSummary() // This will log to the console/log file
+    // Log endpoint stats
+    logEndpointStatsSummary()
 
     // Log total run time
     const totalRunTimeMs = Date.now() - startTime
     mainLogger.info(`Total run time: ${formatTime(totalRunTimeMs)}`)
     mainLogger.info('Archiver Healing Script Completed')
 
-    // Use a safe sleep method
-    if (Utils.sleep) {
-      await Utils.sleep(200)
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    }
-
+    await Utils.sleep(200)
     process.exit(0)
   } catch (error) {
-    // Handle case where logger might not be initialized
     if (mainLogger) {
       mainLogger.error('Unhandled error in healing script:', error)
     } else {
@@ -1220,14 +1146,7 @@ async function main() {
     if (mainLogger) {
       mainLogger.info('Archiver Healing Script Completed')
     }
-
-    // Use a safe sleep method
-    if (Utils.sleep) {
-      await Utils.sleep(200)
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    }
-
+    await Utils.sleep(200)
     process.exit(0)
   }
 }
