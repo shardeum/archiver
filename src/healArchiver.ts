@@ -19,6 +19,10 @@ import { initializeSerialization } from './utils/serialization/SchemaHelpers'
 // This is done before any other operations to ensure crypto is ready
 Crypto.setCryptoHashKey('69fa4195670576c0160d660c3be36556ff8d504725be8a59b5a96509e0c994bc')
 
+// Get archiver keys from environment variables or config
+const ARCHIVER_PUBLIC_KEY = process.env.ARCHIVER_PUBLIC_KEY || config.ARCHIVER_PUBLIC_KEY
+const ARCHIVER_SECRET_KEY = process.env.ARCHIVER_SECRET_KEY || config.ARCHIVER_SECRET_KEY
+
 // Start time for tracking total execution time
 const startTime = Date.now()
 
@@ -258,10 +262,10 @@ async function callArchiverApi(endpoint: string, data: any): Promise<any> {
     const signedData = Crypto.core.signObj(
       {
         ...data,
-        sender: config.ARCHIVER_PUBLIC_KEY,
+        sender: ARCHIVER_PUBLIC_KEY,
       },
-      config.ARCHIVER_SECRET_KEY,
-      config.ARCHIVER_PUBLIC_KEY
+      ARCHIVER_SECRET_KEY,
+      ARCHIVER_PUBLIC_KEY
     )
 
     // Make the API call
@@ -969,8 +973,10 @@ async function main() {
     console.log(`Target Archiver: ${archiverIp}:${archiverPort}`)
 
     // Check if crypto keys are properly set
-    if (!config.ARCHIVER_PUBLIC_KEY || !config.ARCHIVER_SECRET_KEY) {
-      console.error('ARCHIVER_PUBLIC_KEY or ARCHIVER_SECRET_KEY not set in config. Cannot proceed with API calls.')
+    if (!ARCHIVER_PUBLIC_KEY || !ARCHIVER_SECRET_KEY) {
+      console.error(
+        'ARCHIVER_PUBLIC_KEY or ARCHIVER_SECRET_KEY not set in config or environment. Cannot proceed with API calls.'
+      )
       console.log('Please set these values in your environment or config file.')
       process.exit(1)
     }
