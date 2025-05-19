@@ -923,6 +923,46 @@ export class CheckpointBucket<T> {
         return false
       }
 
+      // Check if the local entry contains a receipt with successful status
+      // If it does, we should not allow it to be overwritten with a failed receipt
+      if (localEntry.sortedData.length > 0 && this.checkpointType === CheckpointType.Receipt) {
+        try {
+          // We're dealing with receipts, check for success/fail status
+          for (const data of localEntry.sortedData) {
+            const receipt = data.d as any // Receipt type
+
+            // Check if the local receipt has successful status (status=1)
+            if (receipt?.appReceiptData?.data?.readableReceipt?.status === 1) {
+              // If local receipt is successful, check if incoming entry has any failed receipts
+              let incomingContainsFailedReceipt = false
+
+              for (const incomingData of incomingEntry.sortedData) {
+                const incomingReceipt = incomingData.d as any
+                if (incomingReceipt?.appReceiptData?.data?.readableReceipt?.status === 0) {
+                  incomingContainsFailedReceipt = true
+                  Logger.mainLogger.debug(
+                    'Rejecting checkpoint update: Cannot replace a successful receipt (status=1) with a failed receipt (status=0)',
+                    'local receipt:',
+                    StringUtils.safeStringify(receipt),
+                    'incoming receipt:',
+                    StringUtils.safeStringify(incomingReceipt)
+                  )
+                  break
+                }
+              }
+
+              // If incoming entry has failed receipts, don't accept the update
+              if (incomingContainsFailedReceipt) {
+                return false
+              }
+            }
+          }
+        } catch (err) {
+          // If there's an error checking the receipt status, log it but continue with normal processing
+          Logger.mainLogger.error('Error checking receipt status during checkpoint merge:', err)
+        }
+      }
+
       // Only accept data if:
       // 1. It has the majority hash
       // 2. The majority is from original sources (not propagated copies)
