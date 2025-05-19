@@ -36,7 +36,7 @@ To help us understand and resolve the issue quickly, please include (where possi
 
 We appreciate your efforts in keeping our project and its users safe.
 
-### Responsible Disclosure Guidelines
+## Responsible Disclosure Guidelines
 
 When conducting security research and reporting vulnerabilities, we request that you:
 
