@@ -14,6 +14,7 @@ import { readFileSync } from 'fs'
 import { resolve, join } from 'path'
 import { initAjvSchemas } from './types/ajv/Helpers'
 import { initializeSerialization } from './utils/serialization/SchemaHelpers'
+import * as AccountDB from './dbstore/accounts'
 
 // Initialize crypto with a hardcoded key for the heal script
 // This is done before any other operations to ensure crypto is ready
@@ -43,6 +44,24 @@ const archiverIp = getArgValue('--archiver-ip') || '127.0.0.1'
 const archiverPort = parseInt(getArgValue('--archiver-port') || '4000')
 const removeTxGroupCycle = getArgValue('--remove-txgroupcycle') === 'true'
 const disableReceiptOverride = getArgValue('--disable-receipt-override') === 'true'
+
+// New options for selective analysis/healing
+const analyzeAccountsFlag = args.includes('--analyze-accounts')
+const analyzeReceiptsFlag = args.includes('--analyze-receipts')
+const analyzeCyclesFlag = args.includes('--analyze-cycles')
+const healAccountsFlag = args.includes('--heal-accounts')
+const healReceiptsFlag = args.includes('--heal-receipts')
+const healCyclesFlag = args.includes('--heal-cycles')
+
+// If no specific analyze/heal flags are provided, analyze/heal everything
+const shouldAnalyzeAccounts =
+  analyzeAccountsFlag || (!analyzeAccountsFlag && !analyzeReceiptsFlag && !analyzeCyclesFlag)
+const shouldAnalyzeReceipts =
+  analyzeReceiptsFlag || (!analyzeAccountsFlag && !analyzeReceiptsFlag && !analyzeCyclesFlag)
+const shouldAnalyzeCycles = analyzeCyclesFlag || (!analyzeAccountsFlag && !analyzeReceiptsFlag && !analyzeCyclesFlag)
+const shouldHealAccounts = healAccountsFlag || (!healAccountsFlag && !healReceiptsFlag && !healCyclesFlag)
+const shouldHealReceipts = healReceiptsFlag || (!healAccountsFlag && !healReceiptsFlag && !healCyclesFlag)
+const shouldHealCycles = healCyclesFlag || (!healAccountsFlag && !healReceiptsFlag && !healCyclesFlag)
 
 /**
  * Display help message for command line arguments
@@ -75,6 +94,16 @@ Options:
                                      Note: For hash comparison, txgroupcycle is always ignored regardless of this flag
   --disable-receipt-override <true|false> Only insert missing or mismatched receipts (default: false)
 
+Analysis Options:
+  --analyze-accounts           Only analyze accounts (if not specified, analyzes all)
+  --analyze-receipts          Only analyze receipts (if not specified, analyzes all)
+  --analyze-cycles            Only analyze cycles (if not specified, analyzes all)
+
+Healing Options:
+  --heal-accounts             Only heal accounts (if not specified, heals all)
+  --heal-receipts            Only heal receipts (if not specified, heals all)
+  --heal-cycles              Only heal cycles (if not specified, heals all)
+
 Examples:
   # Check for missing data without healing
   ts-node healArchiver.ts --min-cycle 1000 --max-cycle 2000
@@ -90,6 +119,12 @@ Examples:
 
   # Heal missing data with custom batch sizes
   ts-node healArchiver.ts --heal true --cycle-batch-size 5 --receipt-batch-size 200
+
+  # Only analyze and heal accounts
+  ts-node healArchiver.ts --analyze-accounts --heal-accounts
+
+  # Analyze everything but only heal receipts
+  ts-node healArchiver.ts --heal true --heal-receipts
 `)
   process.exit(0)
 }
@@ -112,9 +147,11 @@ const endpointStats: Record<
 const missingData: {
   cycles: { counter: number; hash: string; missing: boolean }[]
   receipts: { id: string; cycle: number; hash: string; missing: boolean }[]
+  accounts: { id: string; cycle: number; hash: string; missing: boolean }[]
 } = {
   cycles: [],
   receipts: [],
+  accounts: [],
 }
 
 // Counter for txgroupcycle occurrences
@@ -991,6 +1028,7 @@ function printMissingDataSummary() {
 async function readMissingDataFromJson(jsonFilePath: string): Promise<{
   cycles: { counter: number; hash: string; missing: boolean }[]
   receipts: { id: string; cycle: number; hash: string; missing: boolean }[]
+  accounts: { id: string; cycle: number; hash: string; missing: boolean }[]
 }> {
   try {
     const fileContent = fs.readFileSync(jsonFilePath, 'utf8')
@@ -998,6 +1036,7 @@ async function readMissingDataFromJson(jsonFilePath: string): Promise<{
     return {
       cycles: data.cycles || [],
       receipts: data.receipts || [],
+      accounts: data.accounts || [],
     }
   } catch (error) {
     mainLogger.error(`Error reading missing data from ${jsonFilePath}:`, error)
@@ -1008,7 +1047,10 @@ async function readMissingDataFromJson(jsonFilePath: string): Promise<{
 /**
  * Analyze receipts between local and remote
  */
-async function analyzeReceipts(minCycleToCheck: number, maxCycleToCheck: number): Promise<{ missingCount: number; mismatchedCount: number }> {
+async function analyzeReceipts(
+  minCycleToCheck: number,
+  maxCycleToCheck: number
+): Promise<{ missingCount: number; mismatchedCount: number }> {
   mainLogger.info(`Analyzing receipts from cycle ${minCycleToCheck} to ${maxCycleToCheck}`)
 
   let totalMissing = 0
@@ -1049,7 +1091,9 @@ async function analyzeReceipts(minCycleToCheck: number, maxCycleToCheck: number)
       }
 
       const receiptCount = allReceiptsForCycleRange.length
-      mainLogger.info(`Found total ${receiptCount} receipts for cycle range ${startCycle}-${endCycle} across ${page} page(s)`)
+      mainLogger.info(
+        `Found total ${receiptCount} receipts for cycle range ${startCycle}-${endCycle} across ${page} page(s)`
+      )
 
       if (receiptCount === 0) {
         continue
@@ -1058,8 +1102,12 @@ async function analyzeReceipts(minCycleToCheck: number, maxCycleToCheck: number)
       // Analyze each receipt
       for (const remoteReceipt of allReceiptsForCycleRange) {
         const processedReceipt = processReceipt(remoteReceipt)
-        const receiptId = processedReceipt.receiptId || processedReceipt.id || processedReceipt.txId || 
-                         processedReceipt?.tx?.txId || processedReceipt?.appReceiptData?.data?.txId
+        const receiptId =
+          processedReceipt.receiptId ||
+          processedReceipt.id ||
+          processedReceipt.txId ||
+          processedReceipt?.tx?.txId ||
+          processedReceipt?.appReceiptData?.data?.txId
         const cycle = processedReceipt.cycle || startCycle
 
         if (!receiptId) {
@@ -1109,6 +1157,170 @@ async function analyzeReceipts(minCycleToCheck: number, maxCycleToCheck: number)
 
   mainLogger.info(`Receipt analysis complete. Missing: ${totalMissing}, Mismatched: ${totalMismatched}`)
   return { missingCount: totalMissing, mismatchedCount: totalMismatched }
+}
+
+/**
+ * Analyze accounts between local and remote
+ */
+async function analyzeAccounts(
+  minCycleToCheck: number,
+  maxCycleToCheck: number
+): Promise<{ missingCount: number; mismatchedCount: number }> {
+  mainLogger.info(`Analyzing accounts from cycle ${minCycleToCheck} to ${maxCycleToCheck}`)
+
+  let totalMissing = 0
+  let totalMismatched = 0
+
+  // Process in batches of multiple cycles
+  const CYCLE_BATCH_SIZE = cycleBatchSize
+
+  for (let startCycle = minCycleToCheck; startCycle <= maxCycleToCheck; startCycle += CYCLE_BATCH_SIZE) {
+    const endCycle = Math.min(startCycle + CYCLE_BATCH_SIZE - 1, maxCycleToCheck)
+    logProgress(startCycle - minCycleToCheck, maxCycleToCheck - minCycleToCheck, 'Analyzing accounts for cycles')
+
+    try {
+      // Get accounts from remote archiver for this cycle range
+      const response = await callArchiverApi('/accounts', {
+        startCycle,
+        endCycle,
+      })
+
+      if (!response || !response.accounts || response.accounts.length === 0) {
+        mainLogger.debug(`No remote accounts found for cycle range ${startCycle}-${endCycle}`)
+        continue
+      }
+
+      const remoteAccounts = response.accounts
+      mainLogger.info(`Found ${remoteAccounts.length} remote accounts for cycle range ${startCycle}-${endCycle}`)
+
+      // Get local accounts for this cycle range
+      const localAccounts = await AccountDB.queryAccountsBetweenCycles(0, 10000, startCycle, endCycle)
+      const localAccountMap = new Map<string, any>()
+      localAccounts.forEach((account) => {
+        localAccountMap.set(account.accountId, account)
+      })
+
+      // Compare each remote account with local
+      for (const remoteAccount of remoteAccounts) {
+        const accountId = remoteAccount.accountId
+        const localAccount = localAccountMap.get(accountId)
+
+        // Calculate hash for comparison
+        const remoteHash = Crypto.hash(StringUtils.safeStringify(remoteAccount))
+
+        if (!localAccount) {
+          // Missing account
+          totalMissing++
+          missingData.accounts.push({
+            id: accountId,
+            cycle: remoteAccount.cycleNumber || startCycle,
+            hash: remoteHash,
+            missing: true,
+          })
+        } else {
+          // Compare hashes
+          const localHash = Crypto.hash(StringUtils.safeStringify(localAccount))
+          if (localHash !== remoteHash) {
+            totalMismatched++
+            missingData.accounts.push({
+              id: accountId,
+              cycle: remoteAccount.cycleNumber || startCycle,
+              hash: remoteHash,
+              missing: false,
+            })
+          }
+        }
+      }
+
+      await Utils.sleep(sleepBetweenBatchesMs)
+    } catch (error) {
+      mainLogger.error(`Error processing cycle range ${startCycle}-${endCycle}:`, error)
+    }
+  }
+
+  mainLogger.info(`Account analysis complete. Missing: ${totalMissing}, Mismatched: ${totalMismatched}`)
+  return { missingCount: totalMissing, mismatchedCount: totalMismatched }
+}
+
+/**
+ * Heal accounts that were found to be missing or mismatched
+ */
+async function healAccounts(accountsToHeal: { id: string; cycle: number }[]): Promise<number> {
+  let healedCount = 0
+
+  if (accountsToHeal.length === 0) {
+    return healedCount
+  }
+
+  mainLogger.info(`Fetching current data for ${accountsToHeal.length} accounts from remote archiver`)
+
+  // Process in batches to avoid overwhelming the remote archiver
+  const BATCH_SIZE = batchSize
+  for (let i = 0; i < accountsToHeal.length; i += BATCH_SIZE) {
+    const batchAccounts = accountsToHeal.slice(i, i + BATCH_SIZE)
+    if (batchAccounts.length === 0) continue
+
+    try {
+      // Find min and max cycle in this batch
+      const minCycle = Math.min(...batchAccounts.map((a) => a.cycle))
+      const maxCycle = Math.max(...batchAccounts.map((a) => a.cycle))
+
+      mainLogger.info(
+        `Fetching accounts batch ${i / BATCH_SIZE + 1}, IDs: [${batchAccounts.map((a) => a.id).join(', ')}]`
+      )
+
+      const response = await callArchiverApi('/accounts', {
+        accountIds: batchAccounts.map((a) => a.id),
+        startCycle: minCycle,
+        endCycle: maxCycle,
+      })
+
+      if (response && response.accounts) {
+        // Verify we got all the accounts we asked for
+        const receivedIds = new Set(response.accounts.map((a) => a.accountId))
+        const missingIds = batchAccounts.filter((a) => !receivedIds.has(a.id))
+
+        if (missingIds.length > 0) {
+          mainLogger.warn(`Did not receive data for some accounts: [${missingIds.map((a) => a.id).join(', ')}]`)
+        }
+
+        // Store accounts in batches
+        const ACCOUNT_BATCH_SIZE = 20
+        for (let j = 0; j < response.accounts.length; j += ACCOUNT_BATCH_SIZE) {
+          const accountBatch = response.accounts.slice(j, j + ACCOUNT_BATCH_SIZE)
+          try {
+            await AccountDB.bulkInsertAccounts(accountBatch)
+            mainLogger.info(
+              `Successfully healed batch ${j / ACCOUNT_BATCH_SIZE + 1} with ${accountBatch.length} accounts`
+            )
+            healedCount += accountBatch.length
+          } catch (error) {
+            mainLogger.error(`Error batch healing accounts: ${error}`)
+
+            // Try inserting one by one if batch insert fails
+            mainLogger.info('Attempting to insert accounts one by one')
+            for (const account of accountBatch) {
+              try {
+                await AccountDB.insertAccount(account)
+                mainLogger.info(`Successfully healed account ${account.accountId}`)
+                healedCount++
+              } catch (accountError) {
+                mainLogger.error(`Error healing account ${account.accountId}: ${accountError}`)
+              }
+            }
+          }
+        }
+      } else {
+        mainLogger.warn(`No accounts returned for batch ${i / BATCH_SIZE + 1}`)
+      }
+    } catch (error) {
+      mainLogger.error(`Error fetching remote account data for batch ${i / BATCH_SIZE + 1}:`, error)
+    }
+
+    await Utils.sleep(sleepBetweenBatchesMs)
+  }
+
+  return healedCount
 }
 
 /**
@@ -1175,58 +1387,125 @@ async function main() {
       // Update global missingData with data from JSON
       missingData.cycles = missingDataFromJson.cycles
       missingData.receipts = missingDataFromJson.receipts
+      missingData.accounts = missingDataFromJson.accounts || []
 
-      mainLogger.info(`Found ${missingData.cycles.length} cycles and ${missingData.receipts.length} receipts to heal`)
+      mainLogger.info(
+        `Found ${missingData.cycles.length} cycles, ${missingData.receipts.length} receipts, and ${missingData.accounts.length} accounts to heal`
+      )
 
       // Prepare data for healing
-      const cyclesToHeal = missingData.cycles.map((cycle) => ({
-        counter: cycle.counter,
-      }))
+      const cyclesToHeal = shouldHealCycles
+        ? missingData.cycles.map((cycle) => ({
+            counter: cycle.counter,
+          }))
+        : []
 
-      const receiptsToHeal = missingData.receipts.map((receipt) => ({
-        id: receipt.id,
-        cycle: receipt.cycle,
-      }))
+      const receiptsToHeal = shouldHealReceipts
+        ? missingData.receipts.map((receipt) => ({
+            id: receipt.id,
+            cycle: receipt.cycle,
+          }))
+        : []
 
-      // Perform healing
-      const healedCycles = await healCycles(cyclesToHeal)
-      const healedReceipts = await healReceipts(receiptsToHeal)
+      const accountsToHeal = shouldHealAccounts
+        ? missingData.accounts.map((account) => ({
+            id: account.id,
+            cycle: account.cycle,
+          }))
+        : []
+
+      // Perform healing based on flags
+      let healedCycles = 0
+      let healedReceipts = 0
+      let healedAccounts = 0
+
+      if (shouldHealCycles) {
+        healedCycles = await healCycles(cyclesToHeal)
+      }
+      if (shouldHealReceipts) {
+        healedReceipts = await healReceipts(receiptsToHeal)
+      }
+      if (shouldHealAccounts) {
+        healedAccounts = await healAccounts(accountsToHeal)
+      }
 
       // Log healing results
       mainLogger.info('=== Healing Results ===')
-      mainLogger.info(`Cycles healed: ${healedCycles}`)
-      mainLogger.info(`Receipts healed: ${healedReceipts}`)
+      if (shouldHealCycles) {
+        mainLogger.info(`Cycles healed: ${healedCycles}`)
+      }
+      if (shouldHealReceipts) {
+        mainLogger.info(`Receipts healed: ${healedReceipts}`)
+      }
+      if (shouldHealAccounts) {
+        mainLogger.info(`Accounts healed: ${healedAccounts}`)
+      }
 
       // Get updated counts after healing
       mainLogger.info('=== Updated Database Table Counts ===')
-      const updatedCycleCount = await CycleDB.queryCyleCount()
-      const updatedReceiptCount = await ReceiptDB.queryReceiptCount()
-      mainLogger.info(`Cycles: ${updatedCycleCount} (${updatedCycleCount - tableCounts['cycles']} added)`)
-      mainLogger.info(`Receipts: ${updatedReceiptCount} (${updatedReceiptCount - tableCounts['receipts']} added)`)
-
-      tableCounts['cycles_after_healing'] = updatedCycleCount
-      tableCounts['receipts_after_healing'] = updatedReceiptCount
+      if (shouldHealCycles) {
+        const updatedCycleCount = await CycleDB.queryCyleCount()
+        mainLogger.info(`Cycles: ${updatedCycleCount} (${updatedCycleCount - tableCounts['cycles']} added)`)
+        tableCounts['cycles_after_healing'] = updatedCycleCount
+      }
+      if (shouldHealReceipts) {
+        const updatedReceiptCount = await ReceiptDB.queryReceiptCount()
+        mainLogger.info(`Receipts: ${updatedReceiptCount} (${updatedReceiptCount - tableCounts['receipts']} added)`)
+        tableCounts['receipts_after_healing'] = updatedReceiptCount
+      }
+      if (shouldHealAccounts) {
+        const updatedAccountCount = await AccountDB.queryAccountCount()
+        mainLogger.info(`Accounts: ${updatedAccountCount} (${updatedAccountCount - tableCounts['accounts']} added)`)
+        tableCounts['accounts_after_healing'] = updatedAccountCount
+      }
     } else {
       // ANALYSIS MODE
       mainLogger.info('=== Starting Analysis Mode ===')
 
-      // Run analysis for both cycles and receipts
-      const { missingCount: missingCycles, mismatchedCount: mismatchedCycles } = await analyzeCycles(maxCycleToCheck)
-      const { missingCount: missingReceipts, mismatchedCount: mismatchedReceipts } = await analyzeReceipts(
-        minCycle,
-        maxCycleToCheck
-      )
+      // Run analysis based on flags
+      let missingCycles = 0
+      let mismatchedCycles = 0
+      let missingReceipts = 0
+      let mismatchedReceipts = 0
+      let missingAccounts = 0
+      let mismatchedAccounts = 0
+
+      if (shouldAnalyzeCycles) {
+        const cycleResults = await analyzeCycles(maxCycleToCheck)
+        missingCycles = cycleResults.missingCount
+        mismatchedCycles = cycleResults.mismatchedCount
+      }
+      if (shouldAnalyzeReceipts) {
+        const receiptResults = await analyzeReceipts(minCycle, maxCycleToCheck)
+        missingReceipts = receiptResults.missingCount
+        mismatchedReceipts = receiptResults.mismatchedCount
+      }
+      if (shouldAnalyzeAccounts) {
+        const accountResults = await analyzeAccounts(minCycle, maxCycleToCheck)
+        missingAccounts = accountResults.missingCount
+        mismatchedAccounts = accountResults.mismatchedCount
+      }
 
       // Log analysis results
       mainLogger.info('=== Analysis Results ===')
       mainLogger.info(`Total cycles checked: ${maxCycleToCheck + 1 - minCycle}`)
-      mainLogger.info(`Missing cycles: ${missingCycles}`)
-      mainLogger.info(`Mismatched cycles: ${mismatchedCycles}`)
-      mainLogger.info(`Missing receipts: ${missingReceipts}`)
-      mainLogger.info(`Mismatched receipts: ${mismatchedReceipts}`)
-      mainLogger.info(`Receipts with txgroupcycle field: ${txGroupCycleCounter}`)
-      if (removeTxGroupCycle) {
-        mainLogger.info(`txgroupcycle field removed from ${txGroupCycleCounter} receipts`)
+      if (shouldAnalyzeCycles) {
+        mainLogger.info(`Missing cycles: ${missingCycles}`)
+        mainLogger.info(`Mismatched cycles: ${mismatchedCycles}`)
+      }
+      if (shouldAnalyzeReceipts) {
+        mainLogger.info(`Missing receipts: ${missingReceipts}`)
+        mainLogger.info(`Mismatched receipts: ${mismatchedReceipts}`)
+      }
+      if (shouldAnalyzeAccounts) {
+        mainLogger.info(`Missing accounts: ${missingAccounts}`)
+        mainLogger.info(`Mismatched accounts: ${mismatchedAccounts}`)
+      }
+      if (shouldAnalyzeReceipts) {
+        mainLogger.info(`Receipts with txgroupcycle field: ${txGroupCycleCounter}`)
+        if (removeTxGroupCycle) {
+          mainLogger.info(`txgroupcycle field removed from ${txGroupCycleCounter} receipts`)
+        }
       }
 
       // Save analysis results to JSON
