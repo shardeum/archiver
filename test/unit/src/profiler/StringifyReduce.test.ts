@@ -438,13 +438,7 @@ describe('StringifyReduce', () => {
       })
 
       it('should handle invalid input types gracefully', () => {
-        const invalidInputs = [
-          new WeakMap(),
-          new WeakSet(),
-          new Proxy({}, {}),
-          new Int8Array(1),
-          // Remove BigInt64Array as it's not supported by JSON.stringify
-        ]
+        const invalidInputs = [new WeakMap(), new WeakSet(), new Proxy({}, {}), new Int8Array(1)]
 
         // Mock safeStringify to handle special cases
         jest.spyOn(StringUtils, 'safeStringify').mockImplementation((val) => {
