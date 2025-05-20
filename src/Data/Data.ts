@@ -1002,6 +1002,10 @@ export async function createDataTransferConnection(newSenderInfo: NodeList.Conse
   return response
 }
 
+function shouldSubscribeToMoreConsensors(): boolean {
+  return config.subscribeToMoreConsensors && currentConsensusRadius > 5
+}
+
 export async function createNodesGroupByConsensusRadius(): Promise<void> {
   const consensusRadius = await getConsensusRadius()
   if (consensusRadius === 0) {
@@ -1013,7 +1017,7 @@ export async function createNodesGroupByConsensusRadius(): Promise<void> {
   if (config.VERBOSE) Logger.mainLogger.debug('activeList', activeList.length, activeList)
   let totalNumberOfNodesToSubscribe = Math.ceil(activeList.length / consensusRadius)
   // Only if there are less than 4 activeArchivers and if the consensusRadius is greater than 5
-  if (config.subscribeToMoreConsensors && State.activeArchivers.length < 4 && currentConsensusRadius > 5) {
+  if (shouldSubscribeToMoreConsensors()) {
     totalNumberOfNodesToSubscribe += totalNumberOfNodesToSubscribe * config.extraConsensorsToSubscribe
   }
   Logger.mainLogger.debug('totalNumberOfNodesToSubscribe', totalNumberOfNodesToSubscribe)
@@ -1047,7 +1051,7 @@ export async function subscribeNodeFromThisSubset(nodeList: NodeList.ConsensusNo
   }
   let numberOfNodesToSubsribe = 1
   // Only if there are less than 4 activeArchivers and if the consensusRadius is greater than 5
-  if (config.subscribeToMoreConsensors && State.activeArchivers.length < 4 && currentConsensusRadius > 5) {
+  if (shouldSubscribeToMoreConsensors()) {
     numberOfNodesToSubsribe += config.extraConsensorsToSubscribe
   }
   if (subscribedNodesFromThisSubset.length > numberOfNodesToSubsribe) {
@@ -1841,6 +1845,50 @@ export async function syncReceipts(): Promise<void> {
   Logger.mainLogger.debug('Sync receipts data completed!')
 }
 
+interface ArchiverWithRetries {
+  archiver: State.ArchiverNodeInfo
+  retriesLeft: number
+}
+
+class ArchiverSelector {
+  private archivers: ArchiverWithRetries[]
+  private currentIndex: number = 0
+  private readonly maxRetries: number = 3
+
+  constructor() {
+    this.archivers = State.otherArchivers.map((archiver) => ({
+      archiver,
+      retriesLeft: this.maxRetries,
+    }))
+    Utils.shuffleArray(this.archivers)
+  }
+
+  getCurrentArchiver(): State.ArchiverNodeInfo | null {
+    if (this.currentIndex >= this.archivers.length) {
+      return null
+    }
+    return this.archivers[this.currentIndex].archiver
+  }
+
+  markCurrentArchiverFailed(): State.ArchiverNodeInfo | null {
+    if (this.currentIndex >= this.archivers.length) {
+      return null
+    }
+
+    this.archivers[this.currentIndex].retriesLeft--
+
+    if (this.archivers[this.currentIndex].retriesLeft <= 0) {
+      this.currentIndex++
+    }
+
+    return this.getCurrentArchiver()
+  }
+
+  hasMoreArchivers(): boolean {
+    return this.currentIndex < this.archivers.length
+  }
+}
+
 export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyncTo = 0): Promise<boolean> {
   let totalCycles = cycleToSyncTo
   let totalReceipts = 0
@@ -1857,8 +1905,7 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
   let receiptsCountToSyncBetweenCycles = 0
   let savedReceiptsCountBetweenCycles = 0
   let totalSavedReceiptsCount = 0
-  let retryCount = 0
-  const MAX_RETRIES = 3
+  let archiverSelector = new ArchiverSelector()
 
   while (true) {
     if (endCycle > totalCycles) {
@@ -1890,16 +1937,27 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
       )
       return false
     }
-    Logger.mainLogger.debug(`Downloading receipts from cycle ${startCycle} to cycle ${endCycle}`)
+
+    const currentArchiver = archiverSelector.getCurrentArchiver()
+    if (!currentArchiver || !archiverSelector.hasMoreArchivers()) {
+      Logger.mainLogger.error('All archivers exhausted')
+      return false
+    }
+
+    Logger.mainLogger.debug(
+      `Downloading receipts from cycle ${startCycle} to cycle ${endCycle} using archiver ${currentArchiver.ip}:${currentArchiver.port}`
+    )
     let response = (await queryFromArchivers(
       RequestDataType.RECEIPT,
       {
         startCycle,
         endCycle,
         type: 'count',
+        archiver: currentArchiver,
       },
       QUERY_TIMEOUT_MAX
     )) as ArchiverReceiptCountResponse
+
     if (response && response.receipts > 0) {
       receiptsCountToSyncBetweenCycles = response.receipts
       let page = 1
@@ -1911,10 +1969,11 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
             startCycle,
             endCycle,
             page,
+            archiver: currentArchiver,
           },
           QUERY_TIMEOUT_MAX
         )) as ArchiverReceiptResponse
-        if (res && res.receipts) {
+        if (res && res.receipts && Array.isArray(res.receipts) && res.receipts.length > 0) {
           const downloadedReceipts = res.receipts as ReceiptDB.Receipt[]
           Logger.mainLogger.debug(`Downloaded receipts`, downloadedReceipts.length)
           await storeReceiptData(downloadedReceipts)
@@ -1926,6 +1985,7 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
                 startCycle,
                 endCycle,
                 type: 'count',
+                archiver: currentArchiver,
               },
               QUERY_TIMEOUT_MAX
             )) as ArchiverReceiptCountResponse
@@ -1948,34 +2008,41 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
           }
           totalSavedReceiptsCount += downloadedReceipts.length
           page++
-          retryCount = 0
         } else {
-          Logger.mainLogger.debug('Invalid download response')
-          retryCount++
-          if (retryCount >= MAX_RETRIES) {
-            Logger.mainLogger.error('Max retries reached for invalid download response')
+          Logger.mainLogger.debug('Invalid or empty download response')
+          const nextArchiver = archiverSelector.markCurrentArchiverFailed()
+          if (nextArchiver) {
+            Logger.mainLogger.debug(`Switching to next archiver: ${nextArchiver.ip}:${nextArchiver.port}`)
+            continue
+          }
+          if (!archiverSelector.hasMoreArchivers()) {
+            Logger.mainLogger.error('All archivers exhausted')
             return false
           }
-          continue
         }
       }
       Logger.mainLogger.debug(`Download receipts completed for ${startCycle} - ${endCycle}`)
       // Update checkpoint status for completed cycles
       startCycle = endCycle + 1
       endCycle += MAX_BETWEEN_CYCLES_PER_REQUEST
-      retryCount = 0
+      archiverSelector = new ArchiverSelector()
     } else {
-      receiptsCountToSyncBetweenCycles = response.receipts
+      receiptsCountToSyncBetweenCycles = response?.receipts || 0
       if (receiptsCountToSyncBetweenCycles === 0) {
         startCycle = endCycle + 1
         endCycle += MAX_BETWEEN_CYCLES_PER_REQUEST
-        retryCount = 0
+
+        archiverSelector = new ArchiverSelector()
         continue
       }
       Logger.mainLogger.debug('Invalid download response')
-      retryCount++
-      if (retryCount >= MAX_RETRIES) {
-        Logger.mainLogger.error('Max retries reached for invalid download response')
+      const nextArchiver = archiverSelector.markCurrentArchiverFailed()
+      if (nextArchiver) {
+        Logger.mainLogger.debug(`Switching to next archiver: ${nextArchiver.ip}:${nextArchiver.port}`)
+        continue
+      }
+      if (!archiverSelector.hasMoreArchivers()) {
+        Logger.mainLogger.error('All archivers exhausted')
         return false
       }
     }
