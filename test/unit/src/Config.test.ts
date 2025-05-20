@@ -91,6 +91,7 @@ describe('Config Module', () => {
         syncInterval: 10000,
         maxCyclesToSync: 100,
         syncOnStartup: false,
+        statusArraySize: 5000,
       })
 
       // Data logging
