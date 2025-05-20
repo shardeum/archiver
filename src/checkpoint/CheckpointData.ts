@@ -26,7 +26,6 @@ export type CheckpointStatusResponse = Array<{
   }
 }>
 
-
 /**
  * Maintains a map of bucketID (cycle number) to hashes for cycle, receipt, and originalTx buckets.
  * Ordered by bucketID (ascending). Max size is config.checkpoint.statusArraySize.
@@ -50,7 +49,11 @@ export class CheckpointStatusMap {
   set(bucketID: number, cycleHash?: string, receiptHash?: string, originalTxHash?: string) {
     let entry = this.map.get(bucketID)
     if (!entry) {
-      entry = {}
+      entry = {
+        cycleHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        receiptHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        originalTxHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      }
     }
     if (cycleHash !== undefined) entry.cycleHash = cycleHash
     if (receiptHash !== undefined) entry.receiptHash = receiptHash
@@ -118,7 +121,7 @@ function calculateBucketHash(bucket: CheckpointBucket<any>): string {
   // Example: hash all receipt data in the bucket
   // You may want to customize this based on your actual data structure
   const allData = Array.from(bucket.radixEntries.values()).flatMap((entry) => entry.sortedData)
-  return Crypto.hash(JSON.stringify(allData))
+  return Crypto.hash(StringUtils.safeStringify(allData))
 }
 
 export const checkpointStatusToTypeMap = {
