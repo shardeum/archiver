@@ -44,7 +44,7 @@ if (process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS) {
       const relPath = join(__dirname, '..', '..', 'static', gsaEnvPath)
       if (existsSync(relPath)) {
         secureAccountsFilePath = relPath
-        console.log('secureAccounts: genesis secure path set to relative path:',relPath, ' env: ', gsaEnvPath)
+        console.log('secureAccounts: genesis secure path set to relative path:', relPath, ' env: ', gsaEnvPath)
         /* prettier-ignore */ nestedCountersInstance?.countEvent('config', 'secureAccounts: genesis secure accounts loaded from:'+ relPath + ' env: ' + gsaEnvPath )
       } else {
         /* prettier-ignore */ nestedCountersInstance?.countEvent('config', 'secureAccounts: path to the following genesis secure accounts file is incorrect:'+ relPath )
@@ -58,7 +58,10 @@ if (process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS) {
   }
 } else {
   /* prettier-ignore */ nestedCountersInstance?.countEvent('config', 'secureAccounts: genesis secure accounts file path not set in env' )
-  console.log('secureAccounts: genesis secure accounts file path not set in env, using default:', secureAccountsFilePath)
+  console.log(
+    'secureAccounts: genesis secure accounts file path not set in env, using default:',
+    secureAccountsFilePath
+  )
 }
 
 export const getSecureAccounts = (): Map<string, SecureAccountData> => {

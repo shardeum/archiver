@@ -236,7 +236,7 @@ describe('calculateAccountHash', () => {
       ;(verifyGlobalTxReceiptModule.verifyGlobalTxAccountChange as jest.Mock).mockReturnValue(true)
     })
 
-    it('should use default empty arrays when failedReasons and nestedCounterMessages are not provided', async() => {
+    it('should use default empty arrays when failedReasons and nestedCounterMessages are not provided', async () => {
       // WHEN verifying with default parameters
       const result = await verifyAccountHash(mockReceipt)
 
@@ -245,7 +245,7 @@ describe('calculateAccountHash', () => {
       expect(verifyGlobalTxReceiptModule.verifyGlobalTxAccountChange).toHaveBeenCalledWith(mockReceipt, [], [])
     })
 
-    it('should handle GlobalTxReceipt validation error exception', async() => {
+    it('should handle GlobalTxReceipt validation error exception', async () => {
       // GIVEN verifyPayload throws an error
       ;(helpers.verifyPayload as jest.Mock).mockImplementation(() => {
         throw new Error('Validation error')
@@ -261,7 +261,7 @@ describe('calculateAccountHash', () => {
       expect(nestedCounterMessages[0]).toContain('Invalid Global Tx Receipt error')
     })
 
-    it('should verify using verifyGlobalTxAccountChange when GlobalTxReceipt is valid', async() => {
+    it('should verify using verifyGlobalTxAccountChange when GlobalTxReceipt is valid', async () => {
       // GIVEN a valid GlobalTxReceipt
       ;(helpers.verifyPayload as jest.Mock).mockReturnValue(null)
       ;(verifyGlobalTxReceiptModule.verifyGlobalTxAccountChange as jest.Mock).mockReturnValue(true)
@@ -278,7 +278,7 @@ describe('calculateAccountHash', () => {
       )
     })
 
-    it('should fail when verifyGlobalTxAccountChange returns false', async() => {
+    it('should fail when verifyGlobalTxAccountChange returns false', async () => {
       // GIVEN verifyGlobalTxAccountChange returns false
       ;(helpers.verifyPayload as jest.Mock).mockReturnValue(null)
       ;(verifyGlobalTxReceiptModule.verifyGlobalTxAccountChange as jest.Mock).mockReturnValue(false)
@@ -296,7 +296,7 @@ describe('calculateAccountHash', () => {
         ;(helpers.verifyPayload as jest.Mock).mockReturnValue(['Invalid schema'])
       })
 
-      it('should fail when account IDs and after state hashes length do not match', async() => {
+      it('should fail when account IDs and after state hashes length do not match', async () => {
         // GIVEN account IDs and after state hashes length mismatch
         ;(mockReceipt.signedReceipt as SignedReceipt).proposal.accountIDs = ['account1']
 
@@ -309,7 +309,7 @@ describe('calculateAccountHash', () => {
         expect(nestedCounterMessages[0]).toContain('Modified account count')
       })
 
-      it('should fail when before state hashes and after state hashes length do not match', async() => {
+      it('should fail when before state hashes and after state hashes length do not match', async () => {
         // GIVEN mismatch between before and after state hashes
         ;(mockReceipt.signedReceipt as SignedReceipt).proposal.beforeStateHashes = ['hash1']
 
@@ -322,7 +322,7 @@ describe('calculateAccountHash', () => {
         expect(nestedCounterMessages[0]).toContain('Account state hash before and after count does not match')
       })
 
-      it('should fail when account is not found in afterStates', async() => {
+      it('should fail when account is not found in afterStates', async () => {
         // GIVEN an account ID not found in afterStates
         ;(mockReceipt.signedReceipt as SignedReceipt).proposal.accountIDs = ['missing-account', 'account2']
         ;(mockReceipt.signedReceipt as SignedReceipt).proposal.beforeStateHashes = ['hash1', 'hash2']
@@ -337,7 +337,7 @@ describe('calculateAccountHash', () => {
         expect(nestedCounterMessages[0]).toContain('Account not found in the receipt')
       })
 
-      it('should fail when calculated account hash does not match expected hash', async() => {
+      it('should fail when calculated account hash does not match expected hash', async () => {
         // GIVEN a calculated hash that doesn't match expected hash
         jest.spyOn(crypto, 'hashObj').mockImplementation(() => 'wrong-hash')
 
@@ -349,10 +349,9 @@ describe('calculateAccountHash', () => {
         expect(failedReasons[0]).toContain('Account hash does not match')
         expect(nestedCounterMessages[0]).toContain('Account hash does not match')
       })
-
     })
 
-    it('should handle other exceptions during verification', async() => {
+    it('should handle other exceptions during verification', async () => {
       // GIVEN an exception will occur during verification (missing proposal)
       ;(helpers.verifyPayload as jest.Mock).mockReturnValue(['Invalid schema'])
       delete (mockReceipt.signedReceipt as any).proposal

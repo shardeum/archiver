@@ -1,11 +1,10 @@
-import { nestedCountersInstance } from "../profiler/nestedCounters"
+import { nestedCountersInstance } from '../profiler/nestedCounters'
 
 export function logEnvSetup(): void {
   try {
     console.log('LOAD_JSON_GENESIS_SECURE_ACCOUNTS', process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS)
 
     if (nestedCountersInstance != null) {
-
       nestedCountersInstance.countEvent(
         'env',
         'LOAD_JSON_GENESIS_SECURE_ACCOUNTS ' + process.env.LOAD_JSON_GENESIS_SECURE_ACCOUNTS
