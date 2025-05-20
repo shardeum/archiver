@@ -81,7 +81,7 @@ async function start(): Promise<void> {
   }
 
   logEnvSetup()
-  
+
   // Initialize allowed archivers manager
   allowedArchiversManager.initialize(allowedArchiversConfigPath)
   // Global error handling

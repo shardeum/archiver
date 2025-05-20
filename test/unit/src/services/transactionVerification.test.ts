@@ -64,4 +64,4 @@ describe('Transaction Verification Service secureAccounts override', () => {
     existsSyncSpy.mockRestore()
     readFileSyncSpy.mockRestore()
   })
-}) 
+})

@@ -49,7 +49,7 @@ export enum InternalTXType {
  * @param nestedCounterMessages - Array to collect counter messages for metrics
  * @returns boolean - True if verification passes, false otherwise
  */
-export const verifyGlobalTxAccountChange = async(
+export const verifyGlobalTxAccountChange = async (
   receipt: ArchiverReceipt | Receipt,
   failedReasons = [],
   nestedCounterMessages = []
@@ -62,8 +62,7 @@ export const verifyGlobalTxAccountChange = async(
       // Refer to https://github.com/shardeum/shardeum/blob/89db23e1d4ffb86b4353b8f37fb360ea3cd93c5b/src/index.ts#L2334
       // no need to do anything, as it is network account creation
       let count = await queryInitNetworkReceiptCountBetweenCycles(1, 5)
-      if( count >= 1 )
-        return false
+      if (count >= 1) return false
       return true
     } else if (
       internalTx.internalTXType === InternalTXType.ApplyChangeConfig ||

@@ -410,7 +410,6 @@ export async function queryInitNetworkReceiptCountBetweenCycles(
   return count
 }
 
-
 function deserializeDbReceipt(receipt: DbReceipt): void {
   if (receipt.tx) receipt.tx = DeSerializeFromJsonString(receipt.tx)
   if (receipt.beforeStates) receipt.beforeStates = DeSerializeFromJsonString(receipt.beforeStates)

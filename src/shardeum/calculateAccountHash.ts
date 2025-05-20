@@ -68,7 +68,7 @@ export const accountSpecificHash = (account: any): string => {
  *    - Verifies that the account exists in the `afterStates` of the receipt.
  *    - Calculates the account-specific hash and compares it with the expected hash.
  */
-export const verifyNonGlobalTxAccountChange = async(
+export const verifyNonGlobalTxAccountChange = async (
   receipt: ArchiverReceipt | Receipt,
   failedReasons = [],
   nestedCounterMessages = []
@@ -135,7 +135,7 @@ export const verifyNonGlobalTxAccountChange = async(
  *
  * @throws Will catch and log any unexpected errors during the verification process.
  */
-export const verifyAccountHash = async(
+export const verifyAccountHash = async (
   receipt: ArchiverReceipt | Receipt,
   failedReasons = [],
   nestedCounterMessages = []
