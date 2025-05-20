@@ -12,6 +12,114 @@ export enum CheckpointType {
   OriginalTx = 1,
   Receipt = 2,
 }
+type BucketHashes = {
+  cycleHash?: string | undefined
+  receiptHash?: string | undefined
+  originalTxHash?: string | undefined
+}
+
+export type CheckpointStatusResponse = Array<{
+  [cycle: number]: {
+    cycleHash?: string
+    receiptHash?: string
+    originalTxHash?: string
+  }
+}>
+
+
+/**
+ * Maintains a map of bucketID (cycle number) to hashes for cycle, receipt, and originalTx buckets.
+ * Ordered by bucketID (ascending). Max size is config.checkpoint.statusArraySize.
+ * When a new entry is added and the size exceeds the limit, the oldest entry is removed.
+ */
+export class CheckpointStatusMap {
+  private map: Map<number, BucketHashes>
+  private maxSize: number
+  private minKey: number | undefined
+
+  constructor(maxSize: number) {
+    this.map = new Map()
+    this.maxSize = maxSize
+    this.minKey = undefined
+  }
+
+  /**
+   * Set or update the hashes for a given bucketID.
+   * Any of the hashes can be undefined if not available.
+   */
+  set(bucketID: number, cycleHash?: string, receiptHash?: string, originalTxHash?: string) {
+    let entry = this.map.get(bucketID)
+    if (!entry) {
+      entry = {}
+    }
+    if (cycleHash !== undefined) entry.cycleHash = cycleHash
+    if (receiptHash !== undefined) entry.receiptHash = receiptHash
+    if (originalTxHash !== undefined) entry.originalTxHash = originalTxHash
+
+    this.map.set(bucketID, entry)
+
+    // Update minKey
+    if (this.minKey === undefined || bucketID < this.minKey) {
+      this.minKey = bucketID
+    }
+
+    // Trim if needed
+    while (this.map.size > this.maxSize) {
+      // Remove the minKey
+      if (this.minKey !== undefined) {
+        this.map.delete(this.minKey)
+        // Find new minKey
+        this.minKey = this.findMinKey()
+      }
+    }
+  }
+
+  private findMinKey(): number | undefined {
+    let min: number | undefined
+    for (const key of this.map.keys()) {
+      if (min === undefined || key < min) min = key
+    }
+    return min
+  }
+
+  /**
+   * Get the hashes for a given bucketID.
+   */
+  get(bucketID: number): BucketHashes | undefined {
+    return this.map.get(bucketID)
+  }
+
+  /**
+   * Get all entries as an array, ordered by bucketID ascending.
+   */
+  entries(): Array<[number, BucketHashes]> {
+    // If you want sorted by bucketID ascending:
+    return Array.from(this.map.entries()).sort(([a], [b]) => a - b)
+  }
+
+  /**
+   * Get the current size of the map.
+   */
+  get size(): number {
+    return this.map.size
+  }
+
+  getOldestBucket(): [number, BucketHashes] | undefined {
+    if (this.minKey === undefined) return undefined
+    const hashes = this.map.get(this.minKey)
+    if (hashes) return [this.minKey, hashes]
+    return undefined
+  }
+}
+
+export const checkpointStatusMap = new CheckpointStatusMap(config.checkpoint.statusArraySize)
+
+function calculateBucketHash(bucket: CheckpointBucket<any>): string {
+  // Example: hash all receipt data in the bucket
+  // You may want to customize this based on your actual data structure
+  const allData = Array.from(bucket.radixEntries.values()).flatMap((entry) => entry.sortedData)
+  return Crypto.hash(JSON.stringify(allData))
+}
 
 export const checkpointStatusToTypeMap = {
   [CheckpointType.Cycle]: CheckpointStatusType.CYCLE,
@@ -242,6 +350,18 @@ export class CheckpointBucketManager<T> {
             )
           }
           toRemove.push(id)
+          // --- END: Add hash to CheckpointStatusMap ---
+          let hash: string
+          if (this.checkpointType === CheckpointType.Cycle) {
+            hash = calculateBucketHash(bucket)
+            checkpointStatusMap.set(parseInt(bucket.bucketID, 10), hash, undefined, undefined)
+          } else if (this.checkpointType === CheckpointType.Receipt) {
+            hash = calculateBucketHash(bucket)
+            checkpointStatusMap.set(parseInt(bucket.bucketID, 10), undefined, hash, undefined)
+          } else if (this.checkpointType === CheckpointType.OriginalTx) {
+            hash = calculateBucketHash(bucket)
+            checkpointStatusMap.set(parseInt(bucket.bucketID, 10), undefined, undefined, hash)
+          }
         } else {
           // Let the bucket do its normal update
           bucket.update(currentTime)

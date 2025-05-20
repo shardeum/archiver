@@ -37,6 +37,7 @@ import { CheckpointBucket, CheckpointRadixEntry, CheckpointType } from './checkp
 import { getCheckpointManager } from './checkpoint/Utils'
 import { CheckpointStatusType, isBucketVerified } from './dbstore/checkpointStatus'
 import { ArchiverLogging } from './profiler/archiverLogging'
+import { checkpointStatusMap, CheckpointStatusResponse } from './checkpoint/CheckpointData'
 const { version } = require('../package.json') // eslint-disable-line @typescript-eslint/no-var-requires
 const TXID_LENGTH = 64
 const {
@@ -356,6 +357,28 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       })
     } else {
       request.raw.socket.destroy()
+    }
+  })
+
+  server.get('/checkpoint-status', (_request, reply) => {
+    profilerInstance.profileSectionStart('GET_checkpoint_status')
+    try {
+      const latestCycle = Cycles.getCurrentCycleCounter()
+      const cutoff = latestCycle - 21
+      const filteredEntries: CheckpointStatusResponse = checkpointStatusMap
+        .entries()
+        .filter(([cycle]) => cycle <= cutoff)
+        .map(([cycle, hashes]) => ({
+          [cycle]: {
+            cycleHash: hashes.cycleHash,
+            receiptHash: hashes.receiptHash,
+            originalTxHash: hashes.originalTxHash,
+          }
+        }))
+
+      reply.send(filteredEntries)
+    } finally {
+      profilerInstance.profileSectionEnd('GET_checkpoint_status')
     }
   })
 
