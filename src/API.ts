@@ -363,20 +363,34 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   server.get('/checkpoint-status', (_request, reply) => {
     profilerInstance.profileSectionStart('GET_checkpoint_status')
     try {
-      const latestCycle = Cycles.getCurrentCycleCounter()
-      const cutoff = latestCycle - 21
-      const filteredEntries: CheckpointStatusResponse = checkpointStatusMap
-        .entries()
-        .filter(([cycle]) => cycle <= cutoff)
-        .map(([cycle, hashes]) => ({
-          [cycle]: {
+      const filteredEntries: CheckpointStatusResponse = Object.fromEntries(
+        checkpointStatusMap.entries().map(([cycle, hashes]) => [
+          cycle,
+          {
             cycleHash: hashes.cycleHash,
             receiptHash: hashes.receiptHash,
             originalTxHash: hashes.originalTxHash,
-          }
-        }))
+          },
+        ])
+      )
 
-      reply.send(filteredEntries)
+      if (Object.keys(filteredEntries).length > 0) {
+        reply.send({
+          success: true,
+          data: filteredEntries,
+        })
+      } else {
+        reply.send({
+          success: false,
+          error: 'No checkpoint statuses found',
+        })
+      }
+    } catch (error) {
+      Logger.mainLogger.error('Error serving checkpoint-status:', error)
+      reply.send({
+        success: false,
+        error: 'Internal server error',
+      })
     } finally {
       profilerInstance.profileSectionEnd('GET_checkpoint_status')
     }
@@ -1599,7 +1613,10 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
       Logger.mainLogger.error(
         `Error processing exchangeCheckpointRadixEntries for checkpoint type ${req.body.checkpointType}: ${err.message}`
       )
-      reply.status(500).send({ success: false, error: `Server error in exchangeCheckpointRadixEntries for type ${req.body.checkpointType}` })
+      reply.status(500).send({
+        success: false,
+        error: `Server error in exchangeCheckpointRadixEntries for type ${req.body.checkpointType}`,
+      })
     }
   })
 

@@ -51,7 +51,6 @@ export interface Config {
     syncInterval: number
     maxCyclesToSync: number
     syncOnStartup: boolean
-    startUpRecordsToSync: number
     statusArraySize: number
   }
   dataLogWrite: boolean
@@ -212,9 +211,8 @@ let config: Config = {
     updateInterval: 60 * 1000, // 1 minute in milliseconds  in milliseconds
     syncInterval: 10000, // 10 seconds in milliseconds
     maxCyclesToSync: 100, // Maximum number of cycles to sync in one go
+    statusArraySize: 5000, // Number of statuses to keep in the status array
     syncOnStartup: false, // Sync missing checkpoints on startup
-    startUpRecordsToSync: 50, // Number of records to sync on startup
-    statusArraySize: 100, // Number of statuses to keep in the status array
   },
   cycleRecordsCache: {
     enabled: false,

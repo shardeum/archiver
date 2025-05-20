@@ -18,13 +18,14 @@ type BucketHashes = {
   originalTxHash?: string | undefined
 }
 
-export type CheckpointStatusResponse = Array<{
-  [cycle: number]: {
-    cycleHash?: string
-    receiptHash?: string
-    originalTxHash?: string
+export type CheckpointStatusResponse = Record<
+  number,
+  {
+    cycleHash: string
+    receiptHash: string
+    originalTxHash: string
   }
-}>
+>
 
 /**
  * Maintains a map of bucketID (cycle number) to hashes for cycle, receipt, and originalTx buckets.
