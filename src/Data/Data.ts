@@ -1002,6 +1002,10 @@ export async function createDataTransferConnection(newSenderInfo: NodeList.Conse
   return response
 }
 
+function shouldSubscribeToMoreConsensors(): boolean {
+  return config.subscribeToMoreConsensors && currentConsensusRadius > 5
+}
+
 export async function createNodesGroupByConsensusRadius(): Promise<void> {
   const consensusRadius = await getConsensusRadius()
   if (consensusRadius === 0) {
@@ -1013,7 +1017,7 @@ export async function createNodesGroupByConsensusRadius(): Promise<void> {
   if (config.VERBOSE) Logger.mainLogger.debug('activeList', activeList.length, activeList)
   let totalNumberOfNodesToSubscribe = Math.ceil(activeList.length / consensusRadius)
   // Only if there are less than 4 activeArchivers and if the consensusRadius is greater than 5
-  if (config.subscribeToMoreConsensors && State.activeArchivers.length < 4 && currentConsensusRadius > 5) {
+  if (shouldSubscribeToMoreConsensors()) {
     totalNumberOfNodesToSubscribe += totalNumberOfNodesToSubscribe * config.extraConsensorsToSubscribe
   }
   Logger.mainLogger.debug('totalNumberOfNodesToSubscribe', totalNumberOfNodesToSubscribe)
@@ -1047,7 +1051,7 @@ export async function subscribeNodeFromThisSubset(nodeList: NodeList.ConsensusNo
   }
   let numberOfNodesToSubsribe = 1
   // Only if there are less than 4 activeArchivers and if the consensusRadius is greater than 5
-  if (config.subscribeToMoreConsensors && State.activeArchivers.length < 4 && currentConsensusRadius > 5) {
+  if (shouldSubscribeToMoreConsensors()) {
     numberOfNodesToSubsribe += config.extraConsensorsToSubscribe
   }
   if (subscribedNodesFromThisSubset.length > numberOfNodesToSubsribe) {
