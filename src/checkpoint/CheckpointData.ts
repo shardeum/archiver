@@ -6,6 +6,7 @@ import * as Crypto from '../Crypto'
 import * as State from '../State'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { CheckpointStatusType, updateCheckpointStatusField } from '../dbstore/checkpointStatus'
+import { nestedCountersInstance } from '../profiler/nestedCounters'
 
 export enum CheckpointType {
   Cycle = 0,
@@ -953,6 +954,8 @@ export class CheckpointBucket<T> {
 
               // If incoming entry has failed receipts, don't accept the update
               if (incomingContainsFailedReceipt) {
+                // Track ignored receipts due to local success
+                nestedCountersInstance?.countEvent?.('checkpoint', 'ignored_failed_receipt_due_to_local_success', 1);
                 return false
               }
             }
