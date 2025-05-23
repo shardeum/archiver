@@ -426,33 +426,26 @@ export async function getOldestPendingOrFailedCheckpointStatus(): Promise<Checkp
 }
 
 /**
- * Gets the range of cycles that need syncing
- * @returns Object with min and max cycle numbers that need syncing
+ * Gets all cycles that need syncing (have unified status = false)
+ * @returns Array of cycle numbers that need syncing
  */
-export async function getCheckpointSyncRange(): Promise<{ minCycle: number; maxCycle: number } | null> {
+export async function getCheckpointSyncRange(): Promise<number[] | null> {
   try {
     const sql = `
-      SELECT MIN(cycle) as minCycle, MAX(cycle) as maxCycle
+      SELECT cycle
       FROM checkpoint_status
       WHERE unifiedStatus = ?
+      ORDER BY cycle ASC
     `
 
-    const result = await db.get(checkpointStatusDatabase, sql, [false])
+    const results = await db.all(checkpointStatusDatabase, sql, [false])
 
-    // Add type assertion to fix TypeScript errors
-    const typedResult = result as {
-      minCycle: number | null
-      maxCycle: number | null
-    }
-
-    if (!typedResult || typedResult.minCycle === null || typedResult.maxCycle === null) {
+    if (!results || results.length === 0) {
       return null
     }
 
-    return {
-      minCycle: typedResult.minCycle,
-      maxCycle: typedResult.maxCycle,
-    }
+    // Extract cycle numbers from results
+    return results.map((row: any) => row.cycle)
   } catch (err) {
     Logger.mainLogger.error('Error getting checkpoint sync range:', err)
     throw err

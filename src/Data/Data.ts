@@ -1768,9 +1768,24 @@ export async function syncCyclesBetweenCycles(lastStoredCycle = 0, cycleToSyncTo
   return true
 }
 
+import { getLastUpdatedCycle, updateLastUpdatedCycle } from '../utils/cycleTracker'
+
 export async function syncReceipts(): Promise<void> {
   const MAX_RETRIES = 3
   let retryCount = 0
+
+  // Get the last updated cycle from tracker file
+  const lastUpdatedCycle = getLastUpdatedCycle()
+  Logger.mainLogger.debug(`[syncReceipts] Last updated cycle from tracker: ${lastUpdatedCycle}`)
+  
+  // If we have a valid last updated cycle, use it as the starting point
+  let startCycle = 0
+  if (lastUpdatedCycle > 0) {
+    Logger.mainLogger.info(`[syncReceipts] Starting receipt sync from last updated cycle: ${lastUpdatedCycle}`)
+    startCycle = Math.max(lastUpdatedCycle - config.checkpoint.syncCycleBuffer, 0)
+    await syncReceiptsByCycle(startCycle)
+    return
+  }
 
   let response: ArchiverTotalDataResponse = await getTotalDataFromArchivers()
   if (!response || response.totalReceipts < 0) {
@@ -1894,6 +1909,15 @@ class ArchiverSelector {
 }
 
 export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyncTo = 0): Promise<boolean> {
+  // Get the last updated cycle from tracker if not provided
+  if (lastStoredReceiptCycle === 0) {
+    const trackedCycle = getLastUpdatedCycle()
+    if (trackedCycle > 0) {
+      Logger.mainLogger.info(`[syncReceiptsByCycle] Using last updated cycle from tracker: ${trackedCycle}`)
+      lastStoredReceiptCycle = Math.max(trackedCycle - config.checkpoint.syncCycleBuffer, 0)
+    }
+  }
+  
   let totalCycles = cycleToSyncTo
   let totalReceipts = 0
   if (cycleToSyncTo === 0) {
@@ -2027,6 +2051,11 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
       }
       Logger.mainLogger.debug(`Download receipts completed for ${startCycle} - ${endCycle}`)
       // Update checkpoint status for completed cycles
+      
+      // Update the cycle tracker with the latest cycle we've processed
+      updateLastUpdatedCycle(endCycle)
+      Logger.mainLogger.debug(`[syncReceiptsByCycle] Updated cycle tracker to cycle ${endCycle}`)
+      
       startCycle = endCycle + 1
       endCycle += MAX_BETWEEN_CYCLES_PER_REQUEST
       archiverSelector = new ArchiverSelector()
@@ -2274,6 +2303,15 @@ export const syncCyclesAndTxsData = async (
   const MAX_RETRIES = 3
   let retryCount = 0
 
+  // Get the last updated cycle from tracker if not provided
+  if (lastStoredCycleCount === 0) {
+    const trackedCycle = getLastUpdatedCycle()
+    if (trackedCycle > 0) {
+      Logger.mainLogger.info(`[syncCyclesAndTxsData] Using last updated cycle from tracker: ${trackedCycle}`)
+      lastStoredCycleCount = Math.max(trackedCycle - config.checkpoint.syncCycleBuffer, 0)
+    }
+  }
+
   let response: ArchiverTotalDataResponse = await getTotalDataFromArchivers()
   if (!response || response.totalCycles < 0 || response.totalReceipts < 0) {
     return
@@ -2467,6 +2505,13 @@ export const syncCyclesAndTxsData = async (
           }
           success = true
 
+          // Update the cycle tracker with the highest cycle we've processed
+          const highestCycle = cycles.reduce((max, cycle) => Math.max(max, cycle.counter), 0)
+          if (highestCycle > 0) {
+            updateLastUpdatedCycle(highestCycle)
+            Logger.mainLogger.debug(`[syncCyclesAndTxsData] Updated cycle tracker to cycle ${highestCycle}`)
+          }
+          
           if (cycles.length < MAX_CYCLES_PER_REQUEST) {
             startCycle += cycles.length + 1
             endCycle += cycles.length + MAX_CYCLES_PER_REQUEST

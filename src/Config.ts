@@ -52,6 +52,7 @@ export interface Config {
     maxCyclesToSync: number
     syncOnStartup: boolean
     statusArraySize: number
+    syncCycleBuffer: number
   }
   dataLogWrite: boolean
   dataLogWriter: {
@@ -213,6 +214,7 @@ let config: Config = {
     maxCyclesToSync: 100, // Maximum number of cycles to sync in one go
     statusArraySize: 5000, // Number of statuses to keep in the status array
     syncOnStartup: false, // Sync missing checkpoints on startup
+    syncCycleBuffer: 50, // Number of cycles to substract from the last updated cycle
   },
   cycleRecordsCache: {
     enabled: false,

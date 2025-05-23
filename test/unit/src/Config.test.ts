@@ -92,6 +92,7 @@ describe('Config Module', () => {
         maxCyclesToSync: 100,
         syncOnStartup: false,
         statusArraySize: 5000,
+        syncCycleBuffer: 50,
       })
 
       // Data logging
