@@ -728,7 +728,8 @@ export const storeReceiptData = async (
   receipts: Receipt.Receipt[] | Receipt.ArchiverReceipt[],
   senderInfo = '',
   verifyData = false,
-  saveOnlyGossipData = false
+  saveOnlyGossipData = false,
+  checkpoint: boolean = true
 ): Promise<void> => {
   if (!receipts || !Array.isArray(receipts) || receipts.length <= 0) return
   const bucketSize = 1000
@@ -1063,14 +1064,14 @@ export const storeReceiptData = async (
       combineProcessedTxs.push(processedTx)
       // Receipts size can be big, better to save per 100
       if (combineReceipts.length >= 100) {
-        await Receipt.bulkInsertReceipts(combineReceipts)
+        await Receipt.bulkInsertReceipts(combineReceipts, checkpoint)
         if (State.isActive) sendDataToAdjacentArchivers(DataType.RECEIPT, txDataList)
         combineReceipts = []
         txDataList = []
       }
 
       if (combineOriginalTxsData.length >= bucketSize) {
-        await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
+        await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData, checkpoint)
         combineOriginalTxsData = []
         originalTxDataList = []
       }
@@ -1101,12 +1102,12 @@ export const storeReceiptData = async (
   }
   // Receipts size can be big, better to save per 100
   if (combineReceipts.length > 0) {
-    await Receipt.bulkInsertReceipts(combineReceipts)
+    await Receipt.bulkInsertReceipts(combineReceipts, checkpoint)
     if (State.isActive) sendDataToAdjacentArchivers(DataType.RECEIPT, txDataList)
   }
 
   if (combineOriginalTxsData.length > 0) {
-    await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
+    await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData, checkpoint)
   }
 
   if (combineAccounts.length > 0) await Account.bulkInsertAccounts(combineAccounts)
@@ -1297,7 +1298,8 @@ export const storeAccountData = async (restoreData: StoreAccountParam = {}): Pro
 export const storeOriginalTxData = async (
   originalTxsData: OriginalTxsData.OriginalTxData[] = [],
   senderInfo = '',
-  saveOnlyGossipData = false
+  saveOnlyGossipData = false,
+  checkpoint: boolean = true
 ): Promise<void> => {
   if (!originalTxsData || !Array.isArray(originalTxsData) || originalTxsData.length <= 0) return
   const bucketSize = 1000
@@ -1350,14 +1352,14 @@ export const storeOriginalTxData = async (
     combineOriginalTxsData.push(originalTxData)
     txDataList.push({ txId, timestamp })
     if (combineOriginalTxsData.length >= bucketSize) {
-      await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
+      await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData, checkpoint)
       if (State.isActive) sendDataToAdjacentArchivers(DataType.ORIGINAL_TX_DATA, txDataList)
       combineOriginalTxsData = []
       txDataList = []
     }
   }
   if (combineOriginalTxsData.length > 0) {
-    await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
+    await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData, checkpoint)
     if (State.isActive) sendDataToAdjacentArchivers(DataType.ORIGINAL_TX_DATA, txDataList)
   }
   // If the archiver is not active yet, good to clean up the processed originalTxs map if it exceeds 2000

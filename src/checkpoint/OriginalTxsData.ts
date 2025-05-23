@@ -91,7 +91,8 @@ async function updateData(data: CheckpointData<OriginalTxData>): Promise<void> {
     // Insert/Update into originalTxsData table
     const originalTx = data.d
     // Avg entry size is about 860 bytes
-    await insertOriginalTxData(originalTx, false)
+    // originalTx saving is not supported in checkpoint mode anymore. Its handled by storeOriginalTxData through Receipt Checkpoint
+    // await insertOriginalTxData(originalTx, false)
   } catch (err) {
     Logger.mainLogger.error('Failed to store originalTx checkpoint data:', err)
     throw err
