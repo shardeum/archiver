@@ -17,17 +17,38 @@ const CYCLE_TRACKER_FILE = path.join(process.cwd(), 'cycle-tracker.json')
  */
 export function getLastUpdatedCycle(): number {
   try {
-    // If the file does not exist, create it with default values
-    if (!fs.existsSync(CYCLE_TRACKER_FILE)) {
-      const trackerData: CycleTrackerData = {
-        lastUpdatedCycle: 0,
-        lastUpdatedTimestamp: 0,
-      }
+    let data: string
 
-      fs.writeFileSync(CYCLE_TRACKER_FILE, JSON.stringify(trackerData, null, 2), 'utf8')
+    try {
+      data = fs.readFileSync(CYCLE_TRACKER_FILE, 'utf8')
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        const trackerData: CycleTrackerData = {
+          lastUpdatedCycle: 0,
+          lastUpdatedTimestamp: 0,
+        }
+
+        try {
+          const fd = fs.openSync(
+            CYCLE_TRACKER_FILE,
+            fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY,
+            0o600
+          )
+          fs.writeFileSync(fd, JSON.stringify(trackerData, null, 2), 'utf8')
+          fs.closeSync(fd)
+          return 0
+        } catch (createError) {
+          if ((createError as NodeJS.ErrnoException).code === 'EEXIST') {
+            data = fs.readFileSync(CYCLE_TRACKER_FILE, 'utf8')
+          } else {
+            throw createError
+          }
+        }
+      } else {
+        throw error
+      }
     }
 
-    const data = fs.readFileSync(CYCLE_TRACKER_FILE, 'utf8')
     const trackerData: CycleTrackerData = JSON.parse(data)
     return trackerData.lastUpdatedCycle
   } catch (error) {
