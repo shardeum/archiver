@@ -53,6 +53,7 @@ import { RequestDataType } from './API'
 import { getOldestPendingOrFailedCheckpointStatus } from './dbstore/checkpointStatus'
 import { ArchiverLogging } from './profiler/archiverLogging'
 import { logEnvSetup } from './utils/environment'
+import { getLastUpdatedCycle } from './utils/cycleTracker'
 
 const configFile = resolve(__dirname, '../archiver-config.json')
 const allowedArchiversConfigPath = join(__dirname, '../allowed-archivers.json')
@@ -497,15 +498,14 @@ async function handleReceiptSyncWithCheckpoints(
     Logger.mainLogger.error(
       `Cycle count mismatch: The archiver has ${updatedCycleCount} cycles but the latest stored cycle is ${updatedCycleInfo.counter}`
     )
-    
-    // Import the cycle tracker
-    const { getLastUpdatedCycle } = await import('./utils/cycleTracker')
-    
+
     // Get the last updated cycle from tracker file
     const lastUpdatedCycle = getLastUpdatedCycle()
     const startCycle = lastUpdatedCycle > 0 ? lastUpdatedCycle - 1 : 0
-    Logger.mainLogger.debug(`[handleReceiptSyncWithCheckpoints] Starting cycle check from last updated cycle: ${startCycle}`)
-    
+    Logger.mainLogger.debug(
+      `[handleReceiptSyncWithCheckpoints] Starting cycle check from last updated cycle: ${startCycle}`
+    )
+
     // Find missing cycles and fetch them, starting from the last updated cycle
     const missingCycles = []
     for (let i = startCycle; i < updatedCycleCount; i++) {
@@ -518,10 +518,12 @@ async function handleReceiptSyncWithCheckpoints(
         missingCycles.push(i)
       }
     }
-    
+
     if (missingCycles.length > 0) {
-      Logger.mainLogger.info(`[handleReceiptSyncWithCheckpoints] Found ${missingCycles.length} missing cycles: ${missingCycles.join(', ')}`)
-      
+      Logger.mainLogger.info(
+        `[handleReceiptSyncWithCheckpoints] Found ${missingCycles.length} missing cycles: ${missingCycles.join(', ')}`
+      )
+
       // Fetch missing cycles
       for (const cycle of missingCycles) {
         try {

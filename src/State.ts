@@ -14,6 +14,8 @@ import { closeDatabase } from './dbstore'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
 import { customFetch } from './utils/customHttpFunctions'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { updateCycleTrackerOnShutdown } from './utils/cycleTracker'
+
 export interface ArchiverNodeState {
   ip: string
   port: number
@@ -150,7 +152,6 @@ export function addSigListeners(sigint = true, sigterm = true): void {
       Logger.mainLogger.debug('Exiting on SIGINT', process.pid)
       // Update the cycle tracker with the latest unified cycle counter value
       try {
-        const { updateCycleTrackerOnShutdown } = await import('./utils/cycleTracker')
         await updateCycleTrackerOnShutdown()
       } catch (error) {
         Logger.mainLogger.error('Error updating cycle tracker on SIGINT:', error)
@@ -166,7 +167,6 @@ export function addSigListeners(sigint = true, sigterm = true): void {
       Logger.mainLogger.debug('Exiting on SIGTERM', process.pid)
       // Update the cycle tracker with the latest unified cycle counter value
       try {
-        const { updateCycleTrackerOnShutdown } = await import('./utils/cycleTracker')
         await updateCycleTrackerOnShutdown()
       } catch (error) {
         Logger.mainLogger.error('Error updating cycle tracker on SIGTERM:', error)
