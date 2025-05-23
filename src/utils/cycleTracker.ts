@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as Logger from '../Logger'
 import { getCheckpointStatusesByUnifiedStatus } from '../dbstore/checkpointStatus'
+import { config } from '../Config'
 
 interface CycleTrackerData {
   lastUpdatedCycle: number
@@ -20,7 +21,7 @@ export function getLastUpdatedCycle(): number {
     if (!fs.existsSync(CYCLE_TRACKER_FILE)) {
       const trackerData: CycleTrackerData = {
         lastUpdatedCycle: 0,
-        lastUpdatedTimestamp: 0
+        lastUpdatedTimestamp: 0,
       }
 
       fs.writeFileSync(CYCLE_TRACKER_FILE, JSON.stringify(trackerData, null, 2), 'utf8')
@@ -45,7 +46,7 @@ export function updateLastUpdatedCycle(cycle: number): void {
     try {
       const trackerData: CycleTrackerData = {
         lastUpdatedCycle: cycle,
-        lastUpdatedTimestamp: Date.now()
+        lastUpdatedTimestamp: Date.now(),
       }
 
       fs.writeFileSync(CYCLE_TRACKER_FILE, JSON.stringify(trackerData, null, 2), 'utf8')
@@ -65,24 +66,27 @@ async function getLatestUnifiedCycle(): Promise<number> {
   try {
     // Get all checkpoint statuses with unified status = true
     const unifiedStatuses = await getCheckpointStatusesByUnifiedStatus(true)
-    
+
     if (!unifiedStatuses || unifiedStatuses.length === 0) {
       Logger.mainLogger.warn('No unified cycle statuses found')
       return 0
     }
-    
+
     // Sort by cycle in descending order
     const sortedStatuses = unifiedStatuses.sort((a, b) => b.cycle - a.cycle)
-    
+
     // Skip the latest 21 cycles (if available) and get the next unified cycle
-    const LATEST_CYCLES_TO_SKIP = 21
-    
+    const LATEST_CYCLES_TO_SKIP =
+      Math.ceil(config.checkpoint.bucketConfig.GiveUpAge / config.checkpoint.bucketConfig.cycleAge) + 1
+
     if (sortedStatuses.length <= LATEST_CYCLES_TO_SKIP) {
       // If we have fewer than or equal to 21 unified cycles, we can't get a cycle before the latest 21
-      Logger.mainLogger.warn(`Not enough unified cycles available (${sortedStatuses.length}). Need more than ${LATEST_CYCLES_TO_SKIP} cycles.`)
+      Logger.mainLogger.warn(
+        `Not enough unified cycles available (${sortedStatuses.length}). Need more than ${LATEST_CYCLES_TO_SKIP} cycles.`
+      )
       return 0
     }
-    
+
     // Return the cycle number at index 21 (which is the 22nd item, after skipping 21 items)
     return sortedStatuses[LATEST_CYCLES_TO_SKIP].cycle
   } catch (error) {
@@ -99,7 +103,7 @@ export async function updateCycleTrackerOnShutdown(): Promise<void> {
   try {
     // Get the latest unified cycle counter value
     const latestUnifiedCycle = await getLatestUnifiedCycle()
-    
+
     if (latestUnifiedCycle > 0) {
       Logger.mainLogger.info(`Updating cycle tracker with latest unified cycle: ${latestUnifiedCycle}`)
       updateLastUpdatedCycle(latestUnifiedCycle)

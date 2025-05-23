@@ -137,6 +137,7 @@ describe('Receipt Database Operations', () => {
       maxCyclesToSync: 1000,
       syncOnStartup: true,
       statusArraySize: 5000,
+      syncCycleBuffer: 50,
     }
     config.VERBOSE = false
 
