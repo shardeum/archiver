@@ -59,10 +59,9 @@ describe('Transaction Digest Functions', () => {
     config.VERBOSE = false
 
     // Clear module cache to ensure clean state for each test
-    jest.isolateModules(async () => {
-      const module = await import('../../../../src/txDigester/txDigestFunctions')
-      await module.updateLastProcessedTxDigest()
-    })
+    jest.resetModules()
+    const module = require('../../../../src/txDigester/txDigestFunctions')
+    module.updateLastProcessedTxDigest()
   })
 
   afterAll(() => {
