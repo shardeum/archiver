@@ -2,61 +2,72 @@ import * as Logger from '../Logger'
 import { config } from '../Config'
 import * as Data from '../Data/Data'
 import * as Cycles from '../Data/Cycles'
-import { getCheckpointStatus, getCheckpointSyncRange } from '../dbstore/checkpointStatus'
-
 import { getLastUpdatedCycle, updateLastUpdatedCycle } from '../utils/cycleTracker'
+import { processCyclesNeedingSync } from '../dbstore/checkpointStatus'
 
 /**
  * Syncs missing or failed checkpoint data
- * @param maxCyclesToSync Maximum number of cycles to sync in one go
+ * @param maxCyclesToSync Maximum number of cycles to process in one batch
  */
-export async function syncMissingCheckpoints(maxCyclesToSync: number = 10): Promise<void> {
+export async function syncMissingCheckpoints(maxCyclesToSync: number = 100): Promise<void> {
   try {
-    // Get all cycles that need syncing (have unified status = false)
-    const cyclesToSync = await getCheckpointSyncRange()
-    if (!cyclesToSync || cyclesToSync.length === 0) {
-      Logger.mainLogger.debug('No checkpoints need syncing')
-      return
-    }
-
-    if (config.VERBOSE) {
-      Logger.mainLogger.info(`Found ${cyclesToSync.length} cycles that need syncing`)
-    }
-
     // Get the last updated cycle from tracker file
     const lastUpdatedCycle = getLastUpdatedCycle()
     Logger.mainLogger.debug(`[syncMissingCheckpoints] Last updated cycle from tracker: ${lastUpdatedCycle}`)
     
-    // Process all cycles in batches of maxCyclesToSync
-    for (let i = 0; i < cyclesToSync.length; i += maxCyclesToSync) {
-      // Get the next batch of cycles to process
-      const batchCycles = cyclesToSync.slice(i, i + maxCyclesToSync)
-      Logger.mainLogger.debug(`[syncMissingCheckpoints] Processing batch of ${batchCycles.length} cycles (${i+1}-${i+batchCycles.length} of ${cyclesToSync.length})`)
-      
-      // Process each cycle in the current batch
-      for (const cycle of batchCycles) {
+    // Get the current network cycle count
+    let currentCycle = -1
+    try {
+      // Try to get the latest cycle from other archivers
+      const newestCycle = await Cycles.getNewestCycleFromArchivers()
+      if (newestCycle && newestCycle.counter !== undefined) {
+        currentCycle = newestCycle.counter
+      }
+    } catch (error) {
+      Logger.mainLogger.warn('[syncMissingCheckpoints] Failed to get network cycle count:', error)
+      return
+    }
+    
+    if (currentCycle < 0) {
+      Logger.mainLogger.warn('[syncMissingCheckpoints] Could not determine current network cycle')
+      return
+    }
+    
+    Logger.mainLogger.info(`[syncMissingCheckpoints] Processing cycles from ${lastUpdatedCycle} to ${currentCycle}`)
+    
+    // Track how many cycles we've processed in this run
+    let processedCount = 0
+    let syncedCount = 0
+    
+    // Process cycles in batches that need syncing
+    await processCyclesNeedingSync(
+      lastUpdatedCycle,
+      currentCycle,
+      maxCyclesToSync,
+      async (cycle: number) => {
+        processedCount++
         try {
-          // Check if we need to sync cycle data
-          const cycleStatus = await getCheckpointStatus(cycle)
-          const needsSync = !cycleStatus || cycleStatus.cycleStatus === false || cycleStatus.unifiedStatus === false
-          
-          if (needsSync) {
-            Logger.mainLogger.debug(`[syncMissingCheckpoints] Syncing data for cycle ${cycle}`)
-            // Sync cycle data
-            await Data.syncCycleData(cycle)
-            // Sync receipt data
-            await Data.syncReceiptsByCycle(cycle, cycle)
-            
-            // Update the tracker with the latest cycle we've processed
-            updateLastUpdatedCycle(cycle)
-          }
+          Logger.mainLogger.debug(`[syncMissingCheckpoints] Syncing data for cycle ${cycle}`)
+          // Sync cycle data
+          await Data.syncCycleData(cycle)
+          // Sync receipt data
+          await Data.syncReceiptsByCycle(cycle, cycle)
+          // Update the tracker with the latest cycle we've processed
+          updateLastUpdatedCycle(cycle)
+          syncedCount++
         } catch (cycleError) {
           Logger.mainLogger.error(`[syncMissingCheckpoints] Error syncing cycle ${cycle}:`, cycleError)
         }
       }
+    )
+    
+    if (processedCount > 0) {
+      Logger.mainLogger.info(`[syncMissingCheckpoints] Processed ${processedCount} cycles, successfully synced ${syncedCount}`)
+    } else {
+      Logger.mainLogger.debug('[syncMissingCheckpoints] No checkpoints need syncing')
     }
   } catch (error) {
-    Logger.mainLogger.error('Error syncing missing checkpoints:', error)
+    Logger.mainLogger.error('[syncMissingCheckpoints] Error syncing missing checkpoints:', error)
   }
 }
 
@@ -70,7 +81,7 @@ export function scheduleMissingCheckpointSync(): void {
   async function syncCheckpoints() {
     try {
       if (!syncActive) {
-        Logger.mainLogger.info('Checkpoint sync has been stopped as stored cycle count matches network cycle count')
+        Logger.mainLogger.info('[syncCheckpoints] Checkpoint sync has been stopped as stored cycle count matches network cycle count')
         return // Exit the sync loop if syncing is no longer needed
       }
 
@@ -86,13 +97,13 @@ export function scheduleMissingCheckpointSync(): void {
           networkCycleCount = newestCycle.counter
         }
       } catch (error) {
-        Logger.mainLogger.warn('Failed to get network cycle count, will continue syncing:', error)
+        Logger.mainLogger.warn('[syncCheckpoints] Failed to get network cycle count, will continue syncing:', error)
       }
 
       // If we have valid cycle counts and they match, stop syncing
       if (storedCycleCount >= 0 && networkCycleCount >= 0 && storedCycleCount >= networkCycleCount) {
         Logger.mainLogger.info(
-          `Stopping checkpoint sync as stored cycle count (${storedCycleCount}) matches or exceeds network cycle count (${networkCycleCount})`
+          `[syncCheckpoints] Stopping checkpoint sync as stored cycle count (${storedCycleCount}) matches or exceeds network cycle count (${networkCycleCount})`
         )
         syncActive = false
         return
@@ -101,7 +112,7 @@ export function scheduleMissingCheckpointSync(): void {
       // Otherwise, continue with the sync
       await syncMissingCheckpoints()
     } catch (error) {
-      Logger.mainLogger.error('Error in scheduled checkpoint sync:', error)
+      Logger.mainLogger.error('[syncCheckpoints] Error in scheduled checkpoint sync:', error)
     }
 
     // Schedule the next sync if still active
