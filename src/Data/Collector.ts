@@ -1296,11 +1296,15 @@ export const storeAccountData = async (restoreData: StoreAccountParam = {}): Pro
   }
 }
 
+/**
+ * @deprecated This method is deprecated and will be removed in a future version.
+ * Please use the new implementation instead.
+ */
+
 export const storeOriginalTxData = async (
   originalTxsData: OriginalTxsData.OriginalTxData[] = [],
   senderInfo = '',
-  saveOnlyGossipData = false,
-  checkpoint: boolean = true
+  saveOnlyGossipData = false
 ): Promise<void> => {
   if (!originalTxsData || !Array.isArray(originalTxsData) || originalTxsData.length <= 0) return
   const bucketSize = 1000
@@ -1353,14 +1357,14 @@ export const storeOriginalTxData = async (
     combineOriginalTxsData.push(originalTxData)
     txDataList.push({ txId, timestamp })
     if (combineOriginalTxsData.length >= bucketSize) {
-      await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData, checkpoint)
+      await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
       if (State.isActive) sendDataToAdjacentArchivers(DataType.ORIGINAL_TX_DATA, txDataList)
       combineOriginalTxsData = []
       txDataList = []
     }
   }
   if (combineOriginalTxsData.length > 0) {
-    await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData, checkpoint)
+    await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
     if (State.isActive) sendDataToAdjacentArchivers(DataType.ORIGINAL_TX_DATA, txDataList)
   }
   // If the archiver is not active yet, good to clean up the processed originalTxs map if it exceeds 2000
