@@ -472,7 +472,7 @@ async function handleReceiptSyncWithCheckpoints(
   const updatedCycleInfo = (await CycleDB.queryLatestCycleRecords(1))[0]
 
   if (updatedCycleCount - 1 !== updatedCycleInfo.counter) {
-    Logger.mainLogger.error(
+    Logger.mainLogger.warn(
       `Cycle count mismatch: The archiver has ${updatedCycleCount} cycles but the latest stored cycle is ${updatedCycleInfo.counter}`
     )
 
