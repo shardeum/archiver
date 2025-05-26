@@ -13,6 +13,7 @@ import * as Logger from '../Logger'
 import * as Crypto from '../Crypto'
 import { verifyAppReceiptData } from '../shardeum/verifyAppReceiptData'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { storeReceiptData } from '../Data/Collector'
 
 export class ReceiptCheckpointData extends CheckpointData<ReceiptType> {
   constructor(receipt: ReceiptType) {
