@@ -37,12 +37,12 @@ export type CheckpointStatusResponse = Record<
 export class CheckpointStatusMap {
   private map: Map<number, BucketHashes>
   private maxSize: number
-  private minKey: number | undefined
+  private cycleOrder: number[] // tracks insertion order, always sorted ascending
 
   constructor(maxSize: number) {
     this.map = new Map()
     this.maxSize = maxSize
-    this.minKey = undefined
+    this.cycleOrder = []
   }
 
   /**
@@ -51,6 +51,7 @@ export class CheckpointStatusMap {
    */
   set(bucketID: number, cycleHash?: string, receiptHash?: string, originalTxHash?: string) {
     let entry = this.map.get(bucketID)
+    const isNew = !entry
     if (!entry) {
       entry = {
         cycleHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -64,28 +65,24 @@ export class CheckpointStatusMap {
 
     this.map.set(bucketID, entry)
 
-    // Update minKey
-    if (this.minKey === undefined || bucketID < this.minKey) {
-      this.minKey = bucketID
+    // Track insertion order
+    if (isNew && typeof bucketID === 'number' && !isNaN(bucketID)) {
+      this.cycleOrder.push(bucketID)
+      // Keep cycleOrder sorted ascending (if bucketIDs are always increasing, this is a push)
+      // If not, sort (rare)
+      if (this.cycleOrder.length > 1 && bucketID < this.cycleOrder[this.cycleOrder.length - 2]) {
+        this.cycleOrder.sort((a, b) => a - b)
+      }
     }
 
     // Trim if needed
     while (this.map.size > this.maxSize) {
-      // Remove the minKey
-      if (this.minKey !== undefined) {
-        this.map.delete(this.minKey)
-        // Find new minKey
-        this.minKey = this.findMinKey()
+      // Remove the oldest (first) cycle
+      const oldest = this.cycleOrder.shift()
+      if (oldest !== undefined) {
+        this.map.delete(oldest)
       }
     }
-  }
-
-  private findMinKey(): number | undefined {
-    let min: number | undefined
-    for (const key of this.map.keys()) {
-      if (min === undefined || key < min) min = key
-    }
-    return min
   }
 
   /**
@@ -99,8 +96,21 @@ export class CheckpointStatusMap {
    * Get all entries as an array, ordered by bucketID ascending.
    */
   entries(): Array<[number, BucketHashes]> {
-    // If you want sorted by bucketID ascending:
-    return Array.from(this.map.entries()).sort(([a], [b]) => a - b)
+    // Use cycleOrder for guaranteed order, filter to only valid numbers
+    return this.cycleOrder
+      .filter((cycle): cycle is number => typeof cycle === 'number' && this.map.has(cycle))
+      .map((cycle) => [cycle, this.map.get(cycle)!])
+  }
+
+  /**
+   * Get the latest N cycles as an array, ordered by bucketID ascending.
+   */
+  getLatestCycles(limit: number): Array<[number, BucketHashes]> {
+    const validCycles = this.cycleOrder.filter(
+      (cycle): cycle is number => typeof cycle === 'number' && this.map.has(cycle)
+    )
+    const start = Math.max(0, validCycles.length - limit)
+    return validCycles.slice(start).map((cycle) => [cycle, this.map.get(cycle)!])
   }
 
   /**
@@ -111,9 +121,10 @@ export class CheckpointStatusMap {
   }
 
   getOldestBucket(): [number, BucketHashes] | undefined {
-    if (this.minKey === undefined) return undefined
-    const hashes = this.map.get(this.minKey)
-    if (hashes) return [this.minKey, hashes]
+    if (this.cycleOrder.length === 0) return undefined
+    const oldest = this.cycleOrder[0]
+    const hashes = this.map.get(oldest)
+    if (hashes) return [oldest, hashes]
     return undefined
   }
 }

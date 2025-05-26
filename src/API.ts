@@ -363,28 +363,49 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
   server.get('/checkpoint-status', (_request, reply) => {
     profilerInstance.profileSectionStart('GET_checkpoint_status')
     try {
-      const filteredEntries: CheckpointStatusResponse = Object.fromEntries(
-        checkpointStatusMap.entries().map(([cycle, hashes]) => [
-          cycle,
-          {
-            cycleHash: hashes.cycleHash,
-            receiptHash: hashes.receiptHash,
-            originalTxHash: hashes.originalTxHash,
-          },
-        ])
-      )
+      // Check if the limit query parameter is provided
+      const queryLimit =
+        _request.query && typeof (_request.query as { limit?: string | number }).limit !== 'undefined'
+          ? Number((_request.query as { limit?: string | number }).limit)
+          : undefined
+      const maxLimit = Number(config.checkpoint.statusArraySize) || 5000
+      let limit: number
 
-      if (Object.keys(filteredEntries).length > 0) {
-        reply.send({
-          success: true,
-          data: filteredEntries,
-        })
+      if (queryLimit === undefined || isNaN(queryLimit)) {
+        limit = Number(config.checkpoint.statusApiLimit) || 100
+      } else if (queryLimit > 0 && queryLimit <= maxLimit) {
+        limit = queryLimit
       } else {
+        reply.send({
+          success: false,
+          error: `Invalid limit: must be > 0 and <= ${maxLimit}`,
+        })
+        return
+      }
+
+      const latestEntries = checkpointStatusMap.getLatestCycles(limit)
+
+      if (latestEntries.length === 0) {
         reply.send({
           success: false,
           error: 'No checkpoint statuses found',
         })
+        return
       }
+
+      const entries: CheckpointStatusResponse = {}
+      for (const [cycle, hashes] of latestEntries) {
+        entries[cycle] = {
+          cycleHash: hashes.cycleHash!,
+          receiptHash: hashes.receiptHash!,
+          originalTxHash: hashes.originalTxHash!,
+        };
+      }
+
+      reply.send({
+        success: true,
+        data: entries,
+      })
     } catch (error) {
       Logger.mainLogger.error('Error serving checkpoint-status:', error)
       reply.send({

@@ -52,6 +52,7 @@ export interface Config {
     maxCyclesToSync: number
     syncOnStartup: boolean
     statusArraySize: number
+    statusApiLimit: number
     syncCycleBuffer: number
   }
   dataLogWrite: boolean
@@ -215,6 +216,7 @@ let config: Config = {
     syncInterval: 10000, // 10 seconds in milliseconds
     maxCyclesToSync: 100, // Maximum number of cycles to sync in one go
     statusArraySize: 5000, // Number of statuses to keep in the status array
+    statusApiLimit: 50, // Number of latest status records to return via checkpoint-status API
     syncOnStartup: false, // Sync missing checkpoints on startup
     syncCycleBuffer: 50, // Number of cycles to substract from the last updated cycle
   },
