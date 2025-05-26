@@ -116,7 +116,7 @@ async function updateData(data: CheckpointData<ReceiptType>): Promise<void> {
     // Insert/Update into checkpoint_data table
     const receipt = data.d
     // Avg entry size is about 41000 bytes
-    await storeReceiptData([receipt], '', false, false, false)
+    await storeReceiptData([receipt], 'checkpoint', false, false, false)
   } catch (err) {
     Logger.mainLogger.error('Failed to store receipt checkpoint data:', err)
     throw err

@@ -766,8 +766,9 @@ export const storeReceiptData = async (
         continue
       }
       if (
-        (processedReceiptsMap.has(txId) && processedReceiptsMap.get(txId) === timestamp) ||
-        (receiptsInValidationMap.has(txId) && receiptsInValidationMap.get(txId) === timestamp)
+        checkpoint &&
+        ((processedReceiptsMap.has(txId) && processedReceiptsMap.get(txId) === timestamp) ||
+          (receiptsInValidationMap.has(txId) && receiptsInValidationMap.get(txId) === timestamp))
       ) {
         if (config.VERBOSE) console.log('RECEIPT', 'Skip', txId, timestamp, senderInfo)
         logReceiptData(receipt, txId, timestamp)
@@ -789,7 +790,7 @@ export const storeReceiptData = async (
       if (config.enableDuplicateReceiptsCheck && !receipt.globalModification) {
         // only consider this for EVM txns and Non Global Internal Txns
         const result = await checkIfValidOverwrite(receipt, txId)
-        if (!result) {
+        if (!result && checkpoint) {
           logReceiptData(receipt, txId, timestamp)
           continue // if the incoming receipt has a status of 0, do not allow it to overwrite a receipt of status 1
         }
