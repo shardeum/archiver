@@ -1568,7 +1568,7 @@ export const collectMissingReceipts = async (senders: string[], txId: string, tx
       for (const receipt of receipts) {
         const { receiptId, timestamp } = receipt
         if (txId === receiptId && txTimestamp === timestamp) {
-          storeReceiptData([receipt], senderArchiver.ip + ':' + senderArchiver.port, false)
+          storeReceiptData([receipt], senderArchiver.ip + ':' + senderArchiver.port, false, false, true)
           foundTxData = true
         }
       }

@@ -316,7 +316,8 @@ export function initSocketClient(node: NodeList.ConsensusNodeInfo): void {
             newData.responses.RECEIPT,
             sender.nodeInfo.ip + ':' + sender.nodeInfo.port,
             true,
-            config.saveOnlyGossipData
+            config.saveOnlyGossipData,
+            true
           )
         }
         if (newData.responses && newData.responses.CYCLE) {
@@ -1045,7 +1046,10 @@ export async function subscribeConsensorsByConsensusRadius(): Promise<void> {
   }
 }
 
-export async function subscribeNodeFromThisSubset(nodeList: NodeList.ConsensusNodeInfo[], roundIndex:number): Promise<void> {
+export async function subscribeNodeFromThisSubset(
+  nodeList: NodeList.ConsensusNodeInfo[],
+  roundIndex: number
+): Promise<void> {
   // First check if there is any subscribed node from this subset
   const subscribedNodesFromThisSubset = []
   for (const node of nodeList) {
@@ -1058,7 +1062,10 @@ export async function subscribeNodeFromThisSubset(nodeList: NodeList.ConsensusNo
   let numberOfNodesToSubsribe = 1
   if (shouldSubscribeToMoreConsensors()) {
     numberOfNodesToSubsribe += config.extraConsensorsToSubscribe
-    nestedCountersInstance.countEvent('nodeSubscription', 'add extra consensor(s): ' + config.extraConsensorsToSubscribe)
+    nestedCountersInstance.countEvent(
+      'nodeSubscription',
+      'add extra consensor(s): ' + config.extraConsensorsToSubscribe
+    )
   } else {
     nestedCountersInstance.countEvent('nodeSubscription', 'add consensor: ')
   }
@@ -1071,7 +1078,9 @@ export async function subscribeNodeFromThisSubset(nodeList: NodeList.ConsensusNo
   }
   if (config.VERBOSE) Logger.mainLogger.debug('Subscribed nodes from this subset', subscribedNodesFromThisSubset)
   if (subscribedNodesFromThisSubset.length === numberOfNodesToSubsribe) return
-  Logger.mainLogger.debug(`Subscribing node(s) from this subset! numberOfNodesToSubsribe: ${numberOfNodesToSubsribe} roundIndex: ${roundIndex}`)
+  Logger.mainLogger.debug(
+    `Subscribing node(s) from this subset! numberOfNodesToSubsribe: ${numberOfNodesToSubsribe} roundIndex: ${roundIndex}`
+  )
   // Pick a new dataSender from this subset
   let subsetList = [...nodeList]
   // Pick a random dataSender
@@ -1084,16 +1093,21 @@ export async function subscribeNodeFromThisSubset(nodeList: NodeList.ConsensusNo
       connectionStatus = await createDataTransferConnection(newSenderInfo)
       if (connectionStatus) {
         // Check if the newSender is in the subscribed nodes of this subset
-        if (!subscribedNodesFromThisSubset.includes(newSenderInfo.publicKey)){
+        if (!subscribedNodesFromThisSubset.includes(newSenderInfo.publicKey)) {
           subscribedNodesFromThisSubset.push(newSenderInfo.publicKey)
-          Logger.mainLogger.debug(`Added new sender to the subscribed nodes of this subset. publicKey:${newSenderInfo.publicKey}, numberOfNodesToSubsribe:${numberOfNodesToSubsribe}, roundIndex${roundIndex}`)
+          Logger.mainLogger.debug(
+            `Added new sender to the subscribed nodes of this subset. publicKey:${newSenderInfo.publicKey}, numberOfNodesToSubsribe:${numberOfNodesToSubsribe}, roundIndex${roundIndex}`
+          )
         }
       }
     } else {
       // Add the newSender to the subscribed nodes of this subset
-      if (!subscribedNodesFromThisSubset.includes(newSenderInfo.publicKey)){
+      if (!subscribedNodesFromThisSubset.includes(newSenderInfo.publicKey)) {
         subscribedNodesFromThisSubset.push(newSenderInfo.publicKey)
-        Logger.mainLogger.debug(`accounting for existing? sender to the subscribed nodes of this subset. publicKey:${newSenderInfo.publicKey}, numberOfNodesToSubsribe:${numberOfNodesToSubsribe}, roundIndex${roundIndex}`)      }
+        Logger.mainLogger.debug(
+          `accounting for existing? sender to the subscribed nodes of this subset. publicKey:${newSenderInfo.publicKey}, numberOfNodesToSubsribe:${numberOfNodesToSubsribe}, roundIndex${roundIndex}`
+        )
+      }
     }
     subsetList = subsetList.filter((node) => node.publicKey !== newSenderInfo.publicKey)
     if (subsetList.length > 0) {
@@ -1815,7 +1829,7 @@ export async function syncReceipts(): Promise<void> {
   // Get the last updated cycle from tracker file
   const lastUpdatedCycle = getLastUpdatedCycle()
   Logger.mainLogger.debug(`[syncReceipts] Last updated cycle from tracker: ${lastUpdatedCycle}`)
-  
+
   // If we have a valid last updated cycle, use it as the starting point
   let startCycle = 0
   if (lastUpdatedCycle > 0) {
@@ -1863,7 +1877,7 @@ export async function syncReceipts(): Promise<void> {
       if (res && res.receipts) {
         const downloadedReceipts = res.receipts as ReceiptDB.Receipt[]
         Logger.mainLogger.debug(`Downloaded receipts`, downloadedReceipts.length)
-        await storeReceiptData(downloadedReceipts)
+        await storeReceiptData(downloadedReceipts, '', false, false, true)
         success = true
 
         if (downloadedReceipts.length < MAX_RECEIPTS_PER_REQUEST) {
@@ -1955,7 +1969,7 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
       lastStoredReceiptCycle = Math.max(trackedCycle - config.checkpoint.syncCycleBuffer, 0)
     }
   }
-  
+
   let totalCycles = cycleToSyncTo
   let totalReceipts = 0
   if (cycleToSyncTo === 0) {
@@ -2042,7 +2056,7 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
         if (res && res.receipts && Array.isArray(res.receipts) && res.receipts.length > 0) {
           const downloadedReceipts = res.receipts as ReceiptDB.Receipt[]
           Logger.mainLogger.debug(`Downloaded receipts`, downloadedReceipts.length)
-          await storeReceiptData(downloadedReceipts)
+          await storeReceiptData(downloadedReceipts, '', false, false, true)
           savedReceiptsCountBetweenCycles += downloadedReceipts.length
           if (savedReceiptsCountBetweenCycles > receiptsCountToSyncBetweenCycles) {
             response = (await queryFromArchivers(
@@ -2089,11 +2103,11 @@ export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyn
       }
       Logger.mainLogger.debug(`Download receipts completed for ${startCycle} - ${endCycle}`)
       // Update checkpoint status for completed cycles
-      
+
       // Update the cycle tracker with the latest cycle we've processed
       updateLastUpdatedCycle(endCycle)
       Logger.mainLogger.debug(`[syncReceiptsByCycle] Updated cycle tracker to cycle ${endCycle}`)
-      
+
       startCycle = endCycle + 1
       endCycle += MAX_BETWEEN_CYCLES_PER_REQUEST
       archiverSelector = new ArchiverSelector()
@@ -2454,7 +2468,7 @@ export const syncCyclesAndTxsData = async (
         if (res && res.receipts) {
           const downloadedReceipts = res.receipts as ReceiptDB.Receipt[]
           Logger.mainLogger.debug(`Downloaded receipts`, downloadedReceipts.length)
-          await storeReceiptData(downloadedReceipts)
+          await storeReceiptData(downloadedReceipts, '', false, false, true)
           success = true
           if (downloadedReceipts.length < MAX_ORIGINAL_TXS_PER_REQUEST) {
             startReceipt += downloadedReceipts.length + 1
@@ -2549,7 +2563,7 @@ export const syncCyclesAndTxsData = async (
             updateLastUpdatedCycle(highestCycle)
             Logger.mainLogger.debug(`[syncCyclesAndTxsData] Updated cycle tracker to cycle ${highestCycle}`)
           }
-          
+
           if (cycles.length < MAX_CYCLES_PER_REQUEST) {
             startCycle += cycles.length + 1
             endCycle += cycles.length + MAX_CYCLES_PER_REQUEST
