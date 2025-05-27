@@ -347,14 +347,20 @@ async function getCheckpointStatusForRange(startCycle: number, endCycle: number)
  * Gets all checkpoint statuses with a specific unified status
  * @param unified Whether to get checkpoints with unified status true or false
  */
-export async function getCheckpointStatusesByUnifiedStatus(unified: boolean): Promise<CheckpointStatus[]> {
+export async function getCheckpointStatusesByUnifiedStatus(unified: boolean, minCycle: number = 0): Promise<CheckpointStatus[]> {
   try {
     const sql = `
       SELECT * FROM checkpoint_status
       WHERE unifiedStatus = ?
+      ${minCycle > 0 ? 'AND cycle >= ?' : ''}
     `
 
-    const rows = await db.all(checkpointStatusDatabase, sql, [unified ? 1 : 0])
+    const params = unified ? [1] : [0]
+    if (minCycle > 0) {
+      params.push(minCycle)
+    }
+
+    const rows = await db.all(checkpointStatusDatabase, sql, params)
 
     return rows.map((row) => {
       // Add type assertion to fix TypeScript errors

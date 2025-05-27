@@ -85,11 +85,24 @@ export function updateLastUpdatedCycle(cycle: number): void {
  */
 async function getLatestUnifiedCycle(): Promise<number> {
   try {
-    // Get all checkpoint statuses with unified status = true
-    const unifiedStatuses = await getCheckpointStatusesByUnifiedStatus(true)
+    // Get the last updated cycle from the tracker file
+    const lastUpdatedCycle = getLastUpdatedCycle()
+    
+    // Get checkpoint statuses with unified status = true and cycle >= lastUpdatedCycle
+    const unifiedStatuses = await getCheckpointStatusesByUnifiedStatus(true, lastUpdatedCycle)
 
     if (!unifiedStatuses || unifiedStatuses.length === 0) {
-      Logger.mainLogger.warn('No unified cycle statuses found')
+      Logger.mainLogger.warn(`No unified cycle statuses found greater than or equal to cycle ${lastUpdatedCycle}`)
+      
+      // If no cycles found, use max(lastUpdatedCycle - LATEST_CYCLES_TO_SKIP, 0) as fallback
+      if (lastUpdatedCycle > 0) {
+        const LATEST_CYCLES_TO_SKIP =
+          Math.ceil(config.checkpoint.bucketConfig.GiveUpAge / config.checkpoint.bucketConfig.cycleAge) + 1
+        
+        const fallbackCycle = Math.max(lastUpdatedCycle - LATEST_CYCLES_TO_SKIP, 0)
+        Logger.mainLogger.info(`Using fallback cycle: ${fallbackCycle} (lastUpdatedCycle: ${lastUpdatedCycle} - LATEST_CYCLES_TO_SKIP: ${LATEST_CYCLES_TO_SKIP})`)
+        return fallbackCycle
+      }
       return 0
     }
 
