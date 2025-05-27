@@ -449,7 +449,7 @@ describe('cycleTracker', () => {
 
       await updateCycleTrackerOnShutdown()
 
-      expect(mockLogger.warn).toHaveBeenCalledWith('No unified cycle statuses found')
+      expect(mockLogger.warn).toHaveBeenCalledWith('No unified cycle statuses found greater than or equal to cycle 0')
       expect(mockLogger.warn).toHaveBeenCalledWith('No valid unified cycle found during shutdown')
       expect(mockFs.writeFileSync).not.toHaveBeenCalled()
     })
@@ -530,7 +530,7 @@ describe('cycleTracker', () => {
 
       await updateCycleTrackerOnShutdown()
 
-      expect(mockLogger.warn).toHaveBeenCalledWith('No unified cycle statuses found')
+      expect(mockLogger.warn).toHaveBeenCalledWith('No unified cycle statuses found greater than or equal to cycle 0')
       expect(mockLogger.warn).toHaveBeenCalledWith('No valid unified cycle found during shutdown')
       expect(mockFs.writeFileSync).not.toHaveBeenCalled()
     })
