@@ -347,14 +347,20 @@ async function getCheckpointStatusForRange(startCycle: number, endCycle: number)
  * Gets all checkpoint statuses with a specific unified status
  * @param unified Whether to get checkpoints with unified status true or false
  */
-export async function getCheckpointStatusesByUnifiedStatus(unified: boolean): Promise<CheckpointStatus[]> {
+export async function getCheckpointStatusesByUnifiedStatus(unified: boolean, minCycle: number = 0): Promise<CheckpointStatus[]> {
   try {
     const sql = `
       SELECT * FROM checkpoint_status
       WHERE unifiedStatus = ?
+      ${minCycle > 0 ? 'AND cycle >= ?' : ''}
     `
 
-    const rows = await db.all(checkpointStatusDatabase, sql, [unified ? 1 : 0])
+    const params = unified ? [1] : [0]
+    if (minCycle > 0) {
+      params.push(minCycle)
+    }
+
+    const rows = await db.all(checkpointStatusDatabase, sql, params)
 
     return rows.map((row) => {
       // Add type assertion to fix TypeScript errors
@@ -426,28 +432,49 @@ export async function getOldestPendingOrFailedCheckpointStatus(): Promise<Checkp
 }
 
 /**
- * Gets all cycles that need syncing (have unified status = false)
- * @returns Array of cycle numbers that need syncing
+ * Finds cycles that need syncing based on their unified status
+ * @param lastUpdatedCycle The last updated cycle to start checking from
+ * @param currentCycle The current network cycle
+ * @param batchSize Number of cycles to process at once
+ * @param callback Function to call for each cycle that needs syncing
  */
-export async function getCheckpointSyncRange(): Promise<number[] | null> {
+export async function processCyclesNeedingSync(
+  lastUpdatedCycle: number,
+  currentCycle: number,
+  batchSize: number = 100,
+  callback: (cycle: number) => Promise<void>
+): Promise<void> {
   try {
-    const sql = `
-      SELECT cycle
-      FROM checkpoint_status
-      WHERE unifiedStatus = ?
-      ORDER BY cycle ASC
-    `
-
-    const results = await db.all(checkpointStatusDatabase, sql, [false])
-
-    if (!results || results.length === 0) {
-      return null
+    // Process in batches to avoid loading too many cycles in memory
+    for (let startCycle = lastUpdatedCycle; startCycle <= currentCycle; startCycle += batchSize) {
+      const endCycle = Math.min(startCycle + batchSize - 1, currentCycle)
+      
+      // First, check which cycles in this range have status records
+      const sql = `
+        SELECT cycle, unifiedStatus 
+        FROM checkpoint_status 
+        WHERE cycle >= ? AND cycle <= ? 
+        ORDER BY cycle ASC
+      `
+      const existingStatuses = await db.all(checkpointStatusDatabase, sql, [startCycle, endCycle])
+      
+      // Create a map for quick lookup
+      const statusMap = new Map<number, boolean>()
+      existingStatuses.forEach((row: any) => {
+        statusMap.set(row.cycle, row.unifiedStatus === 1)
+      })
+      
+      // Process each cycle in the range
+      for (let cycle = startCycle; cycle <= endCycle; cycle++) {
+        // If no status exists or unified status is false, this cycle needs syncing
+        if (!statusMap.has(cycle) || statusMap.get(cycle) === false) {
+          await callback(cycle)
+          Logger.mainLogger.debug(`[processCyclesNeedingSync] cycle ${cycle} has unifiedStatus false.. syncing`)
+        }
+      }
     }
-
-    // Extract cycle numbers from results
-    return results.map((row: any) => row.cycle)
   } catch (err) {
-    Logger.mainLogger.error('Error getting checkpoint sync range:', err)
+    Logger.mainLogger.error('[processCyclesNeedingSync] Error processing cycles that need syncing:', err)
     throw err
   }
 }

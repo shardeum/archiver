@@ -54,6 +54,7 @@ import { getOldestPendingOrFailedCheckpointStatus } from './dbstore/checkpointSt
 import { ArchiverLogging } from './profiler/archiverLogging'
 import { logEnvSetup } from './utils/environment'
 import { getLastUpdatedCycle } from './utils/cycleTracker'
+import { storeCycleData } from './Data/Collector'
 
 const configFile = resolve(__dirname, '../archiver-config.json')
 const allowedArchiversConfigPath = join(__dirname, '../allowed-archivers.json')
@@ -314,7 +315,6 @@ async function syncAndStartServer(): Promise<void> {
     // Get the cycle duration
     const cycleDuration = await Data.getCycleDuration()
     const oldestFailedCheckpointStatus = await getOldestPendingOrFailedCheckpointStatus()
-    const firstUnifiedCheckpointCycle = oldestFailedCheckpointStatus?.cycle || 0
 
     // Retrieve database state
     const lastStoredReceiptCount = await ReceiptDB.queryReceiptCount()
@@ -323,12 +323,12 @@ async function syncAndStartServer(): Promise<void> {
 
     // Get the latest cycle from archivers to know how far we need to sync
     const latestNetworkCycle = await Cycles.getNewestCycleFromArchivers()
-    State.setLastCycleToSync(latestNetworkCycle?.counter || oldestFailedCheckpointStatus?.cycle || 0)
+    // Get the last updated cycle from tracker file
+    const lastStoredCycle = getLastUpdatedCycle()
+    State.setLastCycleToSync(lastStoredCycle || latestNetworkCycle?.counter || oldestFailedCheckpointStatus?.cycle || 0)
 
-    // Sync cycle data if checkpoint updates are allowed
-    if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
-      await syncCycleDataWithCheckpoints(firstUnifiedCheckpointCycle, latestNetworkCycle)
-    } else {
+    // Validate and sync cycle data if checkpoint updates are not allowed
+    if (!config.checkpoint.bucketConfig.allowCheckpointUpdates) {
       await validateAndSyncCycleData(lastStoredCycleCount, lastStoredCycleInfo)
     }
 
@@ -351,7 +351,7 @@ async function syncAndStartServer(): Promise<void> {
       await syncGlobalAccount()
 
       if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
-        await handleReceiptSyncWithCheckpoints(lastStoredReceiptCount, firstUnifiedCheckpointCycle, latestNetworkCycle)
+        await handleReceiptSyncWithCheckpoints(lastStoredReceiptCount, lastStoredCycle, latestNetworkCycle)
       } else {
         await handleTraditionalReceiptSync(lastStoredReceiptCount, lastStoredCycleCount)
       }
@@ -385,28 +385,6 @@ async function syncAndStartServer(): Promise<void> {
     Logger.mainLogger.error('Error in syncAndStartServer:', error)
     throw error
   }
-}
-
-// Helper functions for syncAndStartServer
-async function syncCycleDataWithCheckpoints(
-  firstUnifiedCheckpointCycle: number,
-  latestNetworkCycle: any
-): Promise<void> {
-  const response: any = await Data.getTotalDataFromArchivers()
-  const { totalCycles } = response
-
-  if (firstUnifiedCheckpointCycle > totalCycles) {
-    Logger.mainLogger.info('The existing db has more data than the network data! Proceeding with joining the network!')
-    return
-  }
-
-  const startCycle = firstUnifiedCheckpointCycle
-  let endCycle = Math.max(totalCycles, latestNetworkCycle?.counter || 0)
-
-  const BATCH_SIZE = config.checkpoint.batchSize
-  let currentStart = startCycle
-  let currentEnd = Math.min(currentStart + BATCH_SIZE, endCycle)
-  Logger.mainLogger.info(`Need to patch cycles from ${currentStart} to ${currentEnd}...`)
 }
 
 async function validateAndSyncCycleData(lastStoredCycleCount: number, lastStoredCycleInfo: any): Promise<void> {
@@ -474,13 +452,17 @@ async function joinNetwork(cycleDuration: number): Promise<void> {
 
 async function handleReceiptSyncWithCheckpoints(
   lastStoredReceiptCount: number,
-  firstUnifiedCheckpointCycle: number,
+  lastStoredCycle: number,
   latestNetworkCycle: any
 ): Promise<void> {
   Logger.mainLogger.info('Using checkpoint V2 for data synchronization')
 
+  // To repair any failed checkpoints from last 20 cycles
+  const CYCLES_TO_SKIP =
+    Math.ceil(config.checkpoint.bucketConfig.GiveUpAge / config.checkpoint.bucketConfig.cycleAge) + 1
+
   // Find the last valid cycle for receipts
-  let lastStoredReceiptCycle = Math.max(firstUnifiedCheckpointCycle - 1, 0)
+  let lastStoredReceiptCycle = Math.max(lastStoredCycle - CYCLES_TO_SKIP, 0)
 
   // Sync receipts based on what's stored
   if (lastStoredReceiptCount === 0) {
@@ -495,7 +477,7 @@ async function handleReceiptSyncWithCheckpoints(
   const updatedCycleInfo = (await CycleDB.queryLatestCycleRecords(1))[0]
 
   if (updatedCycleCount - 1 !== updatedCycleInfo.counter) {
-    Logger.mainLogger.error(
+    Logger.mainLogger.warn(
       `Cycle count mismatch: The archiver has ${updatedCycleCount} cycles but the latest stored cycle is ${updatedCycleInfo.counter}`
     )
 
@@ -505,32 +487,30 @@ async function handleReceiptSyncWithCheckpoints(
     Logger.mainLogger.debug(
       `[handleReceiptSyncWithCheckpoints] Starting cycle check from last updated cycle: ${startCycle}`
     )
-
-    // Find missing cycles and fetch them, starting from the last updated cycle
-    const missingCycles = []
+    // Fetch missing cycles starting from the last updated cycle
     for (let i = startCycle; i < updatedCycleCount; i++) {
       try {
         const cycleInfo = await CycleDB.queryCycleByCounter(i)
         if (!cycleInfo) {
-          missingCycles.push(i)
+          Logger.mainLogger.info(`[handleReceiptSyncWithCheckpoints] Missing cycle ${i}, syncing...`)
+          const res = (await queryFromArchivers(
+            RequestDataType.CYCLE,
+            {
+              start: i,
+              end: i,
+            },
+            30 // 30seconds
+          )) as ArchiverCycleResponse
+          
+          if (res && res.cycleInfo && res.cycleInfo.length > 0) {
+            Logger.mainLogger.info(`[handleReceiptSyncWithCheckpoints] Successfully retrieved cycle ${i}, storing...`)
+            await storeCycleData(res.cycleInfo)
+          } else {
+            Logger.mainLogger.warn(`[handleReceiptSyncWithCheckpoints] Failed to retrieve cycle ${i} from archivers`)
+          }
         }
       } catch (err) {
-        missingCycles.push(i)
-      }
-    }
-
-    if (missingCycles.length > 0) {
-      Logger.mainLogger.info(
-        `[handleReceiptSyncWithCheckpoints] Found ${missingCycles.length} missing cycles: ${missingCycles.join(', ')}`
-      )
-
-      // Fetch missing cycles
-      for (const cycle of missingCycles) {
-        try {
-          await Data.syncCycleData(cycle)
-        } catch (err) {
-          Logger.mainLogger.error(`[handleReceiptSyncWithCheckpoints] Failed to sync missing cycle ${cycle}:`, err)
-        }
+        Logger.mainLogger.error(`[handleReceiptSyncWithCheckpoints] Error querying cycle ${i}:`, err)
       }
     }
   }
