@@ -1179,8 +1179,8 @@ async function analyzeAccounts(
     logProgress(startCycle - minCycleToCheck, maxCycleToCheck - minCycleToCheck, 'Analyzing accounts for cycles')
 
     try {
-      // Get accounts from remote archiver for this cycle range
-      const response = await callArchiverApi('/accounts', {
+      // Get accounts from remote archiver for this cycle range using the correct endpoint
+      const response = await callArchiverApi('/account', {
         startCycle,
         endCycle,
       })
@@ -1254,67 +1254,89 @@ async function healAccounts(accountsToHeal: { id: string; cycle: number }[]): Pr
 
   mainLogger.info(`Fetching current data for ${accountsToHeal.length} accounts from remote archiver`)
 
-  // Process in batches to avoid overwhelming the remote archiver
-  const BATCH_SIZE = batchSize
-  for (let i = 0; i < accountsToHeal.length; i += BATCH_SIZE) {
-    const batchAccounts = accountsToHeal.slice(i, i + BATCH_SIZE)
-    if (batchAccounts.length === 0) continue
+  // Group accounts by cycle range for more efficient batch processing
+  const cycleGroups = new Map<string, { id: string; cycle: number }[]>()
+
+  for (const account of accountsToHeal) {
+    // Group accounts by cycle ranges to make efficient API calls
+    const cycleRange = `${Math.floor(account.cycle / cycleBatchSize) * cycleBatchSize}`
+    if (!cycleGroups.has(cycleRange)) {
+      cycleGroups.set(cycleRange, [])
+    }
+    cycleGroups.get(cycleRange)!.push(account)
+  }
+
+  // Process each cycle group
+  for (const [cycleRangeStart, accounts] of cycleGroups) {
+    const startCycleForGroup = parseInt(cycleRangeStart)
+    const endCycleForGroup = startCycleForGroup + cycleBatchSize - 1
+
+    // Find the actual min/max cycles in this group
+    const minCycle = Math.min(...accounts.map((a) => a.cycle))
+    const maxCycle = Math.max(...accounts.map((a) => a.cycle))
 
     try {
-      // Find min and max cycle in this batch
-      const minCycle = Math.min(...batchAccounts.map((a) => a.cycle))
-      const maxCycle = Math.max(...batchAccounts.map((a) => a.cycle))
-
       mainLogger.info(
-        `Fetching accounts batch ${i / BATCH_SIZE + 1}, IDs: [${batchAccounts.map((a) => a.id).join(', ')}]`
+        `Fetching accounts for cycle range ${minCycle}-${maxCycle}, containing ${accounts.length} target accounts`
       )
 
-      const response = await callArchiverApi('/accounts', {
-        accountIds: batchAccounts.map((a) => a.id),
+      // Use the correct endpoint with startCycle/endCycle
+      const response = await callArchiverApi('/account', {
         startCycle: minCycle,
         endCycle: maxCycle,
       })
 
       if (response && response.accounts) {
-        // Verify we got all the accounts we asked for
-        const receivedIds = new Set(response.accounts.map((a) => a.accountId))
-        const missingIds = batchAccounts.filter((a) => !receivedIds.has(a.id))
+        // Filter to only the accounts we actually need to heal
+        const targetAccountIds = new Set(accounts.map((a) => a.id))
+        const accountsToStore = response.accounts.filter((account) => targetAccountIds.has(account.accountId))
 
-        if (missingIds.length > 0) {
-          mainLogger.warn(`Did not receive data for some accounts: [${missingIds.map((a) => a.id).join(', ')}]`)
-        }
+        mainLogger.info(
+          `Found ${accountsToStore.length} accounts to heal from ${response.accounts.length} total accounts in range`
+        )
 
-        // Store accounts in batches
-        const ACCOUNT_BATCH_SIZE = 20
-        for (let j = 0; j < response.accounts.length; j += ACCOUNT_BATCH_SIZE) {
-          const accountBatch = response.accounts.slice(j, j + ACCOUNT_BATCH_SIZE)
-          try {
-            await AccountDB.bulkInsertAccounts(accountBatch)
-            mainLogger.info(
-              `Successfully healed batch ${j / ACCOUNT_BATCH_SIZE + 1} with ${accountBatch.length} accounts`
-            )
-            healedCount += accountBatch.length
-          } catch (error) {
-            mainLogger.error(`Error batch healing accounts: ${error}`)
+        if (accountsToStore.length > 0) {
+          // Store accounts in batches
+          const ACCOUNT_BATCH_SIZE = 20
+          for (let j = 0; j < accountsToStore.length; j += ACCOUNT_BATCH_SIZE) {
+            const accountBatch = accountsToStore.slice(j, j + ACCOUNT_BATCH_SIZE)
+            try {
+              await AccountDB.bulkInsertAccounts(accountBatch)
+              mainLogger.info(
+                `Successfully healed batch ${j / ACCOUNT_BATCH_SIZE + 1} with ${accountBatch.length} accounts`
+              )
+              healedCount += accountBatch.length
+            } catch (error) {
+              mainLogger.error(`Error batch healing accounts: ${error}`)
 
-            // Try inserting one by one if batch insert fails
-            mainLogger.info('Attempting to insert accounts one by one')
-            for (const account of accountBatch) {
-              try {
-                await AccountDB.insertAccount(account)
-                mainLogger.info(`Successfully healed account ${account.accountId}`)
-                healedCount++
-              } catch (accountError) {
-                mainLogger.error(`Error healing account ${account.accountId}: ${accountError}`)
+              // Try inserting one by one if batch insert fails
+              mainLogger.info('Attempting to insert accounts one by one')
+              for (const account of accountBatch) {
+                try {
+                  await AccountDB.insertAccount(account)
+                  mainLogger.info(`Successfully healed account ${account.accountId}`)
+                  healedCount++
+                } catch (accountError) {
+                  mainLogger.error(`Error healing account ${account.accountId}: ${accountError}`)
+                }
               }
             }
           }
         }
+
+        // Check for any accounts that weren't found
+        const receivedIds = new Set(response.accounts.map((a) => a.accountId))
+        const missingIds = accounts.filter((a) => !receivedIds.has(a.id))
+        if (missingIds.length > 0) {
+          mainLogger.warn(
+            `Some target accounts were not found in the remote archiver: [${missingIds.map((a) => a.id).join(', ')}]`
+          )
+        }
       } else {
-        mainLogger.warn(`No accounts returned for batch ${i / BATCH_SIZE + 1}`)
+        mainLogger.warn(`No accounts returned for cycle range ${minCycle}-${maxCycle}`)
       }
     } catch (error) {
-      mainLogger.error(`Error fetching remote account data for batch ${i / BATCH_SIZE + 1}:`, error)
+      mainLogger.error(`Error fetching remote account data for cycle range ${minCycle}-${maxCycle}:`, error)
     }
 
     await Utils.sleep(sleepBetweenBatchesMs)
