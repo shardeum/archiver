@@ -315,7 +315,6 @@ async function syncAndStartServer(): Promise<void> {
     // Get the cycle duration
     const cycleDuration = await Data.getCycleDuration()
     const oldestFailedCheckpointStatus = await getOldestPendingOrFailedCheckpointStatus()
-    const firstUnifiedCheckpointCycle = oldestFailedCheckpointStatus?.cycle || 0
 
     // Retrieve database state
     const lastStoredReceiptCount = await ReceiptDB.queryReceiptCount()
@@ -324,7 +323,9 @@ async function syncAndStartServer(): Promise<void> {
 
     // Get the latest cycle from archivers to know how far we need to sync
     const latestNetworkCycle = await Cycles.getNewestCycleFromArchivers()
-    State.setLastCycleToSync(latestNetworkCycle?.counter || oldestFailedCheckpointStatus?.cycle || 0)
+    // Get the last updated cycle from tracker file
+    const lastStoredCycle = getLastUpdatedCycle()
+    State.setLastCycleToSync(lastStoredCycle || latestNetworkCycle?.counter || oldestFailedCheckpointStatus?.cycle || 0)
 
     // Validate and sync cycle data if checkpoint updates are not allowed
     if (!config.checkpoint.bucketConfig.allowCheckpointUpdates) {
@@ -350,7 +351,7 @@ async function syncAndStartServer(): Promise<void> {
       await syncGlobalAccount()
 
       if (config.checkpoint.bucketConfig.allowCheckpointUpdates) {
-        await handleReceiptSyncWithCheckpoints(lastStoredReceiptCount, firstUnifiedCheckpointCycle, latestNetworkCycle)
+        await handleReceiptSyncWithCheckpoints(lastStoredReceiptCount, lastStoredCycle, latestNetworkCycle)
       } else {
         await handleTraditionalReceiptSync(lastStoredReceiptCount, lastStoredCycleCount)
       }
@@ -451,13 +452,17 @@ async function joinNetwork(cycleDuration: number): Promise<void> {
 
 async function handleReceiptSyncWithCheckpoints(
   lastStoredReceiptCount: number,
-  firstUnifiedCheckpointCycle: number,
+  lastStoredCycle: number,
   latestNetworkCycle: any
 ): Promise<void> {
   Logger.mainLogger.info('Using checkpoint V2 for data synchronization')
 
+  // To repair any failed checkpoints from last 20 cycles
+  const CYCLES_TO_SKIP =
+    Math.ceil(config.checkpoint.bucketConfig.GiveUpAge / config.checkpoint.bucketConfig.cycleAge) + 1
+
   // Find the last valid cycle for receipts
-  let lastStoredReceiptCycle = Math.max(firstUnifiedCheckpointCycle - 1, 0)
+  let lastStoredReceiptCycle = Math.max(lastStoredCycle - CYCLES_TO_SKIP, 0)
 
   // Sync receipts based on what's stored
   if (lastStoredReceiptCount === 0) {
