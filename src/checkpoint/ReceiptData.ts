@@ -13,10 +13,43 @@ import * as Logger from '../Logger'
 import * as Crypto from '../Crypto'
 import { verifyAppReceiptData } from '../shardeum/verifyAppReceiptData'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
+import { storeReceiptData } from '../Data/Collector'
+
+/**
+ * Strip non-consensus fields from the receipt
+ * @param receipt - The receipt to strip non-consensus fields from
+ * @returns The receipt with non-consensus fields stripped
+ */
+function stripNonConsensusFields(receipt: ReceiptType): ReceiptType {
+  // Shallow copy the receipt
+  const clone: any = { ...receipt }
+
+  // Remove signedReceipt.txGroupCycle if present
+  if (clone?.signedReceipt?.txGroupCycle) {
+    clone.signedReceipt = { ...clone.signedReceipt }
+    delete clone.signedReceipt.txGroupCycle
+  }
+
+  // Remove tx.originalTxData.tx.timestamp if present
+  if (clone?.tx?.originalTxData?.tx?.timestamp) {
+    clone.tx = { ...clone.tx }
+    clone.tx.originalTxData = { ...clone.tx.originalTxData }
+    clone.tx.originalTxData.tx = { ...clone.tx.originalTxData.tx }
+    delete clone.tx.originalTxData.tx.timestamp
+  }
+
+  // Remove applyTimestamp if present
+  if (clone?.applyTimestamp !== undefined) {
+    delete clone.applyTimestamp
+  }
+
+  return clone
+}
 
 export class ReceiptCheckpointData extends CheckpointData<ReceiptType> {
   constructor(receipt: ReceiptType) {
-    const receiptHash = Crypto.hash(StringUtils.safeStringify(receipt)).toLowerCase()
+    const receiptForCalculation = stripNonConsensusFields(receipt)
+    const receiptHash = Crypto.hash(StringUtils.safeStringify(receiptForCalculation)).toLowerCase()
 
     super(
       receiptHash.substring(0, 2), // address (first 2 chars)
@@ -96,7 +129,7 @@ export class ReceiptRadixDigestTally extends RadixDigestTally {
 
 async function validateData(data: CheckpointData<ReceiptType>): Promise<boolean> {
   try {
-    const verifyHash = Crypto.hash(StringUtils.safeStringify(data.d)).toLowerCase()
+    const verifyHash = Crypto.hash(StringUtils.safeStringify(stripNonConsensusFields(data.d))).toLowerCase()
 
     if (verifyHash !== data.h) {
       return false
@@ -115,7 +148,7 @@ async function updateData(data: CheckpointData<ReceiptType>): Promise<void> {
     // Insert/Update into checkpoint_data table
     const receipt = data.d
     // Avg entry size is about 41000 bytes
-    await insertReceipt(receipt, false)
+    await storeReceiptData([receipt], 'checkpoint', false, false, false)
   } catch (err) {
     Logger.mainLogger.error('Failed to store receipt checkpoint data:', err)
     throw err

@@ -85,10 +85,10 @@ describe('Transactions Database Operations', () => {
   afterEach(() => {
     // Reset all mocks after each test for isolation
     jest.clearAllMocks()
-    
+
     // Reset config
     config.VERBOSE = false
-    
+
     // Restore default implementations
     jest.mocked(SerializeToJsonString).mockImplementation((obj) => {
       if (typeof obj === 'object') {
@@ -96,7 +96,7 @@ describe('Transactions Database Operations', () => {
       }
       return obj as any
     })
-    
+
     jest.mocked(DeSerializeFromJsonString).mockImplementation((str) => {
       if (typeof str === 'string') {
         try {
@@ -196,7 +196,7 @@ describe('Transactions Database Operations', () => {
       for (let i = 0; i < 1000; i++) {
         largeData[`key${i}`] = `value${i}`.repeat(100)
       }
-      
+
       const transactionWithLargeData = {
         ...sampleTransaction,
         data: largeData,
@@ -282,12 +282,12 @@ describe('Transactions Database Operations', () => {
     it('should handle transaction with nested circular references in data', async () => {
       const circularData: any = { a: 1 }
       circularData.circular = circularData // Create circular reference
-      
+
       const transactionWithCircular = {
         ...sampleTransaction,
         data: circularData,
       }
-      
+
       // Mock SerializeToJsonString to throw error for circular reference
       jest.mocked(SerializeToJsonString).mockImplementationOnce(() => {
         throw new Error('Converting circular structure to JSON')
@@ -321,7 +321,14 @@ describe('Transactions Database Operations', () => {
       expect(db.run).toHaveBeenCalledWith(
         'mock-transaction-db',
         expect.any(String),
-        expect.arrayContaining(['', expect.any(String), expect.any(Number), expect.any(Number), expect.any(String), expect.any(String)])
+        expect.arrayContaining([
+          '',
+          expect.any(String),
+          expect.any(Number),
+          expect.any(Number),
+          expect.any(String),
+          expect.any(String),
+        ])
       )
     })
 
@@ -333,7 +340,7 @@ describe('Transactions Database Operations', () => {
         data: undefined,
         originalTxData: undefined,
       } as unknown as Transaction
-      
+
       jest.mocked(db.run).mockResolvedValueOnce(undefined)
 
       await insertTransaction(transactionWithUndefinedData)
@@ -341,14 +348,7 @@ describe('Transactions Database Operations', () => {
       expect(db.run).toHaveBeenCalledWith(
         'mock-transaction-db',
         expect.any(String),
-        expect.arrayContaining([
-          'test-tx-id-123',
-          undefined,
-          1625097600000,
-          42,
-          undefined,
-          undefined,
-        ])
+        expect.arrayContaining(['test-tx-id-123', undefined, 1625097600000, 42, undefined, undefined])
       )
     })
   })
@@ -430,7 +430,7 @@ describe('Transactions Database Operations', () => {
         appReceiptId: `test-receipt-id-${i}`,
         cycleNumber: 42 + i,
       }))
-      
+
       jest.mocked(db.run).mockResolvedValueOnce(undefined)
 
       await bulkInsertTransactions(largeTransactionArray)
@@ -456,7 +456,7 @@ describe('Transactions Database Operations', () => {
           originalTxData: null,
         },
       ]
-      
+
       jest.mocked(db.run).mockResolvedValueOnce(undefined)
 
       await bulkInsertTransactions(mixedTransactions)
@@ -476,10 +476,10 @@ describe('Transactions Database Operations', () => {
           data: { circular: null }, // Will be made circular below
         },
       ]
-      
+
       // Create circular reference
       transactions[1].data.circular = transactions[1].data
-      
+
       // Mock SerializeToJsonString to fail on circular reference
       jest.mocked(SerializeToJsonString).mockImplementation((obj) => {
         if (obj && typeof obj === 'object' && 'circular' in obj) {
@@ -487,7 +487,7 @@ describe('Transactions Database Operations', () => {
         }
         return JSON.stringify(obj)
       })
-      
+
       jest.mocked(db.run).mockResolvedValueOnce(undefined)
 
       await bulkInsertTransactions(transactions)
@@ -503,7 +503,7 @@ describe('Transactions Database Operations', () => {
         { ...sampleTransaction }, // Same txId
         { ...sampleTransaction, appReceiptId: 'different-receipt' }, // Same txId, different receipt
       ]
-      
+
       jest.mocked(db.run).mockResolvedValueOnce(undefined)
 
       await bulkInsertTransactions(duplicateTransactions)
@@ -522,7 +522,7 @@ describe('Transactions Database Operations', () => {
           appReceiptId: longString,
         },
       ]
-      
+
       jest.mocked(db.run).mockResolvedValueOnce(undefined)
 
       await bulkInsertTransactions(transactionsWithLongStrings)
@@ -553,7 +553,7 @@ describe('Transactions Database Operations', () => {
           originalTxData: ['a', 'b', 'c'],
         } as any,
       ]
-      
+
       jest.mocked(db.run).mockResolvedValueOnce(undefined)
 
       await bulkInsertTransactions(transactionsWithArrayData)
@@ -652,11 +652,9 @@ describe('Transactions Database Operations', () => {
       await queryTransactionByTxId(maliciousTxId)
 
       // Parameterized queries should prevent SQL injection
-      expect(db.get).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        'SELECT * FROM transactions WHERE txId=?',
-        ["'; DROP TABLE transactions; --"]
-      )
+      expect(db.get).toHaveBeenCalledWith('mock-transaction-db', 'SELECT * FROM transactions WHERE txId=?', [
+        "'; DROP TABLE transactions; --",
+      ])
     })
 
     it('should handle extremely long txId', async () => {
@@ -665,11 +663,7 @@ describe('Transactions Database Operations', () => {
 
       const result = await queryTransactionByTxId(longTxId)
 
-      expect(db.get).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        'SELECT * FROM transactions WHERE txId=?',
-        [longTxId]
-      )
+      expect(db.get).toHaveBeenCalledWith('mock-transaction-db', 'SELECT * FROM transactions WHERE txId=?', [longTxId])
       expect(result).toBeNull()
     })
 
@@ -679,11 +673,9 @@ describe('Transactions Database Operations', () => {
 
       const result = await queryTransactionByTxId(unicodeTxId)
 
-      expect(db.get).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        'SELECT * FROM transactions WHERE txId=?',
-        [unicodeTxId]
-      )
+      expect(db.get).toHaveBeenCalledWith('mock-transaction-db', 'SELECT * FROM transactions WHERE txId=?', [
+        unicodeTxId,
+      ])
       expect(result).toBeDefined()
     })
 
@@ -692,11 +684,7 @@ describe('Transactions Database Operations', () => {
 
       const result = await queryTransactionByTxId('')
 
-      expect(db.get).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        'SELECT * FROM transactions WHERE txId=?',
-        ['']
-      )
+      expect(db.get).toHaveBeenCalledWith('mock-transaction-db', 'SELECT * FROM transactions WHERE txId=?', [''])
       expect(result).toBeNull()
     })
 
@@ -782,15 +770,13 @@ describe('Transactions Database Operations', () => {
     it('should handle potential SQL injection in accountId parameter', async () => {
       const maliciousAccountId = "'; DROP TABLE transactions; --"
       jest.mocked(db.get).mockResolvedValueOnce(null)
-      
+
       await queryTransactionByAccountId(maliciousAccountId)
 
       // Parameterized queries should prevent SQL injection
-      expect(db.get).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        'SELECT * FROM transactions WHERE accountId=?',
-        ["'; DROP TABLE transactions; --"]
-      )
+      expect(db.get).toHaveBeenCalledWith('mock-transaction-db', 'SELECT * FROM transactions WHERE accountId=?', [
+        "'; DROP TABLE transactions; --",
+      ])
     })
 
     it('should handle extremely long txId', async () => {
@@ -799,11 +785,7 @@ describe('Transactions Database Operations', () => {
 
       const result = await queryTransactionByTxId(longTxId)
 
-      expect(db.get).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        'SELECT * FROM transactions WHERE txId=?',
-        [longTxId]
-      )
+      expect(db.get).toHaveBeenCalledWith('mock-transaction-db', 'SELECT * FROM transactions WHERE txId=?', [longTxId])
       expect(result).toBeNull()
     })
 
@@ -813,11 +795,9 @@ describe('Transactions Database Operations', () => {
 
       const result = await queryTransactionByTxId(unicodeTxId)
 
-      expect(db.get).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        'SELECT * FROM transactions WHERE txId=?',
-        [unicodeTxId]
-      )
+      expect(db.get).toHaveBeenCalledWith('mock-transaction-db', 'SELECT * FROM transactions WHERE txId=?', [
+        unicodeTxId,
+      ])
       expect(result).toBeDefined()
     })
 
@@ -826,11 +806,7 @@ describe('Transactions Database Operations', () => {
 
       const result = await queryTransactionByTxId('')
 
-      expect(db.get).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        'SELECT * FROM transactions WHERE txId=?',
-        ['']
-      )
+      expect(db.get).toHaveBeenCalledWith('mock-transaction-db', 'SELECT * FROM transactions WHERE txId=?', [''])
       expect(result).toBeNull()
     })
 
@@ -963,7 +939,7 @@ describe('Transactions Database Operations', () => {
     it('should handle negative count values', async () => {
       // The implementation doesn't validate negative values, it passes them to SQL
       jest.mocked(db.all).mockResolvedValueOnce([])
-      
+
       const result = await queryLatestTransactions(-10)
 
       // SQL would be executed with negative LIMIT (which SQLite treats as no limit)
@@ -1021,7 +997,7 @@ describe('Transactions Database Operations', () => {
         originalTxData: '{invalid json',
       }
       jest.mocked(db.all).mockResolvedValueOnce([malformedDbTransaction])
-      
+
       // Mock DeSerializeFromJsonString to return the string as-is for invalid JSON
       jest.mocked(DeSerializeFromJsonString).mockImplementation((str) => str)
 
@@ -1188,7 +1164,7 @@ describe('Transactions Database Operations', () => {
 
     // SQL injection prevention tests
     it('should handle potential SQL injection in skip parameter', async () => {
-      const maliciousSkip = "0; DROP TABLE transactions; --" as any
+      const maliciousSkip = '0; DROP TABLE transactions; --' as any
       const result = await queryTransactions(maliciousSkip, 10)
 
       expect(Logger.mainLogger.error).toHaveBeenCalledWith('queryTransactions - Invalid skip or limit')
@@ -1197,7 +1173,7 @@ describe('Transactions Database Operations', () => {
     })
 
     it('should handle potential SQL injection in limit parameter', async () => {
-      const maliciousLimit = "10 OR 1=1" as any
+      const maliciousLimit = '10 OR 1=1' as any
       const result = await queryTransactions(0, maliciousLimit)
 
       expect(Logger.mainLogger.error).toHaveBeenCalledWith('queryTransactions - Invalid skip or limit')
@@ -1208,7 +1184,7 @@ describe('Transactions Database Operations', () => {
     it('should handle negative skip values', async () => {
       // Negative integers pass the Number.isInteger check, so SQL is executed
       jest.mocked(db.all).mockResolvedValueOnce([])
-      
+
       const result = await queryTransactions(-10, 100)
 
       expect(db.all).toHaveBeenCalledWith(
@@ -1221,7 +1197,7 @@ describe('Transactions Database Operations', () => {
     it('should handle negative limit values', async () => {
       // Negative integers pass the Number.isInteger check, so SQL is executed
       jest.mocked(db.all).mockResolvedValueOnce([])
-      
+
       const result = await queryTransactions(0, -100)
 
       expect(db.all).toHaveBeenCalledWith(
@@ -1234,7 +1210,7 @@ describe('Transactions Database Operations', () => {
     it('should handle zero limit value', async () => {
       // Zero is a valid integer, so SQL is executed
       jest.mocked(db.all).mockResolvedValueOnce([])
-      
+
       const result = await queryTransactions(0, 0)
 
       expect(db.all).toHaveBeenCalledWith(
@@ -1476,11 +1452,7 @@ describe('Transactions Database Operations', () => {
       const result = await queryTransactionsBetweenCycles(0, 100, 20, 10)
 
       // Should still execute query - database handles the BETWEEN logic
-      expect(db.all).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        expect.stringContaining('BETWEEN ? AND ?'),
-        [20, 10]
-      )
+      expect(db.all).toHaveBeenCalledWith('mock-transaction-db', expect.stringContaining('BETWEEN ? AND ?'), [20, 10])
       expect(result).toEqual([])
     })
 
@@ -1489,11 +1461,7 @@ describe('Transactions Database Operations', () => {
 
       const result = await queryTransactionsBetweenCycles(0, 100, -10, 5)
 
-      expect(db.all).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        expect.stringContaining('BETWEEN ? AND ?'),
-        [-10, 5]
-      )
+      expect(db.all).toHaveBeenCalledWith('mock-transaction-db', expect.stringContaining('BETWEEN ? AND ?'), [-10, 5])
       expect(result).toBeDefined()
     })
 
@@ -1502,11 +1470,7 @@ describe('Transactions Database Operations', () => {
 
       const result = await queryTransactionsBetweenCycles(0, 100, 0, 0)
 
-      expect(db.all).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        expect.stringContaining('BETWEEN ? AND ?'),
-        [0, 0]
-      )
+      expect(db.all).toHaveBeenCalledWith('mock-transaction-db', expect.stringContaining('BETWEEN ? AND ?'), [0, 0])
       expect(result).toHaveLength(1)
     })
 
@@ -1515,43 +1479,40 @@ describe('Transactions Database Operations', () => {
 
       const result = await queryTransactionsBetweenCycles(0, 100, Number.MAX_SAFE_INTEGER - 1, Number.MAX_SAFE_INTEGER)
 
-      expect(db.all).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        expect.stringContaining('BETWEEN ? AND ?'),
-        [Number.MAX_SAFE_INTEGER - 1, Number.MAX_SAFE_INTEGER]
-      )
+      expect(db.all).toHaveBeenCalledWith('mock-transaction-db', expect.stringContaining('BETWEEN ? AND ?'), [
+        Number.MAX_SAFE_INTEGER - 1,
+        Number.MAX_SAFE_INTEGER,
+      ])
       expect(result).toEqual([])
     })
 
     it('should handle SQL injection in cycle parameters', async () => {
       // Even though these are numbers, test that string injection attempts are handled
-      const maliciousStart = "10; DROP TABLE transactions; --" as any
-      const maliciousEnd = "20 OR 1=1" as any
+      const maliciousStart = '10; DROP TABLE transactions; --' as any
+      const maliciousEnd = '20 OR 1=1' as any
 
       // The function doesn't validate cycle numbers, they are passed as parameters to SQL
       jest.mocked(db.all).mockResolvedValueOnce([])
-      
+
       const result = await queryTransactionsBetweenCycles(0, 100, maliciousStart, maliciousEnd)
 
       // Function passes the values to parameterized query
-      expect(db.all).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        expect.stringContaining('BETWEEN ? AND ?'),
-        [maliciousStart, maliciousEnd]
-      )
+      expect(db.all).toHaveBeenCalledWith('mock-transaction-db', expect.stringContaining('BETWEEN ? AND ?'), [
+        maliciousStart,
+        maliciousEnd,
+      ])
       expect(result).toEqual([])
     })
 
     it('should handle missing cycle parameters', async () => {
       jest.mocked(db.all).mockResolvedValueOnce([])
-      
+
       const result = await queryTransactionsBetweenCycles(0, 100, undefined as any, undefined as any)
 
-      expect(db.all).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        expect.stringContaining('BETWEEN ? AND ?'),
-        [undefined, undefined]
-      )
+      expect(db.all).toHaveBeenCalledWith('mock-transaction-db', expect.stringContaining('BETWEEN ? AND ?'), [
+        undefined,
+        undefined,
+      ])
       expect(result).toEqual([])
     })
 
@@ -1594,11 +1555,11 @@ describe('Transactions Database Operations', () => {
       }))
 
       // Simulate concurrent inserts
-      const promises = concurrentTransactions.map(tx => insertTransaction(tx))
-      
+      const promises = concurrentTransactions.map((tx) => insertTransaction(tx))
+
       // All should resolve without errors
       await expect(Promise.all(promises)).resolves.not.toThrow()
-      
+
       // Verify all were attempted
       expect(db.run).toHaveBeenCalledTimes(5)
     })
@@ -1606,11 +1567,11 @@ describe('Transactions Database Operations', () => {
     it('should handle race condition in bulk insert vs single insert', async () => {
       const tx1 = { ...sampleTransaction, txId: 'race-tx-1' }
       const tx2 = { ...sampleTransaction, txId: 'race-tx-2' }
-      
+
       // Start both operations simultaneously
       const bulkPromise = bulkInsertTransactions([tx1, tx2])
       const singlePromise = insertTransaction(tx1)
-      
+
       // Both should complete without errors (INSERT OR REPLACE handles conflicts)
       await expect(Promise.all([bulkPromise, singlePromise])).resolves.not.toThrow()
     })
@@ -1624,11 +1585,11 @@ describe('Transactions Database Operations', () => {
         data: { bigData: 'z'.repeat(65536) } as any, // 64KB of data
         originalTxData: { bigOriginal: 'w'.repeat(65536) },
       }
-      
+
       jest.mocked(db.run).mockResolvedValueOnce(undefined)
-      
+
       await insertTransaction(maxLengthTransaction)
-      
+
       expect(db.run).toHaveBeenCalled()
       expect(SerializeToJsonString).toHaveBeenCalledWith(maxLengthTransaction.data)
     })
@@ -1642,12 +1603,12 @@ describe('Transactions Database Operations', () => {
         data: 'not-an-object' as any, // Should be object
         originalTxData: 123 as any, // Should be object
       } as Transaction
-      
+
       jest.mocked(db.run).mockResolvedValueOnce(undefined)
-      
+
       // Function should still attempt to insert (no runtime validation)
       await insertTransaction(invalidTypeTransaction)
-      
+
       expect(db.run).toHaveBeenCalled()
     })
 
@@ -1657,7 +1618,7 @@ describe('Transactions Database Operations', () => {
         data: '{"legacyFormat":true,"version":1}',
         originalTxData: 'plain-string-not-json', // Old format might not be JSON
       }
-      
+
       jest.mocked(db.get).mockResolvedValueOnce(legacyTransaction)
       jest.mocked(DeSerializeFromJsonString).mockImplementation((str) => {
         try {
@@ -1666,9 +1627,9 @@ describe('Transactions Database Operations', () => {
           return str // Return as-is if not valid JSON
         }
       })
-      
+
       const result = await queryTransactionByTxId('legacy-tx')
-      
+
       expect(result.data).toEqual({ legacyFormat: true, version: 1 })
       expect(result.originalTxData).toBe('plain-string-not-json')
     })
@@ -1676,14 +1637,14 @@ describe('Transactions Database Operations', () => {
     it('should handle database connection errors during bulk operations', async () => {
       const connectionError = new Error('SQLITE_BUSY: database is locked')
       jest.mocked(db.run).mockRejectedValueOnce(connectionError)
-      
+
       const transactions = Array.from({ length: 100 }, (_, i) => ({
         ...sampleTransaction,
         txId: `bulk-tx-${i}`,
       }))
-      
+
       await bulkInsertTransactions(transactions)
-      
+
       expect(Logger.mainLogger.error).toHaveBeenCalledWith(connectionError)
       expect(Logger.mainLogger.error).toHaveBeenCalledWith('Unable to bulk insert Transactions', 100)
     })
@@ -1694,11 +1655,11 @@ describe('Transactions Database Operations', () => {
         ...sampleDbTransaction,
         txId: `large-result-${i}`,
       }))
-      
+
       jest.mocked(db.all).mockResolvedValueOnce(largeResultSet)
-      
+
       const result = await queryTransactions(0, 10000)
-      
+
       expect(result).toHaveLength(10000)
       // Deserialization should be called for each transaction's data fields
       expect(DeSerializeFromJsonString).toHaveBeenCalledTimes(20000) // 2 fields per transaction
@@ -1713,24 +1674,20 @@ describe('Transactions Database Operations', () => {
         data: {},
         originalTxData: null as any,
       }
-      
+
       jest.mocked(db.run).mockResolvedValueOnce(undefined)
-      
+
       await insertTransaction(specialValuesTransaction)
-      
-      expect(db.run).toHaveBeenCalledWith(
-        'mock-transaction-db',
-        expect.any(String),
-        ['', 'null', 0, 0, '{}', 'null']
-      )
+
+      expect(db.run).toHaveBeenCalledWith('mock-transaction-db', expect.any(String), ['', 'null', 0, 0, '{}', 'null'])
     })
 
     it('should handle count queries returning unexpected formats', async () => {
       // Mock unexpected count result format
       jest.mocked(db.get).mockResolvedValueOnce({ count: 42 }) // Wrong key
-      
+
       const result = await queryTransactionCount()
-      
+
       // When COUNT(*) key is missing, it returns undefined (which is then set to 0)
       expect(result).toBe(undefined)
     })
@@ -1738,16 +1695,16 @@ describe('Transactions Database Operations', () => {
     it('should handle pagination edge cases', async () => {
       // Test skip at boundary
       jest.mocked(db.all).mockResolvedValueOnce([])
-      
+
       const result1 = await queryTransactions(Number.MAX_SAFE_INTEGER - 1, 2)
-      
+
       expect(result1).toEqual([])
-      
+
       // Test limit of 1
       jest.mocked(db.all).mockResolvedValueOnce([sampleDbTransaction])
-      
+
       const result2 = await queryTransactions(0, 1)
-      
+
       expect(result2).toHaveLength(1)
     })
   })

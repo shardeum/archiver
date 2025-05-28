@@ -728,7 +728,8 @@ export const storeReceiptData = async (
   receipts: Receipt.Receipt[] | Receipt.ArchiverReceipt[],
   senderInfo = '',
   verifyData = false,
-  saveOnlyGossipData = false
+  saveOnlyGossipData = false,
+  checkpoint: boolean = true
 ): Promise<void> => {
   if (!receipts || !Array.isArray(receipts) || receipts.length <= 0) return
   const bucketSize = 1000
@@ -765,8 +766,9 @@ export const storeReceiptData = async (
         continue
       }
       if (
-        (processedReceiptsMap.has(txId) && processedReceiptsMap.get(txId) === timestamp) ||
-        (receiptsInValidationMap.has(txId) && receiptsInValidationMap.get(txId) === timestamp)
+        checkpoint &&
+        ((processedReceiptsMap.has(txId) && processedReceiptsMap.get(txId) === timestamp) ||
+          (receiptsInValidationMap.has(txId) && receiptsInValidationMap.get(txId) === timestamp))
       ) {
         if (config.VERBOSE) console.log('RECEIPT', 'Skip', txId, timestamp, senderInfo)
         logReceiptData(receipt, txId, timestamp)
@@ -788,7 +790,7 @@ export const storeReceiptData = async (
       if (config.enableDuplicateReceiptsCheck && !receipt.globalModification) {
         // only consider this for EVM txns and Non Global Internal Txns
         const result = await checkIfValidOverwrite(receipt, txId)
-        if (!result) {
+        if (!result && checkpoint) {
           logReceiptData(receipt, txId, timestamp)
           continue // if the incoming receipt has a status of 0, do not allow it to overwrite a receipt of status 1
         }
@@ -1063,14 +1065,14 @@ export const storeReceiptData = async (
       combineProcessedTxs.push(processedTx)
       // Receipts size can be big, better to save per 100
       if (combineReceipts.length >= 100) {
-        await Receipt.bulkInsertReceipts(combineReceipts)
+        await Receipt.bulkInsertReceipts(combineReceipts, checkpoint)
         if (State.isActive) sendDataToAdjacentArchivers(DataType.RECEIPT, txDataList)
         combineReceipts = []
         txDataList = []
       }
 
       if (combineOriginalTxsData.length >= bucketSize) {
-        await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
+        await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData, checkpoint)
         combineOriginalTxsData = []
         originalTxDataList = []
       }
@@ -1101,12 +1103,12 @@ export const storeReceiptData = async (
   }
   // Receipts size can be big, better to save per 100
   if (combineReceipts.length > 0) {
-    await Receipt.bulkInsertReceipts(combineReceipts)
+    await Receipt.bulkInsertReceipts(combineReceipts, checkpoint)
     if (State.isActive) sendDataToAdjacentArchivers(DataType.RECEIPT, txDataList)
   }
 
   if (combineOriginalTxsData.length > 0) {
-    await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData)
+    await OriginalTxsData.bulkInsertOriginalTxsData(combineOriginalTxsData, checkpoint)
   }
 
   if (combineAccounts.length > 0) await Account.bulkInsertAccounts(combineAccounts)
@@ -1293,6 +1295,11 @@ export const storeAccountData = async (restoreData: StoreAccountParam = {}): Pro
     storingAccountData = false
   }
 }
+
+/**
+ * @deprecated This method is deprecated and will be removed in a future version.
+ * Please use the new implementation instead.
+ */
 
 export const storeOriginalTxData = async (
   originalTxsData: OriginalTxsData.OriginalTxData[] = [],
@@ -1561,7 +1568,7 @@ export const collectMissingReceipts = async (senders: string[], txId: string, tx
       for (const receipt of receipts) {
         const { receiptId, timestamp } = receipt
         if (txId === receiptId && txTimestamp === timestamp) {
-          storeReceiptData([receipt], senderArchiver.ip + ':' + senderArchiver.port, false)
+          storeReceiptData([receipt], senderArchiver.ip + ':' + senderArchiver.port, false, false, true)
           foundTxData = true
         }
       }

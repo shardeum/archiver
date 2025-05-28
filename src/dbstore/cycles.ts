@@ -213,21 +213,21 @@ export async function queryCycleByCounter(counter: number): Promise<Cycle | null
   try {
     const sql = `SELECT * FROM cycles WHERE counter = ? LIMIT 1`
     const dbCycle = (await db.get(cycleDatabase, sql, [counter])) as DbCycle
-    
+
     if (!dbCycle) {
       return null
     }
-    
+
     const cycle: Cycle = {
       counter: dbCycle.counter,
       cycleRecord: DeSerializeFromJsonString(dbCycle.cycleRecord),
       cycleMarker: dbCycle.cycleMarker,
     }
-    
+
     if (config.VERBOSE) {
       Logger.mainLogger.debug('Queried cycle by counter', counter, cycle.cycleMarker)
     }
-    
+
     return cycle
   } catch (e) {
     Logger.mainLogger.error(`Error querying cycle by counter ${counter}:`, e)

@@ -159,14 +159,12 @@ describe('Transaction Digest Database Operations', () => {
       const maliciousTxDigest: TransactionDigest = {
         cycleStart: 100,
         cycleEnd: 200,
-        txCount: 500, 
-        hash: "'); DROP TABLE txDigests; --"
+        txCount: 500,
+        hash: "'); DROP TABLE txDigests; --",
       }
 
       jest.mocked(dbModule.run).mockResolvedValue(undefined)
-      jest.mocked(dbModule.extractValues).mockReturnValue([
-        100, 200, 500, "'); DROP TABLE txDigests; --"
-      ])
+      jest.mocked(dbModule.extractValues).mockReturnValue([100, 200, 500, "'); DROP TABLE txDigests; --"])
 
       // Execute
       await insertTransactionDigest(maliciousTxDigest)
@@ -302,15 +300,13 @@ describe('Transaction Digest Database Operations', () => {
       const negativeCycle = -1
       jest.mocked(dbModule.get).mockResolvedValue(null)
 
-      // Execute 
+      // Execute
       const result = await queryByEndCycle(negativeCycle)
 
       // Verify
-      expect(dbModule.get).toHaveBeenCalledWith(
-        expect.anything(), 
-        'SELECT * FROM txDigests WHERE cycleEnd=? LIMIT 1', 
-        [negativeCycle]
-      )
+      expect(dbModule.get).toHaveBeenCalledWith(expect.anything(), 'SELECT * FROM txDigests WHERE cycleEnd=? LIMIT 1', [
+        negativeCycle,
+      ])
       expect(result).toBeNull()
     })
 
@@ -324,11 +320,9 @@ describe('Transaction Digest Database Operations', () => {
       const result = await queryByEndCycle(largeCycle)
 
       // Verify
-      expect(dbModule.get).toHaveBeenCalledWith(
-        expect.anything(),
-        'SELECT * FROM txDigests WHERE cycleEnd=? LIMIT 1',
-        [largeCycle]
-      )
+      expect(dbModule.get).toHaveBeenCalledWith(expect.anything(), 'SELECT * FROM txDigests WHERE cycleEnd=? LIMIT 1', [
+        largeCycle,
+      ])
       expect(result).toBeNull()
     })
   })
@@ -399,7 +393,7 @@ describe('Transaction Digest Database Operations', () => {
       // Setup - Swapped start and end cycles
       const invalidStart = 200
       const invalidEnd = 100
-      
+
       // Execute
       const result = await queryByCycleRange(invalidStart, invalidEnd)
 
@@ -416,7 +410,7 @@ describe('Transaction Digest Database Operations', () => {
     it('should handle null start or end values gracefully', async () => {
       // Execute with null start value
       await queryByCycleRange(null as unknown as number, endCycle)
-      
+
       // Verify parameterized query still works
       expect(dbModule.all).toHaveBeenCalledWith(
         expect.anything(),
@@ -430,10 +424,10 @@ describe('Transaction Digest Database Operations', () => {
       // Setup
       const largeStart = 0
       const largeEnd = Number.MAX_SAFE_INTEGER
-      
+
       // Execute
       await queryByCycleRange(largeStart, largeEnd)
-      
+
       // Verify
       expect(dbModule.all).toHaveBeenCalledWith(
         expect.anything(),
@@ -478,10 +472,10 @@ describe('Transaction Digest Database Operations', () => {
     it('should properly parameterize the SELECT query in queryByEndCycle', async () => {
       // Setup
       jest.mocked(dbModule.get).mockResolvedValue(sampleTxDigest)
-      
+
       // Execute
       await queryByEndCycle(200)
-      
+
       // Verify SQL query uses parameterization
       const sqlCall = jest.mocked(dbModule.get).mock.calls[0]
       expect(sqlCall[1]).toContain('cycleEnd=?') // Use parameter placeholder
@@ -492,10 +486,10 @@ describe('Transaction Digest Database Operations', () => {
     it('should properly parameterize the SELECT query in queryByCycleRange', async () => {
       // Setup
       jest.mocked(dbModule.all).mockResolvedValue([sampleTxDigest])
-      
+
       // Execute
       await queryByCycleRange(100, 200)
-      
+
       // Verify SQL query uses parameterization
       const sqlCall = jest.mocked(dbModule.all).mock.calls[0]
       expect(sqlCall[1]).toContain('cycleStart >= ?') // Use parameter placeholder

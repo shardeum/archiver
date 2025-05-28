@@ -174,7 +174,7 @@ describe('ShardFunctions', () => {
       const nodesPerConsensusGroup = 2 // Invalid: must be odd and >= 3
       const nodesPerEdge = 1
 
-      // The function may auto-increment this value instead of throwing, 
+      // The function may auto-increment this value instead of throwing,
       // so let's check that the incremented value is not even
       const result = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, nodesPerEdge)
       expect(result.nodesPerConsenusGroup % 2).toBe(1) // Should be odd
@@ -221,7 +221,9 @@ describe('ShardFunctions', () => {
 
     it('should handle non-string inputs gracefully', () => {
       expect(ShardFunctions.leadZeros8(null as unknown as string)).toBe('0000null') // Fixed expectation
-      expect(ShardFunctions.leadZeros8(undefined as unknown as string)).toBe('undefined'.substring('undefined'.length - 8)) // Fixed expectation
+      expect(ShardFunctions.leadZeros8(undefined as unknown as string)).toBe(
+        'undefined'.substring('undefined'.length - 8)
+      ) // Fixed expectation
     })
 
     it('should handle numeric strings', () => {
@@ -750,7 +752,7 @@ describe('ShardFunctions', () => {
     it('should handle edge cases in testAddressNumberInRange', () => {
       // Testing line 495
       const addressNumber = 0x12345678
-      const wrappablePartitionRange = { 
+      const wrappablePartitionRange = {
         rangeIsSplit: true,
         // Fix: Add both partitionRange and partitionRange2 with proper properties
         partitionRange: {
@@ -764,13 +766,13 @@ describe('ShardFunctions', () => {
         },
         partitionRange2: {
           startAddr: 0x20000000,
-          endAddr: 0xFFFFFFFF,
+          endAddr: 0xffffffff,
           low: '',
           high: '',
           partition: 0,
           p_low: 0,
           partitionEnd: 0,
-        }
+        },
       } as WrappablePartitionRange
 
       // Should test second branch when partitionRange is null
@@ -995,7 +997,7 @@ describe('ShardFunctions', () => {
         partitionStart1: null,
         partitionEnd1: null,
         partitionStart2: null,
-        partitionEnd2: null
+        partitionEnd2: null,
       } as unknown as WrappablePartitionRange
 
       const result = ShardFunctions.getPartitionsCovered(wrappablePartitionRange)
@@ -2068,7 +2070,7 @@ describe('ShardFunctions', () => {
       const result = ShardFunctions.fastStableCorrespondingIndicies(10, 5, 3)
       expect(Array.isArray(result)).toBe(true)
       expect(result.length).toBeGreaterThan(0)
-      result.forEach(index => {
+      result.forEach((index) => {
         expect(index).toBeGreaterThanOrEqual(1) // Function returns 1-based indices
         expect(index).toBeLessThanOrEqual(5)
       })
@@ -2092,7 +2094,7 @@ describe('ShardFunctions', () => {
     it('should handle large numbers', () => {
       const result = ShardFunctions.fastStableCorrespondingIndicies(1000, 50, 123)
       expect(result.length).toBeGreaterThan(0)
-      result.forEach(index => {
+      result.forEach((index) => {
         expect(index).toBeGreaterThanOrEqual(1)
         expect(index).toBeLessThanOrEqual(50)
       })
@@ -3060,27 +3062,22 @@ describe('ShardFunctions', () => {
       const numNodes = 10
       const nodesPerConsensusGroup = 3
       const shardGlobals = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, null)
-      
+
       // Create a list of active nodes
       const activeNodes: P2P.NodeListTypes.Node[] = Array.from({ length: numNodes }, (_, i) => ({
         id: `node${i}`,
         status: 'active',
         stakingKey: `staking${i}`,
-        publicKey: `public${i}`
+        publicKey: `public${i}`,
       }))
-      
+
       // Create node shard data
       const nodeShardDataMap = new Map<string, NodeShardData>()
       const partitionShardDataMap = new Map<number, ShardInfo>()
-      
+
       // Initialize partition shard data map
-      ShardFunctions.computePartitionShardDataMap(
-        shardGlobals,
-        partitionShardDataMap,
-        0,
-        shardGlobals.numPartitions
-      )
-      
+      ShardFunctions.computePartitionShardDataMap(shardGlobals, partitionShardDataMap, 0, shardGlobals.numPartitions)
+
       // Create a nodeShardData for the test
       const homePartition = 3
       const thisNode = {
@@ -3100,9 +3097,9 @@ describe('ShardFunctions', () => {
         consensusEndPartition: homePartition + 1,
         outOfDefaultRangeNodes: [],
         edgeNodes: [],
-        c2NodeForOurNode: []
+        c2NodeForOurNode: [],
       }
-      
+
       // Setup nodeShardDataMap
       for (let i = 0; i < numNodes; i++) {
         const partition = i
@@ -3112,40 +3109,35 @@ describe('ShardFunctions', () => {
           homePartition: partition,
           ourNodeIndex: i,
           consensusPartitions: ShardFunctions.calculateConsensusPartitions(shardGlobals, partition),
-          storedPartitions: ShardFunctions.calculateStoredPartitions2(shardGlobals, partition)
+          storedPartitions: ShardFunctions.calculateStoredPartitions2(shardGlobals, partition),
         })
       }
-      
+
       // Call getEdgeNodes
-      const edgeNodes = ShardFunctions.getEdgeNodes(
-        shardGlobals,
-        thisNode,
-        nodeShardDataMap,
-        activeNodes
-      )
-      
+      const edgeNodes = ShardFunctions.getEdgeNodes(shardGlobals, thisNode, nodeShardDataMap, activeNodes)
+
       // Assert results exist
       expect(edgeNodes).toBeDefined()
       expect(Array.isArray(edgeNodes)).toBe(true)
     })
-    
+
     it('should return empty array if active nodes count is less than or equal to nodes per consensus group', () => {
       // Setup with few nodes
       const numNodes = 3
       const nodesPerConsensusGroup = 3
       const shardGlobals = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, null)
-      
+
       // Create a list of active nodes - same size as nodesPerConsensusGroup
       const activeNodes: P2P.NodeListTypes.Node[] = Array.from({ length: numNodes }, (_, i) => ({
         id: `node${i}`,
         status: 'active',
         stakingKey: `staking${i}`,
-        publicKey: `public${i}`
+        publicKey: `public${i}`,
       }))
-      
+
       // Create node shard data
       const nodeShardDataMap = new Map<string, NodeShardData>()
-      
+
       // Create a nodeShardData for the test
       const homePartition = 1
       const thisNode = {
@@ -3165,57 +3157,47 @@ describe('ShardFunctions', () => {
         consensusEndPartition: 2,
         outOfDefaultRangeNodes: [],
         edgeNodes: [],
-        c2NodeForOurNode: []
+        c2NodeForOurNode: [],
       }
-      
+
       // Setup nodeShardDataMap
       for (let i = 0; i < numNodes; i++) {
         nodeShardDataMap.set(activeNodes[i].id, {
           ...thisNode,
           node: activeNodes[i],
           homePartition: i,
-          ourNodeIndex: i
+          ourNodeIndex: i,
         })
       }
-      
+
       // Call getEdgeNodes
-      const edgeNodes = ShardFunctions.getEdgeNodes(
-        shardGlobals,
-        thisNode,
-        nodeShardDataMap,
-        activeNodes
-      )
-      
+      const edgeNodes = ShardFunctions.getEdgeNodes(shardGlobals, thisNode, nodeShardDataMap, activeNodes)
+
       // Assert empty array is returned
       expect(edgeNodes).toEqual([])
     })
-    
+
     it('should correctly handle wrapping when edge radius exceeds node count', () => {
       // Setup for test
       const numNodes = 5
       const nodesPerConsensusGroup = 2
       const shardGlobals = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, null)
-      
+
       // Create a list of active nodes - small number to force wrapping
       const activeNodes: P2P.NodeListTypes.Node[] = Array.from({ length: numNodes }, (_, i) => ({
         id: `node${i}`,
         status: 'active',
         stakingKey: `staking${i}`,
-        publicKey: `public${i}`
+        publicKey: `public${i}`,
       }))
-      
+
       // Create node shard data
       const nodeShardDataMap = new Map<string, NodeShardData>()
       const partitionShardDataMap = new Map<number, ShardInfo>()
-      
+
       // Initialize partition shard data map
-      ShardFunctions.computePartitionShardDataMap(
-        shardGlobals,
-        partitionShardDataMap,
-        0,
-        shardGlobals.numPartitions
-      )
-      
+      ShardFunctions.computePartitionShardDataMap(shardGlobals, partitionShardDataMap, 0, shardGlobals.numPartitions)
+
       // Create a nodeShardData for the test near the edge to force wrapping
       const homePartition = 0
       const thisNode = {
@@ -3235,9 +3217,9 @@ describe('ShardFunctions', () => {
         consensusEndPartition: 1,
         outOfDefaultRangeNodes: [],
         edgeNodes: [],
-        c2NodeForOurNode: []
+        c2NodeForOurNode: [],
       }
-      
+
       // Setup nodeShardDataMap with test data
       for (let i = 0; i < numNodes; i++) {
         nodeShardDataMap.set(activeNodes[i].id, {
@@ -3245,18 +3227,13 @@ describe('ShardFunctions', () => {
           node: activeNodes[i],
           homePartition: i,
           ourNodeIndex: i,
-          consensusPartitions: ShardFunctions.calculateConsensusPartitions(shardGlobals, i)
+          consensusPartitions: ShardFunctions.calculateConsensusPartitions(shardGlobals, i),
         })
       }
-      
+
       // Call getEdgeNodes
-      const edgeNodes = ShardFunctions.getEdgeNodes(
-        shardGlobals,
-        thisNode,
-        nodeShardDataMap,
-        activeNodes
-      )
-      
+      const edgeNodes = ShardFunctions.getEdgeNodes(shardGlobals, thisNode, nodeShardDataMap, activeNodes)
+
       // Assert results
       expect(edgeNodes).toBeDefined()
       expect(Array.isArray(edgeNodes)).toBe(true)
@@ -3269,18 +3246,18 @@ describe('ShardFunctions', () => {
       const numNodes = 6
       const nodesPerConsensusGroup = 3
       const shardGlobals = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, null)
-      
+
       // Create active nodes
       const activeNodes: P2P.NodeListTypes.Node[] = Array.from({ length: numNodes }, (_, i) => ({
         id: `node${i}`,
         status: 'active',
         stakingKey: `staking${i}`,
-        publicKey: `public${i}`
+        publicKey: `public${i}`,
       }))
-      
+
       // Create node shard data map
       const nodeShardDataMap = new Map<string, NodeShardData>()
-      
+
       // Create node shard data for test
       const homePartition = 2
       const thisNode: NodeShardData = {
@@ -3300,9 +3277,9 @@ describe('ShardFunctions', () => {
         consensusEndPartition: 0,
         outOfDefaultRangeNodes: [],
         edgeNodes: [],
-        c2NodeForOurNode: []
+        c2NodeForOurNode: [],
       }
-      
+
       // Add node shard data for each node
       for (let i = 0; i < numNodes; i++) {
         nodeShardDataMap.set(activeNodes[i].id, {
@@ -3311,40 +3288,40 @@ describe('ShardFunctions', () => {
           homePartition: i,
           ourNodeIndex: i,
           storedPartitions: ShardFunctions.calculateStoredPartitions2(shardGlobals, i),
-          consensusPartitions: ShardFunctions.calculateConsensusPartitions(shardGlobals, i)
+          consensusPartitions: ShardFunctions.calculateConsensusPartitions(shardGlobals, i),
         })
       }
-      
+
       // Call getNodesThatCoverHomePartition
       const result = ShardFunctions.getNodesThatCoverHomePartition(
-        shardGlobals, 
+        shardGlobals,
         thisNode,
         nodeShardDataMap,
         activeNodes
       )
-      
+
       // Assert
       expect(result).toBeDefined()
       expect(Array.isArray(result)).toBe(true)
     })
-    
+
     it('should handle wrap-around when searching for nodes', () => {
       // Setup
       const numNodes = 5
       const nodesPerConsensusGroup = 2
       const shardGlobals = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, null)
-      
+
       // Create active nodes
       const activeNodes: P2P.NodeListTypes.Node[] = Array.from({ length: numNodes }, (_, i) => ({
         id: `node${i}`,
         status: 'active',
         stakingKey: `staking${i}`,
-        publicKey: `public${i}`
+        publicKey: `public${i}`,
       }))
-      
+
       // Create node shard data map
       const nodeShardDataMap = new Map<string, NodeShardData>()
-      
+
       // Create node shard data for test at edge partition to force wrap-around
       const homePartition = 0
       const thisNode: NodeShardData = {
@@ -3364,9 +3341,9 @@ describe('ShardFunctions', () => {
         consensusEndPartition: 0,
         outOfDefaultRangeNodes: [],
         edgeNodes: [],
-        c2NodeForOurNode: []
+        c2NodeForOurNode: [],
       }
-      
+
       // Add node shard data for each node
       for (let i = 0; i < numNodes; i++) {
         nodeShardDataMap.set(activeNodes[i].id, {
@@ -3375,18 +3352,18 @@ describe('ShardFunctions', () => {
           homePartition: i,
           ourNodeIndex: i,
           storedPartitions: ShardFunctions.calculateStoredPartitions2(shardGlobals, i),
-          consensusPartitions: ShardFunctions.calculateConsensusPartitions(shardGlobals, i)
+          consensusPartitions: ShardFunctions.calculateConsensusPartitions(shardGlobals, i),
         })
       }
-      
+
       // Call getNodesThatCoverHomePartition
       const result = ShardFunctions.getNodesThatCoverHomePartition(
-        shardGlobals, 
+        shardGlobals,
         thisNode,
         nodeShardDataMap,
         activeNodes
       )
-      
+
       // Assert
       expect(result).toBeDefined()
       expect(Array.isArray(result)).toBe(true)
@@ -3397,9 +3374,9 @@ describe('ShardFunctions', () => {
   describe('#addressToPartition', () => {
     it('should convert address to partition correctly', () => {
       const address = '12345678deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
-      
+
       const result = ShardFunctions.addressToPartition(mockShardGlobals, address)
-      
+
       expect(result).toBeDefined()
       expect(result.homePartition).toBeGreaterThanOrEqual(0)
       expect(result.homePartition).toBeLessThan(mockShardGlobals.numPartitions)
@@ -3408,17 +3385,17 @@ describe('ShardFunctions', () => {
 
     it('should handle invalid address', () => {
       const address = 'invalid'
-      
+
       const result = ShardFunctions.addressToPartition(mockShardGlobals, address)
-      
+
       expect(result).toBeDefined()
     })
 
     it('should handle empty address', () => {
       const address = ''
-      
+
       const result = ShardFunctions.addressToPartition(mockShardGlobals, address)
-      
+
       expect(result).toBeDefined()
     })
   })
@@ -3426,26 +3403,26 @@ describe('ShardFunctions', () => {
   describe('#addressNumberToPartition', () => {
     it('should convert address number to partition correctly', () => {
       const addressNum = 0x12345678
-      
+
       const result = ShardFunctions.addressNumberToPartition(mockShardGlobals, addressNum)
-      
+
       expect(result).toBeGreaterThanOrEqual(0)
       expect(result).toBeLessThan(mockShardGlobals.numPartitions)
     })
 
     it('should handle zero address number', () => {
       const addressNum = 0
-      
+
       const result = ShardFunctions.addressNumberToPartition(mockShardGlobals, addressNum)
-      
+
       expect(result).toBe(0)
     })
 
     it('should handle maximum address number', () => {
       const addressNum = 0xffffffff
-      
+
       const result = ShardFunctions.addressNumberToPartition(mockShardGlobals, addressNum)
-      
+
       expect(result).toBeGreaterThanOrEqual(0)
       expect(result).toBeLessThan(mockShardGlobals.numPartitions)
     })
@@ -3479,18 +3456,18 @@ describe('ShardFunctions', () => {
       const numNodes = 6
       const nodesPerConsensusGroup = 3
       const shardGlobals = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, null)
-      
+
       // Create active nodes
       const activeNodes: P2P.NodeListTypes.Node[] = Array.from({ length: numNodes }, (_, i) => ({
         id: `node${i}`,
         status: 'active',
         stakingKey: `staking${i}`,
-        publicKey: `public${i}`
+        publicKey: `public${i}`,
       }))
-      
+
       // Create node shard data map
       const nodeShardDataMap = new Map<string, NodeShardData>()
-      
+
       // Initialize node shard data for each node
       for (let i = 0; i < numNodes; i++) {
         const homePartition = i % shardGlobals.numPartitions
@@ -3511,10 +3488,10 @@ describe('ShardFunctions', () => {
           consensusEndPartition: 0,
           outOfDefaultRangeNodes: [],
           edgeNodes: [],
-          c2NodeForOurNode: []
+          c2NodeForOurNode: [],
         })
       }
-      
+
       // Call getNodesThatCoverPartitionRaw
       const partition = 2
       const exclude: string[] = []
@@ -3525,28 +3502,28 @@ describe('ShardFunctions', () => {
         exclude,
         activeNodes
       )
-      
+
       // Assert
       expect(Array.isArray(result)).toBe(true)
     })
-    
+
     it('should handle partition not covered by any nodes', () => {
       // Setup
       const numNodes = 6
       const nodesPerConsensusGroup = 3
       const shardGlobals = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, null)
-      
+
       // Create active nodes
       const activeNodes: P2P.NodeListTypes.Node[] = Array.from({ length: numNodes }, (_, i) => ({
         id: `node${i}`,
         status: 'active',
         stakingKey: `staking${i}`,
-        publicKey: `public${i}`
+        publicKey: `public${i}`,
       }))
-      
+
       // Create node shard data map with very specific partition ranges
       const nodeShardDataMap = new Map<string, NodeShardData>()
-      
+
       // Initialize node shard data for each node with non-overlapping partitions
       for (let i = 0; i < numNodes; i++) {
         const homePartition = i
@@ -3560,9 +3537,9 @@ describe('ShardFunctions', () => {
           partitionEnd2: -1,
           partitionRange: null,
           partitionRange2: null,
-          partitionsCovered: 1
+          partitionsCovered: 1,
         }
-        
+
         nodeShardDataMap.set(activeNodes[i].id, {
           node: activeNodes[i],
           homePartition,
@@ -3580,10 +3557,10 @@ describe('ShardFunctions', () => {
           consensusEndPartition: 0,
           outOfDefaultRangeNodes: [],
           edgeNodes: [],
-          c2NodeForOurNode: []
+          c2NodeForOurNode: [],
         })
       }
-      
+
       // Use a partition that's outside the range of all nodes
       const outsidePartition = shardGlobals.numPartitions + 10
       const exclude: string[] = []
@@ -3594,29 +3571,29 @@ describe('ShardFunctions', () => {
         exclude,
         activeNodes
       )
-      
+
       // Assert - should be empty since no node covers this partition
       expect(Array.isArray(result)).toBe(true)
       expect(result.length).toBe(0)
     })
-    
+
     it('should exclude specified nodes', () => {
       // Setup
       const numNodes = 6
       const nodesPerConsensusGroup = 3
       const shardGlobals = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, null)
-      
+
       // Create active nodes
       const activeNodes: P2P.NodeListTypes.Node[] = Array.from({ length: numNodes }, (_, i) => ({
         id: `node${i}`,
         status: 'active',
         stakingKey: `staking${i}`,
-        publicKey: `public${i}`
+        publicKey: `public${i}`,
       }))
-      
+
       // Create node shard data map where all nodes cover all partitions
       const nodeShardDataMap = new Map<string, NodeShardData>()
-      
+
       // Initialize node shard data for each node
       for (let i = 0; i < numNodes; i++) {
         const storedPartitions: WrappablePartitionRange = {
@@ -3629,9 +3606,9 @@ describe('ShardFunctions', () => {
           partitionEnd2: -1,
           partitionRange: null,
           partitionRange2: null,
-          partitionsCovered: shardGlobals.numPartitions
+          partitionsCovered: shardGlobals.numPartitions,
         }
-        
+
         nodeShardDataMap.set(activeNodes[i].id, {
           node: activeNodes[i],
           homePartition: i,
@@ -3649,10 +3626,10 @@ describe('ShardFunctions', () => {
           consensusEndPartition: 0,
           outOfDefaultRangeNodes: [],
           edgeNodes: [],
-          c2NodeForOurNode: []
+          c2NodeForOurNode: [],
         })
       }
-      
+
       // Exclude the first node
       const partition = 2
       const exclude = [activeNodes[0].id]
@@ -3663,25 +3640,25 @@ describe('ShardFunctions', () => {
         exclude,
         activeNodes
       )
-      
+
       // Assert - result should not include excluded node
       expect(Array.isArray(result)).toBe(true)
-      expect(result.every(node => !exclude.includes(node.id))).toBe(true)
+      expect(result.every((node) => !exclude.includes(node.id))).toBe(true)
       expect(result.length).toBe(numNodes - 1)
     })
-    
+
     it('should handle empty active nodes list', () => {
       // Setup
       const numNodes = 6
       const nodesPerConsensusGroup = 3
       const shardGlobals = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, null)
-      
+
       // Create empty active nodes list
       const activeNodes: P2P.NodeListTypes.Node[] = []
-      
+
       // Create node shard data map
       const nodeShardDataMap = new Map<string, NodeShardData>()
-      
+
       // Call with empty active nodes
       const partition = 2
       const exclude: string[] = []
@@ -3692,29 +3669,29 @@ describe('ShardFunctions', () => {
         exclude,
         activeNodes
       )
-      
+
       // Assert - should be empty
       expect(Array.isArray(result)).toBe(true)
       expect(result.length).toBe(0)
     })
-    
+
     it('should handle case where node shard data is missing', () => {
       // Setup
       const numNodes = 6
       const nodesPerConsensusGroup = 3
       const shardGlobals = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, null)
-      
+
       // Create active nodes
       const activeNodes: P2P.NodeListTypes.Node[] = Array.from({ length: numNodes }, (_, i) => ({
         id: `node${i}`,
         status: 'active',
         stakingKey: `staking${i}`,
-        publicKey: `public${i}`
+        publicKey: `public${i}`,
       }))
-      
+
       // Create empty node shard data map (missing shard data)
       const nodeShardDataMap = new Map<string, NodeShardData>()
-      
+
       // Call with missing node shard data
       const partition = 2
       const exclude: string[] = []
@@ -3725,7 +3702,7 @@ describe('ShardFunctions', () => {
         exclude,
         activeNodes
       )
-      
+
       // Assert - should be empty due to missing shard data
       expect(Array.isArray(result)).toBe(true)
       expect(result.length).toBe(0)
@@ -3737,55 +3714,50 @@ describe('ShardFunctions', () => {
       // Test with equal min and max
       const result1 = ShardFunctions.partitionInWrappingRange(5, 5, 5)
       expect(result1).toBe(true) // Should be true when partition equals both min and max
-      
+
       // Test with maximum partition exactly equal to numPartitions
       const result2 = ShardFunctions.partitionInWrappingRange(10, 5, 10)
       expect(result2).toBe(true) // Should work with max partition equal to value
-      
+
       // Test with partition outside range
       const result3 = ShardFunctions.partitionInWrappingRange(15, 5, 10)
       expect(result3).toBe(false) // Should be false
     })
-    
+
     it('should handle edge cases in fastStableCorrespondingIndicies', () => {
       // Test with fromListSize equal to toListSize
       const result1 = ShardFunctions.fastStableCorrespondingIndicies(5, 5, 2)
       expect(result1).toContain(2) // Should map directly
-      
+
       // Test with fromListSize greater than toListSize
       const result2 = ShardFunctions.fastStableCorrespondingIndicies(10, 5, 7)
       expect(result2.length).toBeGreaterThan(0) // Should produce valid mapping
-      
+
       // Test with zero toListSize - implementation returns [1] not empty array
       const result3 = ShardFunctions.fastStableCorrespondingIndicies(5, 0, 2)
       expect(result3).toBeDefined() // Just check it doesn't crash
     })
-    
+
     it('should handle complex scenarios in computeNodePartitionData', () => {
       const numNodes = 5
       const nodesPerConsensusGroup = 3
       const shardGlobals = ShardFunctions.calculateShardGlobals(numNodes, nodesPerConsensusGroup, null)
-      
+
       // Create a list of active nodes
       const activeNodes: P2P.NodeListTypes.Node[] = Array.from({ length: numNodes }, (_, i) => ({
         id: `node${i}`,
         status: 'active',
         stakingKey: `staking${i}`,
-        publicKey: `public${i}`
+        publicKey: `public${i}`,
       }))
-      
+
       // Create node shard data map
       const nodeShardDataMap = new Map<string, NodeShardData>()
       const partitionShardDataMap = new Map<number, ShardInfo>()
-      
+
       // Create partition shard data map
-      ShardFunctions.computePartitionShardDataMap(
-        shardGlobals,
-        partitionShardDataMap,
-        0,
-        shardGlobals.numPartitions
-      )
-      
+      ShardFunctions.computePartitionShardDataMap(shardGlobals, partitionShardDataMap, 0, shardGlobals.numPartitions)
+
       // Add node shard data for each node so we don't get errors when computeExtendedNodePartitionData is called
       for (let i = 0; i < numNodes; i++) {
         nodeShardDataMap.set(activeNodes[i].id, {
@@ -3794,7 +3766,10 @@ describe('ShardFunctions', () => {
           homeAddress: `addr${i}`,
           addressNum: BigInt(i),
           storedPartitions: ShardFunctions.calculateStoredPartitions2(shardGlobals, i % shardGlobals.numPartitions),
-          consensusPartitions: ShardFunctions.calculateConsensusPartitions(shardGlobals, i % shardGlobals.numPartitions),
+          consensusPartitions: ShardFunctions.calculateConsensusPartitions(
+            shardGlobals,
+            i % shardGlobals.numPartitions
+          ),
           ourNodeIndex: i,
           nodeShardDataIndex: i,
           nodeThatStoreOurParition: [],
@@ -3805,10 +3780,10 @@ describe('ShardFunctions', () => {
           consensusEndPartition: 0,
           outOfDefaultRangeNodes: [],
           edgeNodes: [],
-          c2NodeForOurNode: []
+          c2NodeForOurNode: [],
         })
       }
-      
+
       // Pass undefined for thisNodeIndex to test that branch
       const result = ShardFunctions.computeNodePartitionData(
         shardGlobals,
@@ -3819,11 +3794,11 @@ describe('ShardFunctions', () => {
         false, // Set to false to avoid extra processing
         undefined // No specific index
       )
-      
+
       // Should compute the index from the active nodes list
       expect(result.ourNodeIndex).toBeDefined()
     })
-    
+
     it('should handle more complex coverage changes scenarios', () => {
       // Create mock node shard data
       const oldData: NodeShardData = {
@@ -3841,7 +3816,7 @@ describe('ShardFunctions', () => {
           partitionEnd2: 10,
           partitionRange: { low: '800000', high: 'c00000', startAddr: 2, endAddr: 3 },
           partitionRange2: { low: '100000', high: '200000', startAddr: 1, endAddr: 2 },
-          partitionsCovered: 6
+          partitionsCovered: 6,
         },
         consensusPartitions: null,
         ourNodeIndex: 1,
@@ -3854,9 +3829,9 @@ describe('ShardFunctions', () => {
         consensusEndPartition: 0,
         outOfDefaultRangeNodes: [],
         edgeNodes: [],
-        c2NodeForOurNode: []
+        c2NodeForOurNode: [],
       }
-      
+
       const newData: NodeShardData = {
         node: { id: 'node1', status: 'active', stakingKey: 'key1', publicKey: 'pub1' },
         homePartition: 5,
@@ -3872,7 +3847,7 @@ describe('ShardFunctions', () => {
           partitionEnd2: 11,
           partitionRange: { low: '700000', high: 'd00000', startAddr: 2, endAddr: 4 },
           partitionRange2: { low: '100000', high: '300000', startAddr: 1, endAddr: 3 },
-          partitionsCovered: 8
+          partitionsCovered: 8,
         },
         consensusPartitions: null,
         ourNodeIndex: 1,
@@ -3885,17 +3860,17 @@ describe('ShardFunctions', () => {
         consensusEndPartition: 0,
         outOfDefaultRangeNodes: [],
         edgeNodes: [],
-        c2NodeForOurNode: []
+        c2NodeForOurNode: [],
       }
-      
+
       // Test computeCoverageChanges with complex split ranges
       const changes = ShardFunctions.computeCoverageChanges(oldData, newData)
-      
+
       // Assert results
       expect(changes).toBeDefined()
       expect(Array.isArray(changes)).toBe(true)
     })
-    
+
     it('should handle null partitionRange scenarios', () => {
       // Create a case that avoids null property access
       const oldData: NodeShardData = {
@@ -3913,7 +3888,7 @@ describe('ShardFunctions', () => {
           partitionEnd2: -1,
           partitionRange: { low: '600000', high: 'e00000', startAddr: 1, endAddr: 5 },
           partitionRange2: null,
-          partitionsCovered: 3
+          partitionsCovered: 3,
         },
         consensusPartitions: null,
         ourNodeIndex: 1,
@@ -3926,9 +3901,9 @@ describe('ShardFunctions', () => {
         consensusEndPartition: 0,
         outOfDefaultRangeNodes: [],
         edgeNodes: [],
-        c2NodeForOurNode: []
+        c2NodeForOurNode: [],
       }
-      
+
       const newData: NodeShardData = {
         node: { id: 'node1', status: 'active', stakingKey: 'key1', publicKey: 'pub1' },
         homePartition: 5,
@@ -3944,7 +3919,7 @@ describe('ShardFunctions', () => {
           partitionEnd2: -1,
           partitionRange: { low: '500000', high: 'f00000', startAddr: 0, endAddr: 6 },
           partitionRange2: null,
-          partitionsCovered: 5
+          partitionsCovered: 5,
         },
         consensusPartitions: null,
         ourNodeIndex: 1,
@@ -3957,9 +3932,9 @@ describe('ShardFunctions', () => {
         consensusEndPartition: 0,
         outOfDefaultRangeNodes: [],
         edgeNodes: [],
-        c2NodeForOurNode: []
+        c2NodeForOurNode: [],
       }
-      
+
       // Both partitionRanges exist, so this shouldn't throw
       expect(() => {
         ShardFunctions.computeCoverageChanges(oldData, newData)

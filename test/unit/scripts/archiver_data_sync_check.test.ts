@@ -2,9 +2,9 @@ import * as fs from 'fs'
 
 // Define interfaces to match the response types
 interface ReceiptResponse {
-  receipts?: string[];
-  originalTxs?: string[];
-  success?: boolean;
+  receipts?: string[]
+  originalTxs?: string[]
+  success?: boolean
 }
 
 // Create mocks for all dependencies before importing the script
@@ -67,7 +67,7 @@ describe('archiver_data_sync_check', () => {
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks()
-    
+
     // Mock console methods
     console.log = jest.fn()
     console.error = jest.fn()
@@ -85,7 +85,7 @@ describe('archiver_data_sync_check', () => {
       jest.isolateModules(() => {
         require('../../../scripts/archiver_data_sync_check')
       })
-      
+
       // These should have been called when the module was imported
       expect(overrideDefaultConfig).toHaveBeenCalledWith(expect.stringContaining('archiver-config.json'))
       expect(crypto.init).toHaveBeenCalledWith(config.ARCHIVER_HASH_KEY)
@@ -94,7 +94,7 @@ describe('archiver_data_sync_check', () => {
 
   describe('runProgram function', () => {
     let runProgram: () => Promise<void>
-    
+
     beforeEach(() => {
       // Import runProgram fresh for each test
       jest.isolateModules(() => {
@@ -102,7 +102,7 @@ describe('archiver_data_sync_check', () => {
         runProgram = module.runProgram
       })
     })
-    
+
     test('initializes AJV schemas and serialization', async () => {
       // Set up test data
       const mockResponse: ReceiptResponse = { receipts: ['receipt1', 'receipt2'] }
@@ -130,7 +130,6 @@ describe('archiver_data_sync_check', () => {
       )
     })
 
-
     test('makes correct requests to archivers when cycles are defined', async () => {
       // We need to modify the script's variables to test actual execution
       // Since we can't modify the hardcoded values, we'll test with a modified runProgram
@@ -144,7 +143,7 @@ describe('archiver_data_sync_check', () => {
 
         const archivers = [
           { ip: '127.0.0.1', port: 4000 },
-          { ip: '127.0.0.1', port: 4001 }
+          { ip: '127.0.0.1', port: 4001 },
         ]
         const devAccount = { publicKey: 'test-pub', secretKey: 'test-secret' }
         const startCycle = 0
@@ -154,7 +153,7 @@ describe('archiver_data_sync_check', () => {
         for (const archiver of archivers) {
           const archiverInfo = archiver.ip + ':' + archiver.port
           const responses: Record<string, any[]> = {}
-          
+
           for (let i = startCycle; i < endCycle; ) {
             const nextEnd = i + config.REQUEST_LIMIT.MAX_BETWEEN_CYCLES_PER_REQUEST
             console.log(i, nextEnd)
@@ -166,15 +165,15 @@ describe('archiver_data_sync_check', () => {
               sender: devAccount.publicKey,
             }
             crypto.signObj(data, devAccount.secretKey, devAccount.publicKey)
-            const response = await postJson(`http://${archiverInfo}/${URL}`, data, 100) as ReceiptResponse
-            
+            const response = (await postJson(`http://${archiverInfo}/${URL}`, data, 100)) as ReceiptResponse
+
             if (!response || (!response.receipts && !response.originalTxs)) {
               console.error(`archiver ${archiverInfo} failed to respond for cycles ${i} to ${nextEnd}`)
               console.log(response)
               i = nextEnd + 1
               continue
             }
-            
+
             if (responses[archiverInfo]) {
               const result = response.receipts ? response.receipts : response.originalTxs
               responses[archiverInfo] = [...responses[archiverInfo], ...(result || [])]
@@ -183,8 +182,8 @@ describe('archiver_data_sync_check', () => {
             }
             i = nextEnd + 1
           }
-          
-          (fs.writeFileSync as jest.Mock)(
+
+          ;(fs.writeFileSync as jest.Mock)(
             `archiver_${archiverInfo}_${startCycle}_${endCycle}_${URL}.json`,
             StringUtils.safeStringify(responses)
           )
@@ -195,7 +194,7 @@ describe('archiver_data_sync_check', () => {
 
       // Verify correct number of requests (2 archivers * 2 requests each)
       expect(postJson).toHaveBeenCalledTimes(4)
-      
+
       // Verify request format
       expect(postJson).toHaveBeenCalledWith(
         expect.stringContaining('http://127.0.0.1:4000/receipt'),
@@ -207,10 +206,10 @@ describe('archiver_data_sync_check', () => {
         }),
         100
       )
-      
+
       // Verify signing
       expect(crypto.signObj).toHaveBeenCalledTimes(4)
-      
+
       // Verify file writing
       expect(fs.writeFileSync).toHaveBeenCalledTimes(2)
     })
@@ -235,7 +234,7 @@ describe('archiver_data_sync_check', () => {
         for (const archiver of archivers) {
           const archiverInfo = archiver.ip + ':' + archiver.port
           const responses: Record<string, any[]> = {}
-          
+
           for (let i = startCycle; i < endCycle; ) {
             const nextEnd = i + config.REQUEST_LIMIT.MAX_BETWEEN_CYCLES_PER_REQUEST
             console.log(i, nextEnd)
@@ -247,15 +246,15 @@ describe('archiver_data_sync_check', () => {
               sender: devAccount.publicKey,
             }
             crypto.signObj(data, devAccount.secretKey, devAccount.publicKey)
-            const response = await postJson(`http://${archiverInfo}/${URL}`, data, 100) as ReceiptResponse | null
-            
+            const response = (await postJson(`http://${archiverInfo}/${URL}`, data, 100)) as ReceiptResponse | null
+
             if (!response || (!response.receipts && !response.originalTxs)) {
               console.error(`archiver ${archiverInfo} failed to respond for cycles ${i} to ${nextEnd}`)
               console.log(response)
               i = nextEnd + 1
               continue
             }
-            
+
             if (responses[archiverInfo]) {
               const result = response.receipts ? response.receipts : response.originalTxs
               responses[archiverInfo] = [...responses[archiverInfo], ...(result || [])]
@@ -264,8 +263,8 @@ describe('archiver_data_sync_check', () => {
             }
             i = nextEnd + 1
           }
-          
-          (fs.writeFileSync as jest.Mock)(
+
+          ;(fs.writeFileSync as jest.Mock)(
             `archiver_${archiverInfo}_${startCycle}_${endCycle}_${URL}.json`,
             StringUtils.safeStringify(responses)
           )
@@ -275,9 +274,7 @@ describe('archiver_data_sync_check', () => {
       await testRunProgram()
 
       // Verify error was logged
-      expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('archiver 127.0.0.1:4000 failed to respond')
-      )
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('archiver 127.0.0.1:4000 failed to respond'))
       expect(console.log).toHaveBeenCalledWith(null)
     })
 
@@ -300,7 +297,7 @@ describe('archiver_data_sync_check', () => {
         for (const archiver of archivers) {
           const archiverInfo = archiver.ip + ':' + archiver.port
           const responses: Record<string, any[]> = {}
-          
+
           for (let i = startCycle; i < endCycle; ) {
             const nextEnd = i + config.REQUEST_LIMIT.MAX_BETWEEN_CYCLES_PER_REQUEST
             console.log(i, nextEnd)
@@ -312,15 +309,15 @@ describe('archiver_data_sync_check', () => {
               sender: devAccount.publicKey,
             }
             crypto.signObj(data, devAccount.secretKey, devAccount.publicKey)
-            const response = await postJson(`http://${archiverInfo}/${URL}`, data, 100) as ReceiptResponse
-            
+            const response = (await postJson(`http://${archiverInfo}/${URL}`, data, 100)) as ReceiptResponse
+
             if (!response || (!response.receipts && !response.originalTxs)) {
               console.error(`archiver ${archiverInfo} failed to respond for cycles ${i} to ${nextEnd}`)
               console.log(response)
               i = nextEnd + 1
               continue
             }
-            
+
             if (responses[archiverInfo]) {
               const result = response.receipts ? response.receipts : response.originalTxs
               responses[archiverInfo] = [...responses[archiverInfo], ...(result || [])]
@@ -329,8 +326,8 @@ describe('archiver_data_sync_check', () => {
             }
             i = nextEnd + 1
           }
-          
-          (fs.writeFileSync as jest.Mock)(
+
+          ;(fs.writeFileSync as jest.Mock)(
             `archiver_${archiverInfo}_${startCycle}_${endCycle}_${URL}.json`,
             StringUtils.safeStringify(responses)
           )
@@ -340,17 +337,10 @@ describe('archiver_data_sync_check', () => {
       await testRunProgram()
 
       // Verify originalTx URL was used
-      expect(postJson).toHaveBeenCalledWith(
-        expect.stringContaining('/originalTx'),
-        expect.any(Object),
-        100
-      )
+      expect(postJson).toHaveBeenCalledWith(expect.stringContaining('/originalTx'), expect.any(Object), 100)
 
       // Verify file was written with originalTx in filename
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        expect.stringContaining('_originalTx.json'),
-        expect.any(String)
-      )
+      expect(fs.writeFileSync).toHaveBeenCalledWith(expect.stringContaining('_originalTx.json'), expect.any(String))
     })
 
     test('aggregates multiple responses correctly', async () => {
@@ -373,7 +363,7 @@ describe('archiver_data_sync_check', () => {
         for (const archiver of archivers) {
           const archiverInfo = archiver.ip + ':' + archiver.port
           const responses: Record<string, any[]> = {}
-          
+
           for (let i = startCycle; i < endCycle; ) {
             const nextEnd = i + config.REQUEST_LIMIT.MAX_BETWEEN_CYCLES_PER_REQUEST
             console.log(i, nextEnd)
@@ -385,15 +375,15 @@ describe('archiver_data_sync_check', () => {
               sender: devAccount.publicKey,
             }
             crypto.signObj(data, devAccount.secretKey, devAccount.publicKey)
-            const response = await postJson(`http://${archiverInfo}/${URL}`, data, 100) as ReceiptResponse
-            
+            const response = (await postJson(`http://${archiverInfo}/${URL}`, data, 100)) as ReceiptResponse
+
             if (!response || (!response.receipts && !response.originalTxs)) {
               console.error(`archiver ${archiverInfo} failed to respond for cycles ${i} to ${nextEnd}`)
               console.log(response)
               i = nextEnd + 1
               continue
             }
-            
+
             if (responses[archiverInfo]) {
               const result = response.receipts ? response.receipts : response.originalTxs
               responses[archiverInfo] = [...responses[archiverInfo], ...(result || [])]
@@ -402,8 +392,8 @@ describe('archiver_data_sync_check', () => {
             }
             i = nextEnd + 1
           }
-          
-          (fs.writeFileSync as jest.Mock)(
+
+          ;(fs.writeFileSync as jest.Mock)(
             `archiver_${archiverInfo}_${startCycle}_${endCycle}_${URL}.json`,
             StringUtils.safeStringify(responses)
           )
@@ -414,7 +404,7 @@ describe('archiver_data_sync_check', () => {
 
       // Verify responses were aggregated
       expect(StringUtils.safeStringify).toHaveBeenCalledWith({
-        '127.0.0.1:4000': ['r1', 'r2', 'r3', 'r4']
+        '127.0.0.1:4000': ['r1', 'r2', 'r3', 'r4'],
       })
     })
 
@@ -436,10 +426,10 @@ describe('archiver_data_sync_check', () => {
 
           for (const archiver of archivers) {
             const archiverInfo = archiver.ip + ':' + archiver.port
-            
+
             for (let i = startCycle; i < endCycle; ) {
               const nextEnd = i + config.REQUEST_LIMIT.MAX_BETWEEN_CYCLES_PER_REQUEST
-              
+
               const data: any = {
                 startCycle: i,
                 endCycle: nextEnd,
@@ -448,7 +438,7 @@ describe('archiver_data_sync_check', () => {
               }
               crypto.signObj(data, devAccount.secretKey, devAccount.publicKey)
               await postJson(`http://${archiverInfo}/${URL}`, data, 100)
-              
+
               i = nextEnd + 1
             }
           }
@@ -470,7 +460,7 @@ describe('archiver_data_sync_check', () => {
         initializeSerialization()
 
         const archivers: any[] = [] // Empty archiver list
-        
+
         // The loop should not execute
         for (const _archiver of archivers) {
           console.log('Should not reach here')
@@ -502,10 +492,10 @@ describe('archiver_data_sync_check', () => {
 
         for (const archiver of archivers) {
           const archiverInfo = archiver.ip + ':' + archiver.port
-          
+
           for (let i = startCycle; i < endCycle; ) {
             const nextEnd = Math.min(i + config.REQUEST_LIMIT.MAX_BETWEEN_CYCLES_PER_REQUEST, endCycle)
-            
+
             const data: any = {
               startCycle: i,
               endCycle: nextEnd,
@@ -514,7 +504,7 @@ describe('archiver_data_sync_check', () => {
             }
             crypto.signObj(data, devAccount.secretKey, devAccount.publicKey)
             await postJson(`http://${archiverInfo}/${URL}`, data, 100)
-            
+
             i = nextEnd + 1
           }
         }
@@ -551,10 +541,10 @@ describe('archiver_data_sync_check', () => {
         for (const archiver of archivers) {
           const archiverInfo = archiver.ip + ':' + archiver.port
           const responses: Record<string, any[]> = {}
-          
+
           for (let i = startCycle; i < endCycle; ) {
             const nextEnd = i + config.REQUEST_LIMIT.MAX_BETWEEN_CYCLES_PER_REQUEST
-            
+
             const data: any = {
               startCycle: i,
               endCycle: nextEnd,
@@ -562,15 +552,15 @@ describe('archiver_data_sync_check', () => {
               sender: devAccount.publicKey,
             }
             crypto.signObj(data, devAccount.secretKey, devAccount.publicKey)
-            const response = await postJson(`http://${archiverInfo}/${URL}`, data, 100) as ReceiptResponse
-            
+            const response = (await postJson(`http://${archiverInfo}/${URL}`, data, 100)) as ReceiptResponse
+
             if (!response || (!response.receipts && !response.originalTxs)) {
               console.error(`archiver ${archiverInfo} failed to respond for cycles ${i} to ${nextEnd}`)
               console.log(response)
               i = nextEnd + 1
               continue
             }
-            
+
             i = nextEnd + 1
           }
         }
@@ -579,9 +569,7 @@ describe('archiver_data_sync_check', () => {
       await testRunProgram()
 
       // Verify error was logged for missing data
-      expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('failed to respond')
-      )
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('failed to respond'))
     })
 
     test('verifies module execution check', () => {
@@ -595,13 +583,13 @@ describe('archiver_data_sync_check', () => {
       // The actual script has empty devAccount keys
       // Let's verify that signing still works with empty keys
       await runProgram()
-      
+
       // Even with empty keys, signObj should still be called
       if ((postJson as jest.Mock).mock.calls.length > 0) {
         expect(crypto.signObj).toHaveBeenCalledWith(
           expect.any(Object),
           '', // Empty secret key
-          ''  // Empty public key
+          '' // Empty public key
         )
       }
     })
@@ -621,7 +609,7 @@ describe('archiver_data_sync_check', () => {
         for (const archiver of archivers) {
           const archiverInfo = archiver.ip + ':' + archiver.port
           const responses: Record<string, any[]> = {}
-          
+
           for (let i = startCycle; i < endCycle; ) {
             const nextEnd = i + config.REQUEST_LIMIT.MAX_BETWEEN_CYCLES_PER_REQUEST
             console.log(i, nextEnd)
@@ -633,15 +621,15 @@ describe('archiver_data_sync_check', () => {
               sender: devAccount.publicKey,
             }
             crypto.signObj(data, devAccount.secretKey, devAccount.publicKey)
-            const response = await postJson(`http://${archiverInfo}/${URL}`, data, 100) as ReceiptResponse
-            
+            const response = (await postJson(`http://${archiverInfo}/${URL}`, data, 100)) as ReceiptResponse
+
             if (!response || (!response.receipts && !response.originalTxs)) {
               console.error(`archiver ${archiverInfo} failed to respond for cycles ${i} to ${nextEnd}`)
               console.log(response)
               i = nextEnd + 1
               continue
             }
-            
+
             // Test the aggregation logic for originalTxs
             if (responses[archiverInfo]) {
               const result = response.receipts ? response.receipts : response.originalTxs
@@ -651,8 +639,8 @@ describe('archiver_data_sync_check', () => {
             }
             i = nextEnd + 1
           }
-          
-          (fs.writeFileSync as jest.Mock)(
+
+          ;(fs.writeFileSync as jest.Mock)(
             `archiver_${archiverInfo}_${startCycle}_${endCycle}_${URL}.json`,
             StringUtils.safeStringify(responses)
           )
@@ -668,7 +656,7 @@ describe('archiver_data_sync_check', () => {
 
       // Verify aggregation of originalTxs
       expect(StringUtils.safeStringify).toHaveBeenCalledWith({
-        '127.0.0.1:4000': ['tx1', 'tx2', 'tx3', 'tx4', 'tx5']
+        '127.0.0.1:4000': ['tx1', 'tx2', 'tx3', 'tx4', 'tx5'],
       })
     })
 
@@ -694,11 +682,11 @@ describe('archiver_data_sync_check', () => {
         for (const archiver of archivers) {
           const archiverInfo = archiver.ip + ':' + archiver.port
           const responses: Record<string, any[]> = {}
-          
+
           for (let i = startCycle; i < endCycle; ) {
             const nextEnd = i + config.REQUEST_LIMIT.MAX_BETWEEN_CYCLES_PER_REQUEST
             // The script doesn't cap nextEnd, so it could exceed endCycle
-            
+
             const data: any = {
               startCycle: i,
               endCycle: nextEnd,
@@ -706,13 +694,13 @@ describe('archiver_data_sync_check', () => {
               sender: devAccount.publicKey,
             }
             crypto.signObj(data, devAccount.secretKey, devAccount.publicKey)
-            const response = await postJson(`http://${archiverInfo}/${URL}`, data, 100) as ReceiptResponse
-            
+            const response = (await postJson(`http://${archiverInfo}/${URL}`, data, 100)) as ReceiptResponse
+
             if (!response || (!response.receipts && !response.originalTxs)) {
               i = nextEnd + 1
               continue
             }
-            
+
             if (responses[archiverInfo]) {
               const result = response.receipts ? response.receipts : response.originalTxs
               responses[archiverInfo] = [...responses[archiverInfo], ...(result || [])]
@@ -721,8 +709,8 @@ describe('archiver_data_sync_check', () => {
             }
             i = nextEnd + 1
           }
-          
-          (fs.writeFileSync as jest.Mock)(
+
+          ;(fs.writeFileSync as jest.Mock)(
             `archiver_${archiverInfo}_${startCycle}_${endCycle}_${URL}.json`,
             StringUtils.safeStringify(responses)
           )
