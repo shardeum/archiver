@@ -142,7 +142,7 @@ export function parseRecord(record: P2P.CycleCreatorTypes.CycleRecord): Change {
   )
 
   return {
-    added: [...added],
+    added: [...added, ...refreshAdded],
     removed: [...record.apoptosized, ...record.removed, ...record.appRemoved],
     updated: [...activated, ...refreshUpdated],
   }

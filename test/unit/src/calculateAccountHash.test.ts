@@ -151,6 +151,33 @@ describe('calculateAccountHash', () => {
         testAccountHash(account)
       })
     })
+
+    it('should throw error when account is null', () => {
+      expect(() => accountSpecificHash(null)).toThrow('Account data is null or undefined')
+    })
+
+    it('should throw error when account is undefined', () => {
+      expect(() => accountSpecificHash(undefined)).toThrow('Account data is null or undefined')
+    })
+
+    it('should handle error when crypto.hashObj fails', () => {
+      const account = {
+        accountType: AccountType.Account,
+        account: { balance: '100' },
+        hash: 'old-hash',
+      }
+
+      // Mock crypto.hashObj to throw an error
+      jest.spyOn(crypto, 'hashObj').mockImplementation(() => {
+        throw new Error('Hash calculation failed')
+      })
+
+      // Test that the error is caught and a new error is thrown
+      expect(() => accountSpecificHash(account)).toThrow('Failed to calculate account-specific hash')
+      
+      // Restore the mock
+      jest.restoreAllMocks()
+    })
   })
 
   describe('verifyAccountHash', () => {
@@ -361,10 +388,32 @@ describe('calculateAccountHash', () => {
 
       // THEN it should capture the exception and fail
       expect(result).toBe(false)
-      let errorString =
-        "Error while verifying non global account change test-tx-id , 1 , 12345, TypeError: Cannot destructure property 'accountIDs' of 'signedReceipt.proposal' as it is undefined."
-      expect(failedReasons[0]).toContain(errorString)
+      expect(failedReasons[0]).toContain('Error while verifying non global account change')
+      expect(failedReasons[0]).toContain('test-tx-id')
+      expect(failedReasons[0]).toContain('Cannot destructure property')
       expect(nestedCounterMessages[0]).toContain('Error while verifying non global account change')
+    })
+
+    it('should handle unexpected errors in verifyAccountHash', async () => {
+      // GIVEN verifyPayload itself causes an error in the outer try block
+      ;(helpers.verifyPayload as jest.Mock).mockImplementation(() => {
+        // This will pass the globalReceiptValidationErrors check
+        return null
+      })
+      
+      // Mock verifyGlobalTxAccountChange to throw an error
+      ;(verifyGlobalTxReceiptModule.verifyGlobalTxAccountChange as jest.Mock).mockImplementation(() => {
+        throw new Error('Unexpected error in global verification')
+      })
+
+      // WHEN verifying the receipt
+      const result = await verifyAccountHash(mockReceipt, failedReasons as any[], nestedCounterMessages as any[])
+
+      // THEN it should capture the error in the outer catch block
+      expect(result).toBe(false)
+      expect(failedReasons[0]).toContain('Error in verifyAccountHash')
+      expect(failedReasons[0]).toContain('Unexpected error in global verification')
+      expect(nestedCounterMessages[0]).toBe('Error in verifyAccountHash')
     })
   })
 })

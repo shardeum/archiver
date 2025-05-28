@@ -36,7 +36,7 @@ export function selectBestSuccessReceipt(receipts: ReceiptType[]): ReceiptType |
 
     // Hashes for tie-breakers
     const receiptHash = Crypto.hash(StringUtils.safeStringify(r)).toLowerCase()
-    const sigPackHash = Crypto.hash(StringUtils.safeStringify(signedReceipt.signaturePack)).toLowerCase()
+    const sigPackHash = Crypto.hash(StringUtils.safeStringify(signedReceipt?.signaturePack)).toLowerCase()
 
     return {
       receipt: r,
