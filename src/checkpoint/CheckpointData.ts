@@ -7,6 +7,7 @@ import * as State from '../State'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { CheckpointStatusType, updateCheckpointStatusField } from '../dbstore/checkpointStatus'
 import { nestedCountersInstance } from '../profiler/nestedCounters'
+import { selectBestSuccessReceipt } from './ReceiptUtils'
 
 export enum CheckpointType {
   Cycle = 0,
@@ -955,7 +956,7 @@ export class CheckpointBucket<T> {
               // If incoming entry has failed receipts, don't accept the update
               if (incomingContainsFailedReceipt) {
                 // Track ignored receipts due to local success
-                nestedCountersInstance?.countEvent?.('checkpoint', 'ignored_failed_receipt_due_to_local_success', 1);
+                nestedCountersInstance?.countEvent?.('checkpoint', 'ignored_failed_receipt_due_to_local_success', 1)
                 return false
               }
             }
@@ -978,7 +979,7 @@ export class CheckpointBucket<T> {
         }
 
         // Create a new array for sorted data to avoid reference issues
-        const newSortedData: Array<CheckpointData<T>> = []
+        let newSortedData: Array<CheckpointData<T>> = []
 
         // Validate and copy each data item
         for (const data of incomingEntry.sortedData) {
@@ -988,6 +989,31 @@ export class CheckpointBucket<T> {
           } else {
             Logger.mainLogger.error('Validation failed for data:', data)
           }
+        }
+
+        if (this.checkpointType === CheckpointType.Receipt && newSortedData.length > 1) {
+          // Only keep the best receipt for each txId
+          const txIdToReceipts = new Map<string, CheckpointData<T>[]>()
+          for (const data of newSortedData) {
+            const txId = (data.d as any)?.tx?.txId
+            if (!txId) continue
+            if (!txIdToReceipts.has(txId)) txIdToReceipts.set(txId, [])
+            txIdToReceipts.get(txId)!.push(data)
+          }
+          const canonicalReceipts: Array<CheckpointData<T>> = []
+          for (const group of txIdToReceipts.values()) {
+            // Use selectBestSuccessReceipt to pick the winner
+            const best = selectBestSuccessReceipt(group.map((d) => d.d as any))
+            if (best) {
+              // Find the CheckpointData<T> for the best receipt
+              const bestData = group.find((d) => d.d === best)
+              if (bestData) canonicalReceipts.push(bestData)
+            } else {
+              // If no success receipt, keep the first
+              canonicalReceipts.push(group[0])
+            }
+          }
+          newSortedData = canonicalReceipts
         }
 
         // Only update if we have valid data
