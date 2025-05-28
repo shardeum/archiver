@@ -123,11 +123,12 @@ describe('ProcessedTxs Module', () => {
 
       await processedTxs.insertProcessedTx(incompleteData)
 
-      expect(db.run).toHaveBeenCalledWith(
-        processedTxDatabase,
-        expect.any(String),
-        ['test-tx', 10, undefined, undefined]
-      )
+      expect(db.run).toHaveBeenCalledWith(processedTxDatabase, expect.any(String), [
+        'test-tx',
+        10,
+        undefined,
+        undefined,
+      ])
     })
 
     it('should log debug message when VERBOSE is true', async () => {
@@ -165,24 +166,20 @@ describe('ProcessedTxs Module', () => {
       await processedTxs.bulkInsertProcessedTxs(sampleProcessedTxs)
 
       expect(db.run).toHaveBeenCalledTimes(1)
-      expect(db.run).toHaveBeenCalledWith(
-        processedTxDatabase,
-        expect.stringContaining('INSERT INTO processedTxs'),
-        [
-          sampleProcessedTxs[0].txId,
-          sampleProcessedTxs[0].cycle,
-          sampleProcessedTxs[0].txTimestamp,
-          sampleProcessedTxs[0].applyTimestamp,
-          sampleProcessedTxs[1].txId,
-          sampleProcessedTxs[1].cycle,
-          sampleProcessedTxs[1].txTimestamp,
-          sampleProcessedTxs[1].applyTimestamp,
-          sampleProcessedTxs[2].txId,
-          sampleProcessedTxs[2].cycle,
-          sampleProcessedTxs[2].txTimestamp,
-          sampleProcessedTxs[2].applyTimestamp,
-        ]
-      )
+      expect(db.run).toHaveBeenCalledWith(processedTxDatabase, expect.stringContaining('INSERT INTO processedTxs'), [
+        sampleProcessedTxs[0].txId,
+        sampleProcessedTxs[0].cycle,
+        sampleProcessedTxs[0].txTimestamp,
+        sampleProcessedTxs[0].applyTimestamp,
+        sampleProcessedTxs[1].txId,
+        sampleProcessedTxs[1].cycle,
+        sampleProcessedTxs[1].txTimestamp,
+        sampleProcessedTxs[1].applyTimestamp,
+        sampleProcessedTxs[2].txId,
+        sampleProcessedTxs[2].cycle,
+        sampleProcessedTxs[2].txTimestamp,
+        sampleProcessedTxs[2].applyTimestamp,
+      ])
     })
 
     it('should handle empty array of transactions', async () => {
@@ -191,17 +188,11 @@ describe('ProcessedTxs Module', () => {
       await processedTxs.bulkInsertProcessedTxs([])
 
       expect(db.run).toHaveBeenCalledTimes(1)
-      expect(db.run).toHaveBeenCalledWith(
-        processedTxDatabase,
-        expect.stringContaining('INSERT INTO processedTxs'),
-        []
-      )
+      expect(db.run).toHaveBeenCalledWith(processedTxDatabase, expect.stringContaining('INSERT INTO processedTxs'), [])
     })
 
     it('should handle large batches of transactions', async () => {
-      const largeBatch = Array.from({ length: 100 }, (_, i) => 
-        createProcessedTx({ txId: `tx-${i}`, cycle: i })
-      )
+      const largeBatch = Array.from({ length: 100 }, (_, i) => createProcessedTx({ txId: `tx-${i}`, cycle: i }))
       jest.mocked(db.run).mockResolvedValue({ id: 1 })
 
       await processedTxs.bulkInsertProcessedTxs(largeBatch)
@@ -233,10 +224,7 @@ describe('ProcessedTxs Module', () => {
       await processedTxs.bulkInsertProcessedTxs(incompleteTransactions)
 
       const values = jest.mocked(db.run).mock.calls[0][2] as any[]
-      expect(values).toEqual([
-        'tx-1', 10, undefined, undefined,
-        'tx-2', 11, 123456, undefined,
-      ])
+      expect(values).toEqual(['tx-1', 10, undefined, undefined, 'tx-2', 11, 123456, undefined])
     })
 
     it('should log error when bulk insertion fails', async () => {
@@ -306,11 +294,9 @@ describe('ProcessedTxs Module', () => {
 
       const result = await processedTxs.queryProcessedTxByTxId(sampleProcessedTx.txId)
 
-      expect(db.get).toHaveBeenCalledWith(
-        processedTxDatabase,
-        'SELECT * FROM processedTxs WHERE txId=?',
-        [sampleProcessedTx.txId]
-      )
+      expect(db.get).toHaveBeenCalledWith(processedTxDatabase, 'SELECT * FROM processedTxs WHERE txId=?', [
+        sampleProcessedTx.txId,
+      ])
       expect(result).toEqual(sampleProcessedTx)
     })
 
@@ -335,26 +321,18 @@ describe('ProcessedTxs Module', () => {
 
       const result = await processedTxs.queryProcessedTxByTxId('')
 
-      expect(db.get).toHaveBeenCalledWith(
-        processedTxDatabase,
-        'SELECT * FROM processedTxs WHERE txId=?',
-        ['']
-      )
+      expect(db.get).toHaveBeenCalledWith(processedTxDatabase, 'SELECT * FROM processedTxs WHERE txId=?', [''])
       expect(result).toBeNull()
     })
 
     it('should handle special characters in txId', async () => {
-      const specialTxId = "tx'with\"special;chars"
+      const specialTxId = 'tx\'with"special;chars'
       const specialTx = createProcessedTx({ txId: specialTxId })
       jest.mocked(db.get).mockResolvedValue(specialTx)
 
       const result = await processedTxs.queryProcessedTxByTxId(specialTxId)
 
-      expect(db.get).toHaveBeenCalledWith(
-        processedTxDatabase,
-        'SELECT * FROM processedTxs WHERE txId=?',
-        [specialTxId]
-      )
+      expect(db.get).toHaveBeenCalledWith(processedTxDatabase, 'SELECT * FROM processedTxs WHERE txId=?', [specialTxId])
       expect(result).toEqual(specialTx)
     })
 
@@ -419,11 +397,9 @@ describe('ProcessedTxs Module', () => {
 
       const result = await processedTxs.queryProcessedTxsByCycleNumber(cycleNumber)
 
-      expect(db.all).toHaveBeenCalledWith(
-        processedTxDatabase,
-        'SELECT * FROM processedTxs WHERE cycle=?',
-        [cycleNumber]
-      )
+      expect(db.all).toHaveBeenCalledWith(processedTxDatabase, 'SELECT * FROM processedTxs WHERE cycle=?', [
+        cycleNumber,
+      ])
       expect(result).toEqual(cycleProcessedTxs)
     })
 
@@ -440,11 +416,7 @@ describe('ProcessedTxs Module', () => {
 
       const result = await processedTxs.queryProcessedTxsByCycleNumber(-1)
 
-      expect(db.all).toHaveBeenCalledWith(
-        processedTxDatabase,
-        'SELECT * FROM processedTxs WHERE cycle=?',
-        [-1]
-      )
+      expect(db.all).toHaveBeenCalledWith(processedTxDatabase, 'SELECT * FROM processedTxs WHERE cycle=?', [-1])
       expect(result).toEqual([])
     })
 
@@ -463,11 +435,7 @@ describe('ProcessedTxs Module', () => {
 
       const result = await processedTxs.queryProcessedTxsByCycleNumber(largeCycle)
 
-      expect(db.all).toHaveBeenCalledWith(
-        processedTxDatabase,
-        'SELECT * FROM processedTxs WHERE cycle=?',
-        [largeCycle]
-      )
+      expect(db.all).toHaveBeenCalledWith(processedTxDatabase, 'SELECT * FROM processedTxs WHERE cycle=?', [largeCycle])
       expect(result).toEqual([])
     })
 
@@ -520,18 +488,12 @@ describe('ProcessedTxs Module', () => {
 
       await processedTxs.queryProcessedTxsByCycleNumber(cycleNumber)
 
-      expect(Logger.mainLogger.debug).toHaveBeenCalledWith(
-        `ProcessedTransactions for cycle: ${cycleNumber} 0`
-      )
+      expect(Logger.mainLogger.debug).toHaveBeenCalledWith(`ProcessedTransactions for cycle: ${cycleNumber} 0`)
     })
   })
 
   describe('querySortedTxsBetweenCycleRange', () => {
-    const txIdsArray = [
-      { txId: 'test-tx-2' },
-      { txId: 'test-tx-1' },
-      { txId: 'test-tx-3' },
-    ]
+    const txIdsArray = [{ txId: 'test-tx-2' }, { txId: 'test-tx-1' }, { txId: 'test-tx-3' }]
 
     it('should return sorted array of transaction IDs between specified cycles', async () => {
       jest.mocked(db.all).mockResolvedValue(txIdsArray)
@@ -550,12 +512,7 @@ describe('ProcessedTxs Module', () => {
     })
 
     it('should handle lexicographic sorting of transaction IDs', async () => {
-      const unsortedTxIds = [
-        { txId: 'tx-10' },
-        { txId: 'tx-2' },
-        { txId: 'tx-1' },
-        { txId: 'tx-20' },
-      ]
+      const unsortedTxIds = [{ txId: 'tx-10' }, { txId: 'tx-2' }, { txId: 'tx-1' }, { txId: 'tx-20' }]
       jest.mocked(db.all).mockResolvedValue(unsortedTxIds)
 
       const result = await processedTxs.querySortedTxsBetweenCycleRange(1, 10)
@@ -564,12 +521,7 @@ describe('ProcessedTxs Module', () => {
     })
 
     it('should handle case-sensitive sorting', async () => {
-      const mixedCaseTxIds = [
-        { txId: 'TX-a' },
-        { txId: 'tx-A' },
-        { txId: 'TX-B' },
-        { txId: 'tx-b' },
-      ]
+      const mixedCaseTxIds = [{ txId: 'TX-a' }, { txId: 'tx-A' }, { txId: 'TX-B' }, { txId: 'tx-b' }]
       jest.mocked(db.all).mockResolvedValue(mixedCaseTxIds)
 
       const result = await processedTxs.querySortedTxsBetweenCycleRange(1, 10)
@@ -656,7 +608,10 @@ describe('ProcessedTxs Module', () => {
 
       const result = await processedTxs.querySortedTxsBetweenCycleRange(1, 10)
 
-      expect(Logger.mainLogger.error).toHaveBeenCalledWith('error in querySortedTxsBetweenCycleRange: ', connectionError)
+      expect(Logger.mainLogger.error).toHaveBeenCalledWith(
+        'error in querySortedTxsBetweenCycleRange: ',
+        connectionError
+      )
       expect(result).toBeNull()
     })
 
@@ -690,17 +645,11 @@ describe('ProcessedTxs Module', () => {
 
       await processedTxs.querySortedTxsBetweenCycleRange(startCycle, endCycle)
 
-      expect(Logger.mainLogger.debug).toHaveBeenCalledWith(
-        `txIds between ${startCycle} and ${endCycle} are 0`
-      )
+      expect(Logger.mainLogger.debug).toHaveBeenCalledWith(`txIds between ${startCycle} and ${endCycle} are 0`)
     })
 
     it('should handle empty txId in results', async () => {
-      const resultsWithEmptyId = [
-        { txId: 'tx-1' },
-        { txId: '' },
-        { txId: 'tx-2' },
-      ]
+      const resultsWithEmptyId = [{ txId: 'tx-1' }, { txId: '' }, { txId: 'tx-2' }]
       jest.mocked(db.all).mockResolvedValue(resultsWithEmptyId)
 
       const result = await processedTxs.querySortedTxsBetweenCycleRange(1, 10)
@@ -710,7 +659,7 @@ describe('ProcessedTxs Module', () => {
 
     it('should handle large result sets efficiently', async () => {
       const largeResultSet = Array.from({ length: 10000 }, (_, i) => ({
-        txId: `tx-${String(i).padStart(5, '0')}`
+        txId: `tx-${String(i).padStart(5, '0')}`,
       }))
       jest.mocked(db.all).mockResolvedValue(largeResultSet)
 
@@ -721,4 +670,4 @@ describe('ProcessedTxs Module', () => {
       expect(result[9999]).toBe('tx-09999')
     })
   })
-}) 
+})

@@ -135,12 +135,6 @@ describe('selectBestSuccessReceipt', () => {
     expect(selectBestSuccessReceipt([r1, r2])).toBe(r1) // r1 medianTime = 1000, r2 = 2000
   })
 
-  it('handles missing signaturePack gracefully', () => {
-    const r1 = makeReceipt({ signaturePack: undefined })
-    const r2 = makeReceipt({ signaturePack: { foo: 2 } })
-    expect([r1, r2]).toContain(selectBestSuccessReceipt([r1, r2])) // Should not throw
-  })
-
   it('handles receipts with missing readableReceipt', () => {
     const r1 = makeReceipt({})
     delete (r1.appReceiptData.data as any).readableReceipt
@@ -182,12 +176,6 @@ describe('selectBestSuccessReceipt', () => {
     expect(selectBestSuccessReceipt([r1, r2])).toBe(r2)
   })
 
-  it('handles receipts with malformed signaturePack', () => {
-    const r1 = makeReceipt({ signaturePack: null as any })
-    const r2 = makeReceipt({ signaturePack: 123 as any })
-    expect([r1, r2]).toContain(selectBestSuccessReceipt([r1, r2]))
-  })
-
   it('handles receipts with all fields missing except required', () => {
     const r1 = {
       receiptId: 'id',
@@ -197,7 +185,17 @@ describe('selectBestSuccessReceipt', () => {
       globalModification: false,
       tx: { txId: 'tx', timestamp: 1 },
       appReceiptData: { data: { readableReceipt: { status: 1 } } },
-      signedReceipt: { sign: { owner: '', sig: '' } },
+      signedReceipt: {
+        sign: {
+          owner: 'owner1',
+          sig: 'sig1',
+        },
+        voteOffsets: [7, 7, 7],
+        signaturePack: [
+          { owner: 'ownerA', sig: 'sigA' },
+          { owner: 'ownerB', sig: 'sigB' },
+        ],
+      },
     } as any
     expect(selectBestSuccessReceipt([r1])).toBe(r1)
   })

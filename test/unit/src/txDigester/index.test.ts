@@ -126,23 +126,20 @@ describe('Transaction Digest Database Initialization', () => {
     it('should handle calling initializeDB multiple times', async () => {
       // Execute first initialization
       await initializeDB(mockConfig as any)
-      
+
       // Clear mocks to track second call
       jest.clearAllMocks()
-      
+
       // Execute second initialization
       await initializeDB(mockConfig as any)
-      
+
       // Verify all initialization steps are executed again
       expect(Utils.createDirectories).toHaveBeenCalledWith(mockConfig.ARCHIVER_DB)
       expect(dbModule.createDB).toHaveBeenCalledWith(
         `${mockConfig.ARCHIVER_DB}/${mockConfig.ARCHIVER_DATA.txDigestDB}`,
         'TxDigestDB'
       )
-      expect(dbModule.runCreate).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.any(String)
-      )
+      expect(dbModule.runCreate).toHaveBeenCalledWith(expect.anything(), expect.any(String))
     })
   })
 
@@ -150,7 +147,7 @@ describe('Transaction Digest Database Initialization', () => {
     it('should close the database connection gracefully', async () => {
       // Setup - initialize first
       await initializeDB(mockConfig as any)
-      
+
       // Execute
       await closeDatabase()
 
@@ -161,7 +158,7 @@ describe('Transaction Digest Database Initialization', () => {
     it('should handle database close failures', async () => {
       // Setup
       await initializeDB(mockConfig as any)
-      
+
       const mockError = new Error('Failed to close database')
       jest.mocked(dbModule.close).mockRejectedValue(mockError)
 
@@ -172,7 +169,7 @@ describe('Transaction Digest Database Initialization', () => {
     it('should handle calling closeDatabase before initialization', async () => {
       // Execute without initialization
       await expect(closeDatabase()).resolves.not.toThrow()
-      
+
       // Verify close is still called even with undefined database
       expect(dbModule.close).toHaveBeenCalled()
     })
@@ -180,16 +177,16 @@ describe('Transaction Digest Database Initialization', () => {
     it('should handle calling closeDatabase multiple times', async () => {
       // Setup - initialize first
       await initializeDB(mockConfig as any)
-      
+
       // First close
       await closeDatabase()
-      
+
       // Clear mocks to track second call
       jest.clearAllMocks()
-      
+
       // Second close
       await closeDatabase()
-      
+
       // Verify close is called again
       expect(dbModule.close).toHaveBeenCalled()
     })

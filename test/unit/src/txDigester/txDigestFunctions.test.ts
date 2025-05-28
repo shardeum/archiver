@@ -394,7 +394,7 @@ describe('Transaction Digest Functions', () => {
 
     // Note: The following tests are commented out as they need more advanced mocking
     // They would verify additional behavior but we already have 100% code coverage
-    
+
     /* 
     it('should process partial final batch correctly', async () => {
       // This test requires more advanced mocking to properly reset state
@@ -460,7 +460,6 @@ describe('Transaction Digest Functions', () => {
   describe('Integration between functions', () => {
     // Note: This test is commented out as it needs more advanced mocking
     // It would verify additional behavior but we already have 100% code coverage
-    
     /*
     it('should correctly update lastProcessedTxDigest after processAndInsertTxDigests', async () => {
       // Setup - reset any cached values
