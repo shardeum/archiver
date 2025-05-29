@@ -341,7 +341,7 @@ async function syncAndStartServer(): Promise<void> {
     // Get the latest cycle from archivers to know how far we need to sync
     const latestNetworkCycle = await Cycles.getNewestCycleFromArchivers()
     // Get the last updated cycle from tracker file
-    const lastStoredCycle = getLastUpdatedCycle()
+    const lastStoredCycle = await getLastUpdatedCycle()
     State.setLastCycleToSync(lastStoredCycle || latestNetworkCycle?.counter || oldestFailedCheckpointStatus?.cycle || 0)
 
     // Validate and sync cycle data if checkpoint updates are not allowed
@@ -506,7 +506,7 @@ async function handleReceiptSyncWithCheckpoints(
     )
 
     // Get the last updated cycle from tracker file
-    const lastUpdatedCycle = getLastUpdatedCycle()
+    const lastUpdatedCycle = await getLastUpdatedCycle()
     const startCycle = lastUpdatedCycle > 0 ? lastUpdatedCycle - 1 : 0
     Logger.mainLogger.debug(
       `[handleReceiptSyncWithCheckpoints] Starting cycle check from last updated cycle: ${startCycle}`

@@ -389,6 +389,43 @@ export async function getCheckpointStatusesByUnifiedStatus(unified: boolean, min
 }
 
 /**
+ * Gets a specific unified cycle based on the provided parameters
+ * @param minCycle The minimum cycle to start from
+ * @param skipCount Number of cycles to skip from the top (for skipping recent cycles)
+ * @returns The cycle number or null if not found
+ */
+export async function getSpecificUnifiedCycle(minCycle: number = 0, skipCount: number = 0): Promise<number | null> {
+  try {
+    // Build a query that gets the nth unified cycle in descending order
+    const sql = `
+      SELECT cycle FROM checkpoint_status
+      WHERE unifiedStatus = 1
+      ${minCycle > 0 ? 'AND cycle >= ?' : ''}
+      ORDER BY cycle DESC
+      LIMIT 1 OFFSET ?
+    `
+
+    const params = []
+    if (minCycle > 0) {
+      params.push(minCycle)
+    }
+    params.push(skipCount)
+
+    const row = await db.get(checkpointStatusDatabase, sql, params)
+
+    if (!row) {
+      return null
+    }
+
+    const typedRow = row as { cycle: number }
+    return typedRow.cycle
+  } catch (error) {
+    Logger.mainLogger.error(`Error getting specific unified cycle: ${error}`)
+    throw error
+  }
+}
+
+/**
  * Gets the oldest pending or failed checkpoint status
  * @returns The oldest pending or failed checkpoint status or null if none found
  */
@@ -468,8 +505,13 @@ export async function processCyclesNeedingSync(
       for (let cycle = startCycle; cycle <= endCycle; cycle++) {
         // If no status exists or unified status is false, this cycle needs syncing
         if (!statusMap.has(cycle) || statusMap.get(cycle) === false) {
-          await callback(cycle)
           Logger.mainLogger.debug(`[processCyclesNeedingSync] cycle ${cycle} has unifiedStatus false.. syncing`)
+          await callback(cycle)
+          // Update the checkpoint status to mark it as unified after syncing
+          await updateCheckpointStatusField(cycle, CheckpointStatusType.CYCLE, true)
+          await updateCheckpointStatusField(cycle, CheckpointStatusType.RECEIPT, true)
+          await updateCheckpointStatusField(cycle, CheckpointStatusType.ORIGINAL_TX, true)
+          Logger.mainLogger.debug(`[processCyclesNeedingSync] Updated cycle ${cycle} unifiedStatus to true`)
         }
       }
     }

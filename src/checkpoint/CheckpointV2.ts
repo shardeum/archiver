@@ -12,7 +12,7 @@ import { processCyclesNeedingSync } from '../dbstore/checkpointStatus'
 export async function syncMissingCheckpoints(maxCyclesToSync: number = 100): Promise<void> {
   try {
     // Get the last updated cycle from tracker file
-    const lastUpdatedCycle = getLastUpdatedCycle()
+    const lastUpdatedCycle = await getLastUpdatedCycle()
     Logger.mainLogger.debug(`[syncMissingCheckpoints] Last updated cycle from tracker: ${lastUpdatedCycle}`)
 
     // Get the current network cycle count

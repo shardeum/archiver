@@ -1827,7 +1827,7 @@ export async function syncReceipts(): Promise<void> {
   let retryCount = 0
 
   // Get the last updated cycle from tracker file
-  const lastUpdatedCycle = getLastUpdatedCycle()
+  const lastUpdatedCycle = await getLastUpdatedCycle()
   Logger.mainLogger.debug(`[syncReceipts] Last updated cycle from tracker: ${lastUpdatedCycle}`)
 
   // If we have a valid last updated cycle, use it as the starting point
@@ -1963,7 +1963,7 @@ class ArchiverSelector {
 export async function syncReceiptsByCycle(lastStoredReceiptCycle = 0, cycleToSyncTo = 0): Promise<boolean> {
   // Get the last updated cycle from tracker if not provided
   if (lastStoredReceiptCycle === 0) {
-    const trackedCycle = getLastUpdatedCycle()
+    const trackedCycle = await getLastUpdatedCycle()
     if (trackedCycle > 0) {
       Logger.mainLogger.info(`[syncReceiptsByCycle] Using last updated cycle from tracker: ${trackedCycle}`)
       lastStoredReceiptCycle = Math.max(trackedCycle - config.checkpoint.syncCycleBuffer, 0)
@@ -2357,7 +2357,7 @@ export const syncCyclesAndTxsData = async (
 
   // Get the last updated cycle from tracker if not provided
   if (lastStoredCycleCount === 0) {
-    const trackedCycle = getLastUpdatedCycle()
+    const trackedCycle = await getLastUpdatedCycle()
     if (trackedCycle > 0) {
       Logger.mainLogger.info(`[syncCyclesAndTxsData] Using last updated cycle from tracker: ${trackedCycle}`)
       lastStoredCycleCount = Math.max(trackedCycle - config.checkpoint.syncCycleBuffer, 0)
