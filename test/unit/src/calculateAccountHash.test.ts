@@ -1,7 +1,8 @@
 import { expect, describe, it, beforeAll, beforeEach, jest } from '@jest/globals'
 import * as crypto from '../../../src/Crypto'
-import { AccountType, accountSpecificHash, verifyAccountHash } from '../../../src/shardeum/calculateAccountHash'
-import { Receipt, SignedReceipt } from '../../../src/dbstore/receipts'
+import { AccountType, accountSpecificHash, verifyAccountHash, verifyNonGlobalTxAccountChange } from '../../../src/shardeum/calculateAccountHash'
+import { ArchiverReceipt, Receipt, SignedReceipt } from '../../../src/dbstore/receipts'
+import { AccountsCopy } from '../../../src/dbstore/accounts'
 import * as helpers from '../../../src/types/ajv/Helpers'
 import * as verifyGlobalTxReceiptModule from '../../../src/shardeum/verifyGlobalTxReceipt'
 
@@ -414,6 +415,249 @@ describe('calculateAccountHash', () => {
       expect(failedReasons[0]).toContain('Error in verifyAccountHash')
       expect(failedReasons[0]).toContain('Unexpected error in global verification')
       expect(nestedCounterMessages[0]).toBe('Error in verifyAccountHash')
+    })
+  })
+
+  describe('verifyNonGlobalTxAccountChange', () => {
+    let mockReceipt: ArchiverReceipt
+    let failedReasons: any[]
+    let nestedCounterMessages: any[]
+
+    beforeEach(() => {
+      // Reset arrays for collecting error messages
+      failedReasons = []
+      nestedCounterMessages = []
+
+      // Setup a complete mock receipt for testing
+      mockReceipt = {
+        tx: {
+          txId: 'test-tx-id',
+          timestamp: 12345,
+          originalTxData: {},
+        },
+        cycle: 1,
+        signedReceipt: {
+          proposal: {
+            applied: true,
+            cant_preApply: false,
+            accountIDs: ['account1', 'account2'],
+            beforeStateHashes: ['hash1', 'hash2'],
+            afterStateHashes: ['hash3', 'hash4'],
+            appReceiptDataHash: 'data-hash',
+            txid: 'test-tx-id',
+          },
+          proposalHash: 'proposal-hash',
+          signaturePack: [],
+          voteOffsets: [],
+        } as SignedReceipt,
+        afterStates: [
+          {
+            accountId: 'account1',
+            data: {
+              accountType: AccountType.Account,
+              account: { balance: '100' },
+              timestamp: 12345,
+              hash: 'old-hash',
+            },
+            timestamp: 12345,
+            hash: 'hash3',
+            isGlobal: false,
+          },
+          {
+            accountId: 'account2',
+            data: {
+              accountType: AccountType.Account,
+              account: { balance: '200' },
+              timestamp: 12345,
+              hash: 'old-hash',
+            },
+            timestamp: 12345,
+            hash: 'hash4',
+            isGlobal: false,
+          },
+        ] as AccountsCopy[],
+        beforeStates: [],
+        appReceiptData: { data: {} },
+        globalModification: false,
+      }
+
+      // Configure mock for crypto.hashObj to return predictable values for tests
+      jest.spyOn(crypto, 'hashObj').mockImplementation((obj: any) => {
+        // Account data hashes based on balance
+        if (obj.account?.balance === '100') return 'hash3'
+        if (obj.account?.balance === '200') return 'hash4'
+        return 'mocked-hash'
+      })
+    })
+
+    it('should verify valid non-global transaction successfully', async () => {
+      // WHEN verifying a valid receipt
+      const result = await verifyNonGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+
+      // THEN it should succeed
+      expect(result).toBe(true)
+      expect(failedReasons).toHaveLength(0)
+      expect(nestedCounterMessages).toHaveLength(0)
+    })
+
+    it('should handle empty account arrays', async () => {
+      // GIVEN receipt with empty arrays
+      mockReceipt.signedReceipt = {
+        proposal: {
+          applied: true,
+          cant_preApply: false,
+          accountIDs: [],
+          beforeStateHashes: [],
+          afterStateHashes: [],
+          appReceiptDataHash: 'data-hash',
+          txid: 'test-tx-id',
+        },
+        proposalHash: 'proposal-hash',
+        signaturePack: [],
+        voteOffsets: [],
+      } as SignedReceipt
+      mockReceipt.afterStates = []
+
+      // WHEN verifying the receipt
+      const result = await verifyNonGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+
+      // THEN it should succeed for empty arrays
+      expect(result).toBe(true)
+      expect(failedReasons).toHaveLength(0)
+    })
+
+    it('should fail when accountIDs length does not match afterStateHashes length', async () => {
+      // GIVEN mismatched accountIDs and afterStateHashes lengths
+      ;(mockReceipt.signedReceipt as SignedReceipt).proposal.accountIDs = ['account1', 'account2', 'account3']
+
+      // WHEN verifying the receipt
+      const result = await verifyNonGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+
+      // THEN it should fail with appropriate error
+      expect(result).toBe(false)
+      expect(failedReasons[0]).toContain('Modified account count specified in the receipt')
+      expect(nestedCounterMessages[0]).toContain('Modified account count specified in the receipt')
+    })
+
+    it('should fail when beforeStateHashes length does not match afterStateHashes length', async () => {
+      // GIVEN mismatched beforeStateHashes and afterStateHashes lengths
+      ;(mockReceipt.signedReceipt as SignedReceipt).proposal.beforeStateHashes = ['hash1']
+
+      // WHEN verifying the receipt
+      const result = await verifyNonGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+
+      // THEN it should fail with appropriate error
+      expect(result).toBe(false)
+      expect(failedReasons[0]).toContain('Account state hash before and after count does not match')
+      expect(nestedCounterMessages[0]).toContain('Account state hash before and after count does not match')
+    })
+
+    it('should fail when account is not found in afterStates', async () => {
+      // GIVEN an account missing from afterStates
+      mockReceipt.afterStates = mockReceipt.afterStates?.slice(0, 1) || [] // Keep only first account
+
+      // WHEN verifying the receipt
+      const result = await verifyNonGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+
+      // THEN it should fail with appropriate error
+      expect(result).toBe(false)
+      expect(failedReasons[0]).toContain("Account not found in the receipt's afterStates")
+      expect(failedReasons[0]).toContain('account2')
+      expect(nestedCounterMessages[0]).toContain('Account not found in the receipt')
+    })
+
+    it('should fail when calculated hash does not match expected hash', async () => {
+      // GIVEN wrong hash calculation
+      jest.spyOn(crypto, 'hashObj').mockReturnValue('wrong-hash')
+
+      // WHEN verifying the receipt
+      const result = await verifyNonGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+
+      // THEN it should fail with hash mismatch
+      expect(result).toBe(false)
+      expect(failedReasons[0]).toContain('Account hash does not match')
+      expect(failedReasons[0]).toContain('account1')
+      expect(nestedCounterMessages[0]).toContain('Account hash does not match')
+    })
+
+    it('should process multiple accounts and validate all hashes', async () => {
+      // Clear any previous mocks
+      jest.clearAllMocks()
+      
+      // GIVEN receipt with 4 accounts
+      mockReceipt.signedReceipt = {
+        proposal: {
+          applied: true,
+          cant_preApply: false,
+          accountIDs: ['acc1', 'acc2', 'acc3', 'acc4'],
+          beforeStateHashes: ['b1', 'b2', 'b3', 'b4'],
+          afterStateHashes: ['a1', 'a2', 'a3', 'a4'],
+          appReceiptDataHash: 'data-hash',
+          txid: 'test-tx-id',
+        },
+        proposalHash: 'proposal-hash',
+        signaturePack: [],
+        voteOffsets: [],
+      } as SignedReceipt
+
+      mockReceipt.afterStates = [
+        { accountId: 'acc1', data: { id: 'acc1' }, timestamp: 12345, hash: 'a1', isGlobal: false },
+        { accountId: 'acc2', data: { id: 'acc2' }, timestamp: 12345, hash: 'a2', isGlobal: false },
+        { accountId: 'acc3', data: { id: 'acc3' }, timestamp: 12345, hash: 'a3', isGlobal: false },
+        { accountId: 'acc4', data: { id: 'acc4' }, timestamp: 12345, hash: 'a4', isGlobal: false },
+      ]
+
+      // Mock hash calculation to return expected hashes
+      jest.spyOn(crypto, 'hashObj')
+        .mockReturnValueOnce('a1')
+        .mockReturnValueOnce('a2')
+        .mockReturnValueOnce('a3')
+        .mockReturnValueOnce('a4')
+
+      // WHEN verifying the receipt
+      const result = await verifyNonGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+
+      // THEN it should succeed and verify all accounts
+      expect(result).toBe(true)
+      // Verify it was called for each account
+      expect(crypto.hashObj).toHaveBeenCalledWith({ id: 'acc1', hash: 'a1' })
+      expect(crypto.hashObj).toHaveBeenCalledWith({ id: 'acc2', hash: 'a2' })
+      expect(crypto.hashObj).toHaveBeenCalledWith({ id: 'acc3', hash: 'a3' })
+      expect(crypto.hashObj).toHaveBeenCalledWith({ id: 'acc4', hash: 'a4' })
+    })
+
+    it('should handle exceptions during verification', async () => {
+      // GIVEN a receipt that will cause an exception
+      delete (mockReceipt.signedReceipt as any).proposal
+
+      // WHEN verifying the receipt
+      const result = await verifyNonGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+
+      // THEN it should catch the error and fail gracefully
+      expect(result).toBe(false)
+      expect(failedReasons[0]).toContain('Error while verifying non global account change')
+      expect(failedReasons[0]).toContain("Cannot destructure property 'accountIDs'")
+      expect(nestedCounterMessages[0]).toContain('Error while verifying non global account change')
+    })
+
+    it('should handle afterStates being undefined', async () => {
+      // GIVEN afterStates is undefined
+      mockReceipt.afterStates = undefined
+
+      // WHEN verifying the receipt
+      const result = await verifyNonGlobalTxAccountChange(mockReceipt, failedReasons, nestedCounterMessages)
+
+      // THEN it should fail when trying to find accounts
+      expect(result).toBe(false)
+      expect(failedReasons[0]).toContain('Error while verifying non global account change')
+    })
+
+    it('should pass default empty arrays when not provided', async () => {
+      // WHEN verifying without providing failedReasons and nestedCounterMessages
+      const result = await verifyNonGlobalTxAccountChange(mockReceipt)
+
+      // THEN it should use default empty arrays and succeed
+      expect(result).toBe(true)
     })
   })
 })
