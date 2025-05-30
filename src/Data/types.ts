@@ -42,6 +42,7 @@ export const DataRequestTypes: DataRequestTypes = {
 }
 
 export interface subscriptionCycleData extends P2PTypes.CycleCreatorTypes.CycleData {
+  certificate?: P2PTypes.CycleCreatorTypes.CycleCert
   certificates?: P2PTypes.CycleCreatorTypes.CycleCert[]
 }
 

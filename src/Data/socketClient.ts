@@ -140,26 +140,28 @@ export function initSocketClient(
         if (config.VERBOSE) console.log('DATA', sender.nodeInfo.publicKey, sender.nodeInfo.ip, sender.nodeInfo.port)
 
         if (newData.responses && newData.responses.ORIGINAL_TX_DATA) {
+          const originalTxData = newData.responses.ORIGINAL_TX_DATA as any[]
           if (config.VERBOSE)
             Logger.mainLogger.debug(
               'ORIGINAL_TX_DATA',
               sender.nodeInfo.publicKey,
               sender.nodeInfo.ip,
               sender.nodeInfo.port,
-              newData.responses.ORIGINAL_TX_DATA.length
+              originalTxData.length
             )
         }
         if (newData.responses && newData.responses.RECEIPT) {
+          const receipts = newData.responses.RECEIPT as any[]
           if (config.VERBOSE)
             Logger.mainLogger.debug(
               'RECEIPT',
               sender.nodeInfo.publicKey,
               sender.nodeInfo.ip,
               sender.nodeInfo.port,
-              newData.responses.RECEIPT.length
+              receipts.length
             )
           storeReceiptData(
-            newData.responses.RECEIPT,
+            receipts,
             sender.nodeInfo.ip + ':' + sender.nodeInfo.port,
             true,
             config.saveOnlyGossipData,
@@ -167,7 +169,8 @@ export function initSocketClient(
           )
         }
         if (newData.responses && newData.responses.CYCLE) {
-          collectCycleData(newData.responses.CYCLE, sender.nodeInfo.ip + ':' + sender.nodeInfo.port, 'data-sender', dataSenders)
+          const cycles = newData.responses.CYCLE as (P2PTypes.CycleCreatorTypes.CycleData[] | subscriptionCycleData[])
+          collectCycleData(cycles, sender.nodeInfo.ip + ':' + sender.nodeInfo.port, 'data-sender', dataSenders)
         }
         if (newData.responses && newData.responses.ACCOUNT) {
           if (getCurrentCycleCounter() > GENESIS_ACCOUNTS_CYCLE_RANGE.endCycle) {
@@ -194,14 +197,15 @@ export function initSocketClient(
           nestedCountersInstance.countEvent('genesis', 'accounts', 1)
           if (!forwardGenesisAccounts) {
             Logger.mainLogger.debug('Genesis Accounts To Sync', newData.responses.ACCOUNT)
-            syncGenesisAccountsFromConsensor(newData.responses.ACCOUNT, sender.nodeInfo)
+            syncGenesisAccountsFromConsensor(newData.responses.ACCOUNT as any, sender.nodeInfo)
           } else {
             // storingAccountData flag is handled in Collector.ts
             Logger.mainLogger.debug('Storing Account Data')
-            if (newData.responses.ACCOUNT.accounts || newData.responses.ACCOUNT.receipts) {
-              addToCombinedAccountsData(newData.responses.ACCOUNT)
+            const accountData = newData.responses.ACCOUNT as any
+            if (accountData.accounts || accountData.receipts) {
+              addToCombinedAccountsData(accountData)
             } else {
-              storeAccountData(newData.responses.ACCOUNT)
+              storeAccountData(accountData)
             }
           }
         }

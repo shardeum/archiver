@@ -268,14 +268,15 @@ export function collectCycleData(
       }
       nestedCountersInstance.countEvent('collectCycleData', 'create_new_cycle_tracker_' + cycle.mode, 1)
       Logger.mainLogger.debug(`collectCycleData: Creating new cycle tracker entry for cycle ${cycle.counter}`)
-      receivedCycleTracker[cycle.counter] = {
-        [cycle.marker]: {
-          cycleInfo: cycle,
-          certSigners: new Set(receivedCertSigners),
-        },
+      const cycleEntry: ReceivedCycleEntry & { received?: number; saved?: boolean } = {
         received: 1,
         saved: false,
       }
+      cycleEntry[cycle.marker] = {
+        cycleInfo: cycle,
+        certSigners: new Set(receivedCertSigners),
+      }
+      receivedCycleTracker[cycle.counter] = cycleEntry
     }
     if (config.VERBOSE) Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
 
