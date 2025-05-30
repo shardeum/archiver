@@ -1,4 +1,4 @@
-import { P2P as P2PTypes } from '@shardus/types'
+import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import { Socket as SocketIOSocket } from 'socket.io-client'
 import * as NodeList from '../NodeList'
 import * as ReceiptDB from '../dbstore/receipts'
@@ -7,7 +7,7 @@ import * as State from '../State'
 
 export interface CombinedAccountsData {
   accounts: any[]
-  receipts: ReceiptDB.Receipt[]
+  receipts: any[]
 }
 
 export interface ValidatorColletor {

@@ -7,7 +7,7 @@ import { sendDataRequest } from './dataRequests'
 import { DataRequestTypes } from './types'
 import { initSocketClient, unsubscribeDataSender } from './socketClient'
 import { getConsensusRadius, getCurrentConsensusRadius, setCurrentConsensusRadius } from './networkConfig'
-import { P2P as P2PTypes } from '@shardus/types'
+import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import * as StateMetaData from '../archivedCycle/StateMetaData'
 
 let subsetNodesMapByConsensusRadius: Map<number, NodeList.ConsensusNodeInfo[]> = new Map()

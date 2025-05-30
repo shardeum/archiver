@@ -1,4 +1,4 @@
-import { P2P as P2PTypes } from '@shardus/types'
+import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import * as Crypto from '../Crypto'
 import * as NodeList from '../NodeList'
 import * as State from '../State'
@@ -16,7 +16,7 @@ import {
   DataRequestTypes,
   ArchiverReceiptCountResponse
 } from './types'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import * as AccountDB from '../dbstore/accounts'
 import { storeAccountData } from './dataSync'
 

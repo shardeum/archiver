@@ -1,9 +1,9 @@
-import { P2P as P2PTypes } from '@shardus/types'
+import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import * as Logger from '../Logger'
 import * as CycleDB from '../dbstore/cycles'
 import * as ReceiptDB from '../dbstore/receipts'
 import * as OriginalTxDB from '../dbstore/originalTxsData'
-import { Utils as StringUtils } from '@shardus/types'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import { config } from '../Config'
 import {
   CompareResponse,

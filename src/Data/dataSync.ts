@@ -1,4 +1,4 @@
-import { P2P as P2PTypes } from '@shardus/types'
+import { P2P as P2PTypes } from '@shardeum-foundation/lib-types'
 import * as Logger from '../Logger'
 import * as NodeList from '../NodeList'
 import * as State from '../State'
