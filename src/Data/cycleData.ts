@@ -268,14 +268,13 @@ export function collectCycleData(
       }
       nestedCountersInstance.countEvent('collectCycleData', 'create_new_cycle_tracker_' + cycle.mode, 1)
       Logger.mainLogger.debug(`collectCycleData: Creating new cycle tracker entry for cycle ${cycle.counter}`)
-      const cycleEntry: ReceivedCycleEntry & { received?: number; saved?: boolean } = {
-        received: 1,
-        saved: false,
-      }
+      const cycleEntry = {} as ReceivedCycleEntry & { received?: number; saved?: boolean }
       cycleEntry[cycle.marker] = {
         cycleInfo: cycle,
         certSigners: new Set(receivedCertSigners),
       }
+      cycleEntry.received = 1
+      cycleEntry.saved = false
       receivedCycleTracker[cycle.counter] = cycleEntry
     }
     if (config.VERBOSE) Logger.mainLogger.debug('Cycle received', cycle.counter, receivedCycleTracker[cycle.counter])
@@ -283,7 +282,7 @@ export function collectCycleData(
     if (NodeList.activeListByIdSorted.length === 0) {
       nestedCountersInstance.countEvent('collectCycleData', 'no_active_nodes_direct_process_' + cycle.mode, 1)
       Logger.mainLogger.debug(`collectCycleData: No active nodes, processing cycle ${cycle.counter} directly`)
-      processCycles([receivedCycleTracker[cycle.counter][cycle.marker].cycleInfo])
+      processCycles([receivedCycleTracker[cycle.counter][cycle.marker].cycleInfo as P2PTypes.CycleCreatorTypes.CycleData])
       continue
     }
 
@@ -355,7 +354,7 @@ export function collectCycleData(
         Logger.mainLogger.debug(
           `collectCycleData: Processing cycle ${cycle.counter} with best marker ${bestMarker}, score: ${bestScore}`
         )
-        processCycles([receivedCycleTracker[cycle.counter][bestMarker].cycleInfo])
+        processCycles([receivedCycleTracker[cycle.counter][bestMarker].cycleInfo as P2PTypes.CycleCreatorTypes.CycleData])
         receivedCycleTracker[cycle.counter]['saved'] = true
 
         nestedCountersInstance.countEvent('collectCycleData', 'cycle_processed_successfully_' + cycle.mode, 1)

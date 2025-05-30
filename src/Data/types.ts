@@ -41,7 +41,7 @@ export const DataRequestTypes: DataRequestTypes = {
   UNSUBSCRIBE: 'UNSUBSCRIBE',
 }
 
-export interface subscriptionCycleData extends P2PTypes.CycleCreatorTypes.CycleData {
+export interface subscriptionCycleData extends Omit<P2PTypes.CycleCreatorTypes.CycleData, 'certificate'> {
   certificate?: P2PTypes.CycleCreatorTypes.CycleCert
   certificates?: P2PTypes.CycleCreatorTypes.CycleCert[]
 }

@@ -140,7 +140,7 @@ export function initSocketClient(
         if (config.VERBOSE) console.log('DATA', sender.nodeInfo.publicKey, sender.nodeInfo.ip, sender.nodeInfo.port)
 
         if (newData.responses && newData.responses.ORIGINAL_TX_DATA) {
-          const originalTxData = newData.responses.ORIGINAL_TX_DATA as any[]
+          const originalTxData = newData.responses.ORIGINAL_TX_DATA as unknown as any[]
           if (config.VERBOSE)
             Logger.mainLogger.debug(
               'ORIGINAL_TX_DATA',
@@ -151,7 +151,7 @@ export function initSocketClient(
             )
         }
         if (newData.responses && newData.responses.RECEIPT) {
-          const receipts = newData.responses.RECEIPT as any[]
+          const receipts = newData.responses.RECEIPT as unknown as any[]
           if (config.VERBOSE)
             Logger.mainLogger.debug(
               'RECEIPT',
@@ -169,7 +169,7 @@ export function initSocketClient(
           )
         }
         if (newData.responses && newData.responses.CYCLE) {
-          const cycles = newData.responses.CYCLE as (P2PTypes.CycleCreatorTypes.CycleData[] | subscriptionCycleData[])
+          const cycles = newData.responses.CYCLE as unknown as (P2PTypes.CycleCreatorTypes.CycleData[] | subscriptionCycleData[])
           collectCycleData(cycles, sender.nodeInfo.ip + ':' + sender.nodeInfo.port, 'data-sender', dataSenders)
         }
         if (newData.responses && newData.responses.ACCOUNT) {
