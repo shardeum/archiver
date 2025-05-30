@@ -45,10 +45,9 @@ export interface subscriptionCycleData extends P2PTypes.CycleCreatorTypes.CycleD
   certificates?: P2PTypes.CycleCreatorTypes.CycleCert[]
 }
 
-export interface DataRequest {
-  subscriber_id: string
-  data: DataRequestTypes[keyof DataRequestTypes]
-  since?: number
+export interface DataRequest<T extends P2PTypes.SnapshotTypes.ValidTypes> {
+  type: P2PTypes.SnapshotTypes.TypeName<T>
+  lastData: P2PTypes.SnapshotTypes.TypeIndex<T>
 }
 
 export interface DataResponse<T> {
@@ -105,12 +104,8 @@ export interface ArchiverTotalDataResponse {
   totalOriginalTxs: number
 }
 
-export enum RequestDataType {
-  CYCLE = 'CYCLE',
-  RECEIPT = 'RECEIPT',
-  ORIGINALTX = 'ORIGINALTX',
-  TOTALDATA = 'TOTALDATA',
-}
+// Re-export RequestDataType from API.ts to avoid duplication
+export { RequestDataType } from '../API'
 
 export interface RequestDataCountType {
   type: 'tally'

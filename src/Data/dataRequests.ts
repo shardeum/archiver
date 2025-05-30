@@ -8,7 +8,7 @@ export async function sendDataRequest(
   nodeInfo: NodeList.ConsensusNodeInfo,
   requestType: DataRequestTypes[keyof DataRequestTypes]
 ): Promise<boolean> {
-  const dataRequest: DataRequest = {
+  const dataRequest = {
     subscriber_id: config.ARCHIVER_PUBLIC_KEY,
     data: requestType,
   }

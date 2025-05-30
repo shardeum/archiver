@@ -3,7 +3,7 @@ import * as Logger from '../Logger'
 import * as NodeList from '../NodeList'
 import * as Utils from '../Utils'
 import { config, updateConfig } from '../Config'
-import { robustQuery } from '../Data'
+import { robustQuery } from '../Utils'
 
 let currentConsensusRadius = 0
 let nodesPerConsensusGroup = 0

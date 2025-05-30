@@ -28,17 +28,12 @@ import {
   syncGenesisAccountsFromConsensor 
 } from './accountData'
 
-export const socketClients: Map<NodeList.ConsensusNodeInfo['publicKey'], SocketIOSocket> = new Map()
+export const socketClients: Map<NodeList.ConsensusNodeInfo['publicKey'], any> = new Map()
 
 export let forwardGenesisAccounts = false
-export let storingAccountData = false
 
 export function setForwardGenesisAccounts(value: boolean): void {
   forwardGenesisAccounts = value
-}
-
-export function setStoringAccountData(value: boolean): void {
-  storingAccountData = value
 }
 
 export class ValidationTracker {
@@ -201,12 +196,13 @@ export function initSocketClient(
             Logger.mainLogger.debug('Genesis Accounts To Sync', newData.responses.ACCOUNT)
             syncGenesisAccountsFromConsensor(newData.responses.ACCOUNT, sender.nodeInfo)
           } else {
-            if (storingAccountData) {
-              Logger.mainLogger.debug('Storing Account Data')
-              if (newData.responses.ACCOUNT.accounts || newData.responses.ACCOUNT.receipts) {
-                addToCombinedAccountsData(newData.responses.ACCOUNT)
-              }
-            } else storeAccountData(newData.responses.ACCOUNT)
+            // storingAccountData flag is handled in Collector.ts
+            Logger.mainLogger.debug('Storing Account Data')
+            if (newData.responses.ACCOUNT.accounts || newData.responses.ACCOUNT.receipts) {
+              addToCombinedAccountsData(newData.responses.ACCOUNT)
+            } else {
+              storeAccountData(newData.responses.ACCOUNT)
+            }
           }
         }
 

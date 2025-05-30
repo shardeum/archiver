@@ -15,7 +15,6 @@ import * as OriginalTxDB from '../dbstore/originalTxsData'
 import * as StateMetaData from '../archivedCycle/StateMetaData'
 import { queryFromArchivers, RequestDataType } from '../API'
 import { robustQuery } from '../Utils'
-import { getTotalDataFromArchivers } from '../API'
 import { ArchiverLogging } from '../profiler/archiverLogging'
 
 // Import all split modules
@@ -45,15 +44,47 @@ import {
 export * from './types'
 
 import {
+  getTotalDataFromArchivers,
+  createDataRequest,
+  syncGenesisAccountsFromArchiver,
+  syncGenesisTransactionsFromArchiver,
+  calcIncomingTimes,
+  clearDataSenders as clearDataSendersImpl,
+  sendLeaveRequest,
+  joinNetwork,
+  submitJoin,
+  checkJoinStatus,
+  sendActiveRequest,
+  checkActiveStatus,
+  getCycleDuration,
+  nodesPerConsensusGroup,
+  nodesPerEdge
+} from './missingFunctions'
+export {
+  getTotalDataFromArchivers,
+  createDataRequest,
+  syncGenesisAccountsFromArchiver,
+  syncGenesisTransactionsFromArchiver,
+  calcIncomingTimes,
+  sendLeaveRequest,
+  joinNetwork,
+  submitJoin,
+  checkJoinStatus,
+  sendActiveRequest,
+  checkActiveStatus,
+  getCycleDuration,
+  nodesPerConsensusGroup,
+  nodesPerEdge
+}
+
+import {
   socketClients,
   validationTracker,
   ValidationTracker,
   unsubscribeDataSender,
   initSocketClient,
   forwardGenesisAccounts,
-  storingAccountData,
-  setForwardGenesisAccounts,
-  setStoringAccountData
+  setForwardGenesisAccounts
 } from './socketClient'
 export { socketClients, validationTracker, ValidationTracker, unsubscribeDataSender, initSocketClient }
 
@@ -163,11 +194,10 @@ export const dataSenders: Map<NodeList.ConsensusNodeInfo['publicKey'], DataSende
 export const emitter = new EventEmitter()
 
 // Re-export functions from original Data.ts that need to be kept
-export { getCurrentCycleCounter } from '../Cycles'
+export { getCurrentCycleCounter } from './Cycles'
 export { queryFromArchivers, RequestDataType } from '../API'
 export { robustQuery } from '../Utils'
-export { fetchCycleRecords, getNewestCycleFromArchivers } from '../Cycles'
-export { getTotalDataFromArchivers } from '../API'
+export { fetchCycleRecords, getNewestCycleFromArchivers } from './Cycles'
 
 // Functions that need to be implemented here because they're used by multiple modules
 import {
@@ -175,8 +205,11 @@ import {
   storeOriginalTxData as storeOriginalTxDataImpl,
   storeAccountData as storeAccountDataImpl,
   storeCycleData as storeCycleDataImpl,
-  storingAccountData as storingAccountDataImpl
-} from '../Collector'
+  storingAccountData
+} from './Collector'
+
+// Re-export storingAccountData flag
+export { storingAccountData }
 
 export async function storeReceiptData(
   receipts: any[],
@@ -204,9 +237,7 @@ export async function storeCycleData(cycles: P2PTypes.CycleCreatorTypes.CycleDat
   return storeCycleDataImpl(cycles)
 }
 
-export { storingAccountDataImpl as storingAccountData }
-
-import { processCycles as processCyclesImpl } from '../Cycles'
+import { processCycles as processCyclesImpl } from './Cycles'
 export async function processCycles(cycles: P2PTypes.CycleCreatorTypes.CycleData[]): Promise<void> {
   return processCyclesImpl(cycles)
 }
@@ -247,5 +278,8 @@ export function addDataSenderWithDataSenders(sender: DataSender): void {
   addDataSender(sender, dataSenders)
 }
 
-// Re-export storingAccountData flag
-export { storingAccountData }
+// Add clearDataSenders wrapper
+let subsetNodesMapByConsensusRadius: Map<number, NodeList.ConsensusNodeInfo[]> = new Map()
+export async function clearDataSenders(): Promise<void> {
+  await clearDataSendersImpl(dataSenders, socketClients, subsetNodesMapByConsensusRadius, unsubscribeDataSenderWithDataSenders)
+}

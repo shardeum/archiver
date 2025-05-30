@@ -5,7 +5,8 @@ import * as Receipt from '../dbstore/receipts'
 import * as OriginalTxsData from '../dbstore/originalTxsData'
 import * as ProcessedTransaction from '../dbstore/processedTxs'
 import * as Crypto from '../Crypto'
-import { clearCombinedAccountsData, combineAccountsData, collectCycleData } from './Data'
+import { clearCombinedAccountsData, collectCycleData } from './Data'
+import { getCombinedAccountsData } from './accountData'
 import { config } from '../Config'
 import * as Logger from '../Logger'
 import { nestedCountersInstance } from '../profiler/nestedCounters'
@@ -1285,6 +1286,7 @@ export const storeAccountData = async (restoreData: StoreAccountParam = {}): Pro
     await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs)
   }
   if (profilerInstance) profilerInstance.profileSectionEnd('store_account_data')
+  const combineAccountsData = getCombinedAccountsData()
   Logger.mainLogger.debug('Combined Accounts Data', combineAccountsData.accounts.length)
   if (combineAccountsData.accounts.length > 0 || combineAccountsData.receipts.length > 0) {
     Logger.mainLogger.debug('Found combine accountsData', combineAccountsData.accounts.length)

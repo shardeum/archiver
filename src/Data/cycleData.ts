@@ -23,6 +23,7 @@ interface ReceivedCycleTracker {
       cycleInfo: P2PTypes.CycleCreatorTypes.CycleData | subscriptionCycleData
       certSigners: Set<string>
     }
+  } & {
     received?: number
     saved?: boolean
   }
