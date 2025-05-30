@@ -1,8 +1,8 @@
-import * as P2PTypes from '@shardus/types'
+import { P2P as P2PTypes } from '@shardeus-foundation/lib-types'
 import * as Logger from '../Logger'
 import * as NodeList from '../NodeList'
 import * as State from '../State'
-import * as Cycles from '../Cycles'
+import * as Cycles from './Cycles'
 import * as Utils from '../Utils'
 import * as CycleDB from '../dbstore/cycles'
 import * as ReceiptDB from '../dbstore/receipts'
@@ -19,7 +19,7 @@ import {
   activeNodeCount, 
   totalNodeCount,
   validateCycle
-} from '../Cycles'
+} from './Cycles'
 import {
   ArchiverCycleResponse,
   ArchiverReceiptResponse,
@@ -31,8 +31,8 @@ import {
   StoredReceiptObject
 } from './types'
 import { queryFromArchivers } from '../API'
-import { fetchCycleRecords, getNewestCycleFromArchivers, getCurrentCycleCounter } from '../Cycles'
-import { getTotalDataFromArchivers } from '../API'
+import { fetchCycleRecords, getNewestCycleFromArchivers, getCurrentCycleCounter } from './Cycles'
+import { getTotalDataFromArchivers } from './missingFunctions'
 
 const QUERY_TIMEOUT_MAX = 30 // 30seconds
 const MAX_CYCLES_PER_REQUEST = config.REQUEST_LIMIT.MAX_CYCLES_PER_REQUEST
@@ -44,7 +44,7 @@ const GENESIS_ACCOUNTS_CYCLE_RANGE = {
   startCycle: 0,
   endCycle: 5,
 }
-import { validateCycleData } from '../Cycles'
+import { validateCycleData } from './Cycles'
 import { syncV2 } from '../sync-v2'
 import { getLastUpdatedCycle, updateLastUpdatedCycle } from '../utils/cycleTracker'
 import { getCurrentConsensusRadius } from './networkConfig'

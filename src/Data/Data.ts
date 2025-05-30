@@ -1,12 +1,12 @@
 import { EventEmitter } from 'events'
 import * as Crypto from '../Crypto'
 import * as NodeList from '../NodeList'
-import * as Cycles from '../Cycles'
+import * as Cycles from './Cycles'
 import * as State from '../State'
 import * as P2P from '../P2P'
 import * as Utils from '../Utils'
 import { config } from '../Config'
-import * as P2PTypes from '@shardus/types'
+import { P2P as P2PTypes } from '@shardeus-foundation/lib-types'
 import * as Logger from '../Logger'
 import { nestedCountersInstance } from '../profiler/nestedCounters'
 import * as CycleDB from '../dbstore/cycles'
@@ -247,7 +247,7 @@ export function initSocketClientWithDataSenders(node: NodeList.ConsensusNodeInfo
   initSocketClient(node, dataSenders, createContactTimeout)
 }
 
-export function unsubscribeDataSenderWithDataSenders(publicKey: NodeList.ConsensusNodeInfo['publicKey']): void {
+export async function unsubscribeDataSenderWithDataSenders(publicKey: NodeList.ConsensusNodeInfo['publicKey']): Promise<void> {
   unsubscribeDataSender(publicKey, dataSenders)
 }
 

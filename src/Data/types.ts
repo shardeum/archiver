@@ -1,4 +1,4 @@
-import * as P2PTypes from '@shardus/types'
+import { P2P as P2PTypes } from '@shardeus-foundation/lib-types'
 import { Socket as SocketIOSocket } from 'socket.io-client'
 import * as NodeList from '../NodeList'
 import * as ReceiptDB from '../dbstore/receipts'
@@ -71,6 +71,8 @@ export interface CountResponse {
 export interface ArchiverAccountResponse {
   accounts: any[]
   transactions?: any[]
+  receipts?: any[]
+  totalAccounts?: number
 }
 
 export interface ArchiverCycleResponse {
