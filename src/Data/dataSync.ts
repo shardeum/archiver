@@ -1,4 +1,4 @@
-import { P2P as P2PTypes } from '@shardeus-foundation/lib-types'
+import { P2P as P2PTypes } from '@shardus/types'
 import * as Logger from '../Logger'
 import * as NodeList from '../NodeList'
 import * as State from '../State'
@@ -17,9 +17,9 @@ import {
   parse, 
   applyNodeListChange, 
   activeNodeCount, 
-  totalNodeCount,
-  validateCycle
-} from './Cycles'
+  totalNodeCount
+} from './CycleParser'
+import { validateCycle } from './Cycles'
 import {
   ArchiverCycleResponse,
   ArchiverReceiptResponse,
@@ -57,7 +57,7 @@ export async function storeReceiptData(
   validate: boolean,
   saveOnlyGossipData: boolean,
   gossipReceipt: boolean
-): Promise<void> {
+): Promise<void | StoredReceiptObject> {
   // Implementation in Data.ts
 }
 

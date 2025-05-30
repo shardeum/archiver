@@ -17,6 +17,8 @@ import {
   subscribeConsensorsByConsensusRadiusWithDataSenders,
   subscriptionCycleData,
   unsubscribeDataSenderWithDataSenders,
+  nodesPerConsensusGroup,
+  nodesPerEdge
 } from './Data'
 import * as Utils from '../Utils'
 import { config } from '../Config'

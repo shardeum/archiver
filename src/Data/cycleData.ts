@@ -1,11 +1,11 @@
-import { P2P as P2PTypes } from '@shardeus-foundation/lib-types'
+import { P2P as P2PTypes } from '@shardus/types'
 import * as Logger from '../Logger'
 import * as NodeList from '../NodeList'
 import * as State from '../State'
 import * as Cycles from './Cycles'
 import * as Crypto from '../Crypto'
-import { Utils as StringUtils } from '@shardeus-foundation/lib-types'
-import { Utils as UtilsTypes } from '@shardeus-foundation/lib-types'
+import { Utils as StringUtils } from '@shardus/types'
+import { Utils as UtilsTypes } from '@shardus/types'
 import { nestedCountersInstance } from '../profiler/nestedCounters'
 import { config } from '../Config'
 import { ArchiverLogging } from '../profiler/archiverLogging'
@@ -23,7 +23,6 @@ interface ReceivedCycleTracker {
       cycleInfo: P2PTypes.CycleCreatorTypes.CycleData | subscriptionCycleData
       certSigners: Set<string>
     }
-  } & {
     received?: number
     saved?: boolean
   }

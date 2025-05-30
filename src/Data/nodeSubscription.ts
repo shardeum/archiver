@@ -7,7 +7,7 @@ import { sendDataRequest } from './dataRequests'
 import { DataRequestTypes } from './types'
 import { initSocketClient, unsubscribeDataSender } from './socketClient'
 import { getConsensusRadius, getCurrentConsensusRadius, setCurrentConsensusRadius } from './networkConfig'
-import { P2P as P2PTypes } from '@shardeus-foundation/lib-types'
+import { P2P as P2PTypes } from '@shardus/types'
 import * as StateMetaData from '../archivedCycle/StateMetaData'
 
 let subsetNodesMapByConsensusRadius: Map<number, NodeList.ConsensusNodeInfo[]> = new Map()
@@ -16,10 +16,12 @@ export function createContactTimeout(publicKey: NodeList.ConsensusNodeInfo['publ
   const CONTACT_TIMEOUT_MS = 10 * 1000
   if (config.VERBOSE) Logger.mainLogger.debug('Created contact timeout: ' + CONTACT_TIMEOUT_MS, `for ${publicKey}`)
   nestedCountersInstance.countEvent('archiver', 'contact_timeout_created')
-  return setTimeout(() => {
+  return setTimeout(async () => {
     if (nestedCountersInstance) nestedCountersInstance.countEvent('archiver', 'contact_timeout')
     Logger.mainLogger.debug('REPLACING sender due to CONTACT timeout', msg, publicKey)
-    replaceDataSender(publicKey)
+    // Import is circular, so we need to import dynamically
+    const { replaceDataSenderWithDataSenders } = await import('./Data')
+    await replaceDataSenderWithDataSenders(publicKey)
   }, CONTACT_TIMEOUT_MS)
 }
 

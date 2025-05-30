@@ -1,4 +1,4 @@
-import { P2P as P2PTypes } from '@shardeus-foundation/lib-types'
+import { P2P as P2PTypes } from '@shardus/types'
 import * as Crypto from '../Crypto'
 import * as NodeList from '../NodeList'
 import * as State from '../State'
@@ -16,7 +16,7 @@ import {
   DataRequestTypes,
   ArchiverReceiptCountResponse
 } from './types'
-import { Utils as StringUtils } from '@shardeus-foundation/lib-types'
+import { Utils as StringUtils } from '@shardus/types'
 import * as AccountDB from '../dbstore/accounts'
 import { storeAccountData } from './dataSync'
 
@@ -133,7 +133,7 @@ export async function syncGenesisTransactionsFromArchiver(): Promise<void> {
   )) as ArchiverReceiptCountResponse
   if (config.VERBOSE) Logger.mainLogger.error('Genesis Total Transactions Response', StringUtils.safeStringify(res))
   
-  totalGenesisTransactions = res.receipts
+  totalGenesisTransactions = res.countByCycles ? res.countByCycles.reduce((sum, item) => sum + item.count, 0) : 0
   if (totalGenesisTransactions === 0) return
   
   while (!complete) {
@@ -289,7 +289,7 @@ export async function sendActiveRequest(): Promise<void> {
     nodeInfo: State.getNodeInfo(),
   }
   
-  const activeNodes = NodeList.getActiveNodeList()
+  const activeNodes = NodeList.getActiveList()
   for (const node of activeNodes) {
     const taggedActiveRequest = Crypto.tag(activeRequest, node.publicKey)
     Logger.mainLogger.info(`Sending active request to node ${node.ip}:${node.port}`)
@@ -308,7 +308,7 @@ export async function sendActiveRequest(): Promise<void> {
 
 export async function checkActiveStatus(): Promise<boolean> {
   const CHECK_ACTIVE_TIMEOUT_SECOND = 10 // 10s timeout
-  const activeNodes = NodeList.getActiveNodeList()
+  const activeNodes = NodeList.getActiveList()
   
   for (const node of activeNodes) {
     try {
@@ -330,7 +330,7 @@ export async function checkActiveStatus(): Promise<boolean> {
 
 export async function getCycleDuration(): Promise<number> {
   const GET_CYCLE_TIMEOUT_SECOND = 5 // 5s timeout
-  const activeNodes = NodeList.getActiveNodeList()
+  const activeNodes = NodeList.getActiveList()
   
   for (const node of activeNodes) {
     try {
