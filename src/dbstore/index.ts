@@ -8,7 +8,7 @@ export let accountDatabase: Database
 export let transactionDatabase: Database
 export let receiptDatabase: Database
 export let originalTxDataDatabase: Database
-// export let processedTxDatabase: Database // Disabled: txDigest functionality not used
+export let processedTxDatabase: Database | null = null // Disabled: txDigest functionality not used
 export let checkpointStatusDatabase: Database
 
 export const initializeDB = async (config: Config): Promise<void> => {

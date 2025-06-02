@@ -3,7 +3,7 @@ import * as Account from '../dbstore/accounts'
 import * as Transaction from '../dbstore/transactions'
 import * as Receipt from '../dbstore/receipts'
 import * as OriginalTxsData from '../dbstore/originalTxsData'
-// import * as ProcessedTransaction from '../dbstore/processedTxs' // Disabled: txDigest functionality not used
+import * as ProcessedTransaction from '../dbstore/processedTxs' // Still needed for types and stub functions
 import * as Crypto from '../Crypto'
 import { clearCombinedAccountsData, combineAccountsData, collectCycleData } from './Data'
 import { config } from '../Config'
