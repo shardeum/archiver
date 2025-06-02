@@ -14,39 +14,6 @@ export interface ProcessedTransaction {
   applyTimestamp: number
 }
 
-export async function insertProcessedTx(processedTx: ProcessedTransaction): Promise<void> {
-  try {
-    // Define the table columns based on schema
-    const columns = ['txId', 'cycle', 'txTimestamp', 'applyTimestamp']
-
-    // Construct the SQL query with placeholders
-    const placeholders = `(${columns.map(() => '?').join(', ')})`
-    const sql = `
-      INSERT INTO processedTxs (${columns.join(', ')}) VALUES ${placeholders}
-      ON CONFLICT (txId) DO UPDATE SET 
-      cycle = excluded.cycle, 
-      txTimestamp = excluded.txTimestamp, 
-      applyTimestamp = excluded.applyTimestamp
-    `
-
-    // Map the `processedTx` object to match the columns
-    const values = columns.map((column) => processedTx[column])
-
-    // Execute the query directly (single-row insert/update)
-    await db.run(processedTxDatabase, sql, values)
-
-    if (config.VERBOSE) {
-      Logger.mainLogger.debug('Successfully inserted ProcessedTransaction', processedTx.txId)
-    }
-  } catch (err) {
-    Logger.mainLogger.error(err)
-    Logger.mainLogger.error(
-      'Unable to insert ProcessedTransaction or it is already stored in the database',
-      processedTx.txId
-    )
-  }
-}
-
 export async function bulkInsertProcessedTxs(processedTxs: ProcessedTransaction[]): Promise<void> {
   try {
     // Define the table columns based on schema
@@ -74,34 +41,6 @@ export async function bulkInsertProcessedTxs(processedTxs: ProcessedTransaction[
   } catch (err) {
     Logger.mainLogger.error(err)
     Logger.mainLogger.error('Unable to bulk insert ProcessedTransactions', processedTxs.length)
-  }
-}
-
-export async function queryProcessedTxByTxId(txId: string): Promise<ProcessedTransaction> {
-  try {
-    const sql = `SELECT * FROM processedTxs WHERE txId=?`
-    const processedTx = (await db.get(processedTxDatabase, sql, [txId])) as ProcessedTransaction
-    if (config.VERBOSE) {
-      Logger.mainLogger.debug('ProcessedTransaction txId', processedTx)
-    }
-    return processedTx
-  } catch (e) {
-    Logger.mainLogger.error(e)
-    return null
-  }
-}
-
-export async function queryProcessedTxsByCycleNumber(cycleNumber: number): Promise<ProcessedTransaction[]> {
-  try {
-    const sql = `SELECT * FROM processedTxs WHERE cycle=?`
-    const processedTxs = (await db.all(processedTxDatabase, sql, [cycleNumber])) as ProcessedTransaction[]
-    if (config.VERBOSE) {
-      Logger.mainLogger.debug(`ProcessedTransactions for cycle: ${cycleNumber} ${processedTxs.length}`)
-    }
-    return processedTxs
-  } catch (e) {
-    Logger.mainLogger.error(e)
-    return null
   }
 }
 
