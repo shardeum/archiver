@@ -4,11 +4,13 @@ import { getVerifyFunction } from '../../utils/serialization/SchemaHelpers'
 import { initReceipts } from './Receipts'
 import { initAccounts } from './Accounts'
 import { initOriginalTxData } from './OriginalTxData'
+import { initSignedReceiptSchema } from './SignedReceipt'
 
 export function initAjvSchemas(): void {
   initAccounts()
   initReceipts()
   initOriginalTxData()
+  initSignedReceiptSchema()
 }
 
 export function verifyPayload<T>(name: string, payload: T): string[] | null {

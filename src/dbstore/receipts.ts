@@ -9,6 +9,11 @@ import { AccountsCopy } from '../dbstore/accounts'
 import { ReceiptCheckpointData, calculateBucketID, receiptCheckpointManager } from '../checkpoint/ReceiptData'
 import { bulkUpdateCheckpointStatusField, CheckpointStatusType } from './checkpointStatus'
 import * as State from '../State'
+import {
+  serializeSignedReceiptBinary,
+  deserializeSignedReceiptBinary,
+  SIGNED_RECEIPT_BINARY_VERSION,
+} from '../utils/serialization/signedReceiptBinary'
 
 // const superjson =  require('superjson')
 export type Proposal = {
@@ -110,6 +115,19 @@ type DbReceiptCount = ReceiptCount & {
   'COUNT(*)': number
 }
 
+function isBinarySignedReceipt(val: any): boolean {
+  // If Buffer and first byte is our version, treat as binary
+  if (Buffer.isBuffer(val) && val.length > 0 && val[0] === SIGNED_RECEIPT_BINARY_VERSION) return true
+  // If string that can be converted to Buffer and first byte is our version
+  if (typeof val === 'string') {
+    try {
+      const buf = Buffer.from(val, 'hex')
+      if (buf.length > 0 && buf[0] === SIGNED_RECEIPT_BINARY_VERSION) return true
+    } catch {}
+  }
+  return false
+}
+
 export async function insertReceipt(receipt: Receipt, storeCheckpoints: boolean = true): Promise<void> {
   try {
     if (storeCheckpoints && config.checkpoint.bucketConfig.allowCheckpointUpdates) {
@@ -139,11 +157,13 @@ export async function insertReceipt(receipt: Receipt, storeCheckpoints: boolean 
     const sql = `INSERT OR REPLACE INTO receipts (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Map the receipt object to match the columns
-    const values = columns.map((column) =>
-      typeof receipt[column] === 'object'
-        ? SerializeToJsonString(receipt[column]) // Serialize objects to JSON strings
-        : receipt[column]
-    )
+    const values = columns.map((column) => {
+      if (column === 'signedReceipt') {
+        // Store as binary Buffer (compact, versioned)
+        return serializeSignedReceiptBinary(receipt.signedReceipt as SignedReceipt)
+      }
+      return typeof receipt[column] === 'object' ? SerializeToJsonString(receipt[column]) : receipt[column]
+    })
 
     // Execute the query directly
     await db.run(receiptDatabase, sql, values)
@@ -193,11 +213,12 @@ export async function bulkInsertReceipts(receipts: Receipt[], storeCheckpoints: 
 
     // Flatten the `receipts` array into a single list of values
     const values = receipts.flatMap((receipt) =>
-      columns.map((column) =>
-        typeof receipt[column] === 'object'
-          ? SerializeToJsonString(receipt[column]) // Serialize objects to JSON
-          : receipt[column]
-      )
+      columns.map((column) => {
+        if (column === 'signedReceipt') {
+          return serializeSignedReceiptBinary(receipt.signedReceipt as SignedReceipt)
+        }
+        return typeof receipt[column] === 'object' ? SerializeToJsonString(receipt[column]) : receipt[column]
+      })
     )
 
     // Execute the query in a single call
@@ -415,7 +436,20 @@ function deserializeDbReceipt(receipt: DbReceipt): void {
   if (receipt.beforeStates) receipt.beforeStates = DeSerializeFromJsonString(receipt.beforeStates)
   if (receipt.afterStates) receipt.afterStates = DeSerializeFromJsonString(receipt.afterStates)
   if (receipt.appReceiptData) receipt.appReceiptData = DeSerializeFromJsonString(receipt.appReceiptData)
-  if (receipt.signedReceipt) receipt.signedReceipt = DeSerializeFromJsonString(receipt.signedReceipt)
+  if (receipt.signedReceipt) {
+    let parsed: SignedReceipt | P2P.GlobalAccountsTypes.GlobalTxReceipt
+    if (isBinarySignedReceipt(receipt.signedReceipt)) {
+      const buf = Buffer.isBuffer(receipt.signedReceipt)
+        ? receipt.signedReceipt
+        : Buffer.from(receipt.signedReceipt, 'hex')
+      parsed = deserializeSignedReceiptBinary(buf)
+    } else {
+      parsed = DeSerializeFromJsonString(receipt.signedReceipt)
+    }
+    // Assign to the in-memory object, not the DbReceipt type
+    // @ts-ignore
+    receipt.signedReceipt = parsed
+  }
   // globalModification is stored as 0 or 1 in the database, convert it to boolean
   receipt.globalModification = (receipt.globalModification as unknown as number) === 1
 }

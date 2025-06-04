@@ -2,7 +2,7 @@ import * as Ajv from 'ajv'
 
 const ajv = new Ajv()
 
-const schemaMap: Map<string, object> = new Map()
+export const schemaMap: Map<string, object> = new Map()
 const verifyFunctions: Map<string, Ajv.ValidateFunction> = new Map()
 
 export function addSchema(name: string, schema: object): void {

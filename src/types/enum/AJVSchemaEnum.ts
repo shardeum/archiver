@@ -4,4 +4,5 @@ export enum AJVSchemaEnum {
   ArchiverReceipt = 'ArchiverReceipt',
   OriginalTxData = 'OriginalTxData',
   GlobalTxReceipt = 'GlobalTxReceipt',
+  SignedReceipt = 'SignedReceipt',
 }
