@@ -9,6 +9,7 @@ import { AccountsCopy } from '../dbstore/accounts'
 import { ReceiptCheckpointData, calculateBucketID, receiptCheckpointManager } from '../checkpoint/ReceiptData'
 import { bulkUpdateCheckpointStatusField, CheckpointStatusType } from './checkpointStatus'
 import * as State from '../State'
+import { compressReceiptSignatures, decompressReceiptSignatures } from '../middleware/receiptTransformer'
 
 // const superjson =  require('superjson')
 export type Proposal = {
@@ -119,6 +120,9 @@ export async function insertReceipt(receipt: Receipt, storeCheckpoints: boolean 
       receiptCheckpointManager.addData(checkpointData, bucketID)
     }
 
+    // Compress receipt signatures if optimization is enabled
+    const processedReceipt = await compressReceiptSignatures(receipt)
+
     // Define the columns to match the database schema
     const columns = [
       'receiptId',
@@ -140,9 +144,9 @@ export async function insertReceipt(receipt: Receipt, storeCheckpoints: boolean 
 
     // Map the receipt object to match the columns
     const values = columns.map((column) =>
-      typeof receipt[column] === 'object'
-        ? SerializeToJsonString(receipt[column]) // Serialize objects to JSON strings
-        : receipt[column]
+      typeof processedReceipt[column] === 'object'
+        ? SerializeToJsonString(processedReceipt[column]) // Serialize objects to JSON strings
+        : processedReceipt[column]
     )
 
     // Execute the query directly
@@ -172,6 +176,11 @@ export async function bulkInsertReceipts(receipts: Receipt[], storeCheckpoints: 
       }
     }
 
+    // Compress all receipts if optimization is enabled
+    const processedReceipts = await Promise.all(
+      receipts.map(receipt => compressReceiptSignatures(receipt))
+    )
+
     // Define the table columns based on schema
     const columns = [
       'receiptId',
@@ -188,11 +197,11 @@ export async function bulkInsertReceipts(receipts: Receipt[], storeCheckpoints: 
     ]
 
     // Construct the SQL query with placeholders
-    const placeholders = receipts.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ')
+    const placeholders = processedReceipts.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ')
     const sql = `INSERT OR REPLACE INTO receipts (${columns.join(', ')}) VALUES ${placeholders}`
 
     // Flatten the `receipts` array into a single list of values
-    const values = receipts.flatMap((receipt) =>
+    const values = processedReceipts.flatMap((receipt) =>
       columns.map((column) =>
         typeof receipt[column] === 'object'
           ? SerializeToJsonString(receipt[column]) // Serialize objects to JSON
@@ -228,11 +237,10 @@ export async function queryReceiptByReceiptId(receiptId: string, timestamp = 0):
     const sql = `SELECT * FROM receipts WHERE receiptId=?` + (timestamp ? ` AND timestamp=?` : '')
     const value = timestamp ? [receiptId, timestamp] : [receiptId]
     const receipt = (await db.get(receiptDatabase, sql, value)) as DbReceipt
-    if (receipt) deserializeDbReceipt(receipt)
-    if (config.VERBOSE) {
-      Logger.mainLogger.debug('Receipt receiptId', receipt)
+    if (receipt) {
+      return await deserializeDbReceipt(receipt)
     }
-    return receipt
+    return null
   } catch (e) {
     Logger.mainLogger.error(e)
     return null
@@ -248,12 +256,8 @@ export async function queryLatestReceipts(count: number): Promise<Receipt[]> {
     const sql = `SELECT * FROM receipts ORDER BY cycle DESC, timestamp DESC LIMIT ${count ? count : 100}`
     const receipts = (await db.all(receiptDatabase, sql)) as DbReceipt[]
     if (receipts.length > 0) {
-      receipts.forEach((receipt: DbReceipt) => {
-        deserializeDbReceipt(receipt)
-      })
-    }
-    if (config.VERBOSE) {
-      Logger.mainLogger.debug('Receipt latest', receipts)
+      const deserializedReceipts = await Promise.all(receipts.map((receipt: DbReceipt) => deserializeDbReceipt(receipt)))
+      return deserializedReceipts
     }
     return receipts
   } catch (e) {
@@ -270,11 +274,9 @@ export async function queryReceipts(skip = 0, limit = 10000): Promise<Receipt[]>
   }
   try {
     const sql = `SELECT * FROM receipts ORDER BY cycle ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
-    receipts = (await db.all(receiptDatabase, sql)) as DbReceipt[]
-    if (receipts.length > 0) {
-      receipts.forEach((receipt: DbReceipt) => {
-        deserializeDbReceipt(receipt)
-      })
+    const dbReceipts = (await db.all(receiptDatabase, sql)) as DbReceipt[]
+    if (dbReceipts.length > 0) {
+      receipts = await Promise.all(dbReceipts.map((receipt: DbReceipt) => deserializeDbReceipt(receipt)))
     }
   } catch (e) {
     Logger.mainLogger.error(e)
@@ -356,11 +358,9 @@ export async function queryReceiptsBetweenCycles(
   }
   try {
     const sql = `SELECT * FROM receipts WHERE cycle BETWEEN ? AND ? ORDER BY cycle ASC, timestamp ASC LIMIT ${limit} OFFSET ${skip}`
-    receipts = (await db.all(receiptDatabase, sql, [startCycleNumber, endCycleNumber])) as DbReceipt[]
-    if (receipts.length > 0) {
-      receipts.forEach((receipt: DbReceipt) => {
-        deserializeDbReceipt(receipt)
-      })
+    const dbReceipts = (await db.all(receiptDatabase, sql, [startCycleNumber, endCycleNumber])) as DbReceipt[]
+    if (dbReceipts.length > 0) {
+      receipts = await Promise.all(dbReceipts.map((receipt: DbReceipt) => deserializeDbReceipt(receipt)))
     }
   } catch (e) {
     console.log(e)
@@ -383,9 +383,10 @@ export async function queryInitNetworkReceiptCountBetweenCycles(
     `
     const dbReceipts = (await db.all(receiptDatabase, sql, [startCycleNumber, endCycleNumber])) as DbReceipt[]
 
-    const filtered = dbReceipts.filter((receipt: DbReceipt) => {
-      deserializeDbReceipt(receipt)
+    // Deserialize all receipts first
+    const deserializedReceipts = await Promise.all(dbReceipts.map((receipt: DbReceipt) => deserializeDbReceipt(receipt)))
 
+    const filtered = deserializedReceipts.filter((receipt: Receipt) => {
       // Inline type for safely accessing internalTXType
       const tx = receipt.tx as {
         originalTxData?: {
@@ -410,7 +411,7 @@ export async function queryInitNetworkReceiptCountBetweenCycles(
   return count
 }
 
-function deserializeDbReceipt(receipt: DbReceipt): void {
+async function deserializeDbReceipt(receipt: DbReceipt): Promise<Receipt> {
   if (receipt.tx) receipt.tx = DeSerializeFromJsonString(receipt.tx)
   if (receipt.beforeStates) receipt.beforeStates = DeSerializeFromJsonString(receipt.beforeStates)
   if (receipt.afterStates) receipt.afterStates = DeSerializeFromJsonString(receipt.afterStates)
@@ -418,4 +419,15 @@ function deserializeDbReceipt(receipt: DbReceipt): void {
   if (receipt.signedReceipt) receipt.signedReceipt = DeSerializeFromJsonString(receipt.signedReceipt)
   // globalModification is stored as 0 or 1 in the database, convert it to boolean
   receipt.globalModification = (receipt.globalModification as unknown as number) === 1
+  
+  // Decompress receipt signatures if optimization is enabled
+  const decompressedReceipt = await decompressReceiptSignatures(receipt as Receipt)
+  
+  // Ensure we return a proper Receipt object with all required fields
+  return {
+    ...decompressedReceipt,
+    receiptId: receipt.receiptId,
+    timestamp: receipt.timestamp,
+    applyTimestamp: receipt.applyTimestamp
+  } as Receipt
 }

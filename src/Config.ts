@@ -139,6 +139,11 @@ export interface Config {
   formingNetworkCycleThreshold: number // CODE REVIEW WARNING: never allow this to be set more than 30.  we have some trusted execution until this cycle is reached (specifically allowing global tx receipts) - will be refactored to be avoided
   maxResponseSize: number
   enableDuplicateReceiptsCheck: boolean // To enable duplicate receipts check in storeReceiptData and not allow overwriting of success with failure
+  receiptSignatureOptimization?: {
+    enabled: boolean
+    cacheSize?: number
+    batchSize?: number
+  }
 }
 
 let config: Config = {
@@ -295,6 +300,11 @@ let config: Config = {
   formingNetworkCycleThreshold: 30,
   maxResponseSize: 15 * 1024 * 1024, // 15MB
   enableDuplicateReceiptsCheck: true,
+  receiptSignatureOptimization: {
+    enabled: false, // Disabled by default, can be enabled via config file
+    cacheSize: 10000,
+    batchSize: 100,
+  },
 }
 // Override default config params from config file, env vars, and cli args
 export async function overrideDefaultConfig(file: string): Promise<void> {

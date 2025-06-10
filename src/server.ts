@@ -99,6 +99,11 @@ async function start(): Promise<void> {
   // Initialize storage and checkpoints
   if (config.experimentalSnapshot) {
     await dbstore.initializeDB(config)
+    // Preload node cache for receipt signature optimization
+    if (config.receiptSignatureOptimization?.enabled) {
+      const { preloadNodeCache } = await import('./middleware/receiptTransformer')
+      await preloadNodeCache()
+    }
   } else {
     await Storage.initStorage(config)
   }
