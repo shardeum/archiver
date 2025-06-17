@@ -180,6 +180,9 @@ async function batchGetOrCreateNodeIds(publicKeys: string[]): Promise<Map<string
 
   try {
     // Batch query database
+    if (uncachedKeys.length === 0) {
+      return result
+    }
     const placeholders = uncachedKeys.map(() => '?').join(',')
     const rows = await dbAll(
       receiptDatabase, 
@@ -199,8 +202,9 @@ async function batchGetOrCreateNodeIds(publicKeys: string[]): Promise<Map<string
     const newKeys = uncachedKeys.filter(key => !existingKeys.has(key))
     if (newKeys.length > 0) {
       const firstSeen = Date.now()
-      const insertValues = newKeys.map(key => `('${key}', ${firstSeen})`).join(',')
-      await dbRun(receiptDatabase, `INSERT INTO nodes (public_key, first_seen) VALUES ${insertValues}`, [])
+      const insertPlaceholders = newKeys.map(() => '(?, ?)').join(',')
+      const insertParams = newKeys.flatMap(key => [key, firstSeen])
+      await dbRun(receiptDatabase, `INSERT INTO nodes (public_key, first_seen) VALUES ${insertPlaceholders}`, insertParams)
 
       // Query newly inserted nodes
       const newPlaceholders = newKeys.map(() => '?').join(',')
@@ -295,6 +299,9 @@ export async function decompressReceiptSignatures(receipt: ArchiverReceipt): Pro
     const uniqueNodeIds = [...new Set(nodeIds)]
     
     // Batch query
+    if (uniqueNodeIds.length === 0) {
+      return receipt
+    }
     const placeholders = uniqueNodeIds.map(() => '?').join(',')
     const rows = await dbAll(
       receiptDatabase,
