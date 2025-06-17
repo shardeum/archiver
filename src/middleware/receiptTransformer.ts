@@ -67,17 +67,33 @@ class NodeCache {
 const nodeCache = new NodeCache()
 
 // Promisified database operations
-const dbGet = promisify((db: Database, sql: string, params: any[], cb: (err: Error | null, row: any) => void) => {
-  db.get(sql, params, cb)
-})
+// The sqlite3 methods already have callback as the last parameter, so we can bind directly
+const dbGet = (db: Database, sql: string, params: any[]) => {
+  return new Promise<any>((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err)
+      else resolve(row)
+    })
+  })
+}
 
-const dbRun = promisify((db: Database, sql: string, params: any[], cb: (err: Error | null) => void) => {
-  db.run(sql, params, cb)
-})
+const dbRun = (db: Database, sql: string, params: any[]) => {
+  return new Promise<void>((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) reject(err)
+      else resolve()
+    })
+  })
+}
 
-const dbAll = promisify((db: Database, sql: string, params: any[], cb: (err: Error | null, rows: any[]) => void) => {
-  db.all(sql, params, cb)
-})
+const dbAll = (db: Database, sql: string, params: any[]) => {
+  return new Promise<any[]>((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err)
+      else resolve(rows)
+    })
+  })
+}
 
 /**
  * Get or create node ID for a public key
