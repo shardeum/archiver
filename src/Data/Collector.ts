@@ -878,7 +878,7 @@ export const storeReceiptData = async (
       //   timestamp: tx.timestamp,
       // })
       const { afterStates, cycle, tx, appReceiptData, signedReceipt, globalModification } = receipt
-      const sortedVoteOffsets = globalModification ? [] : (signedReceipt as Receipt.SignedReceipt).voteOffsets.sort()
+      const sortedVoteOffsets = globalModification ? [] : [...(signedReceipt as Receipt.SignedReceipt).voteOffsets].sort((a, b) => a - b)
       const medianOffset = sortedVoteOffsets[Math.floor(sortedVoteOffsets.length / 2)] ?? 0
       const applyTimestamp = tx.timestamp + medianOffset * 1000
       if (config.VERBOSE) console.log('RECEIPT', 'Save', txId, timestamp, senderInfo)
