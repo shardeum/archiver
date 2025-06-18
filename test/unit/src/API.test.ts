@@ -25,16 +25,18 @@ jest.mock('../../../src/Config', () => ({
     },
     checkpoint: {
       bucketConfig: {
-        allowCheckpointUpdates: false
-      }
-    }
+        allowCheckpointUpdates: false,
+      },
+      statusApiLimit: 100,
+      statusArraySize: 5000,
+    },
   },
-  updateConfig: jest.fn()
+  updateConfig: jest.fn(),
 }))
 
 jest.mock('../../../src/Crypto', () => ({
   sign: jest.fn((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } })),
-  verify: jest.fn(() => true)
+  verify: jest.fn(() => true),
 }))
 
 jest.mock('../../../src/State', () => ({
@@ -42,7 +44,7 @@ jest.mock('../../../src/State', () => ({
   isActive: true,
   activeArchivers: [],
   archiversReputation: new Map(),
-  otherArchivers: []
+  otherArchivers: [],
 }))
 
 jest.mock('../../../src/NodeList', () => ({
@@ -54,13 +56,13 @@ jest.mock('../../../src/NodeList', () => ({
   getCachedFullNodeList: jest.fn(() => ({ nodeList: [] })),
   realUpdatedTimes: new Map(),
   NodeStatus: {
-    SYNCING: 'syncing'
-  }
+    SYNCING: 'syncing',
+  },
 }))
 
 jest.mock('../../../src/P2P', () => ({
   createArchiverJoinRequest: jest.fn(() => ({ publicKey: 'test-public-key' })),
-  postJson: jest.fn(() => Promise.resolve(null))
+  postJson: jest.fn(() => Promise.resolve(null)),
 }))
 
 jest.mock('../../../src/archivedCycle/Storage')
@@ -71,17 +73,17 @@ jest.mock('../../../src/Data/Data', () => ({
   createDataRequest: jest.fn(),
   dataSenders: new Map(),
   socketClients: new Map(),
-  sendLeaveRequest: jest.fn()
+  sendLeaveRequest: jest.fn(),
 }))
 jest.mock('../../../src/Data/Cycles', () => ({
   getCurrentCycleCounter: jest.fn(() => 0),
   lastProcessedMetaData: {},
   removedAndApopedNodes: [],
-  getLatestCycleRecords: jest.fn()
+  getLatestCycleRecords: jest.fn(),
 }))
 jest.mock('../../../src/Utils', () => ({
   validateTypes: jest.fn(() => null),
-  getRandomItemFromArr: jest.fn(() => [])
+  getRandomItemFromArr: jest.fn(() => []),
 }))
 jest.mock('../../../src/archivedCycle/Gossip')
 jest.mock('../../../src/Logger', () => ({
@@ -89,24 +91,24 @@ jest.mock('../../../src/Logger', () => ({
     error: jest.fn(),
     info: jest.fn(),
     debug: jest.fn(),
-    warn: jest.fn()
-  }
+    warn: jest.fn(),
+  },
 }))
 jest.mock('../../../src/profiler/nestedCounters', () => ({
   nestedCountersInstance: {
-    countEvent: jest.fn()
-  }
+    countEvent: jest.fn(),
+  },
 }))
 jest.mock('../../../src/profiler/profiler', () => ({
   profilerInstance: {
     profileSectionStart: jest.fn(),
-    profileSectionEnd: jest.fn()
-  }
+    profileSectionEnd: jest.fn(),
+  },
 }))
 jest.mock('../../../src/dbstore/cycles', () => ({
   queryLatestCycleRecords: jest.fn(() => []),
   queryCycleRecordsBetween: jest.fn(() => []),
-  queryCyleCount: jest.fn(() => 0)
+  queryCyleCount: jest.fn(() => 0),
 }))
 jest.mock('../../../src/dbstore/accounts', () => ({
   queryLatestAccounts: jest.fn(() => []),
@@ -114,7 +116,7 @@ jest.mock('../../../src/dbstore/accounts', () => ({
   queryAccountCountBetweenCycles: jest.fn(() => 0),
   queryAccountsBetweenCycles: jest.fn(() => []),
   queryAccountByAccountId: jest.fn(() => null),
-  queryAccountCount: jest.fn(() => 0)
+  queryAccountCount: jest.fn(() => 0),
 }))
 jest.mock('../../../src/dbstore/transactions', () => ({
   queryLatestTransactions: jest.fn(() => []),
@@ -123,7 +125,7 @@ jest.mock('../../../src/dbstore/transactions', () => ({
   queryTransactionsBetweenCycles: jest.fn(() => []),
   queryTransactionByTxId: jest.fn(() => null),
   queryTransactionByAccountId: jest.fn(() => null),
-  queryTransactionCount: jest.fn(() => 0)
+  queryTransactionCount: jest.fn(() => 0),
 }))
 jest.mock('../../../src/dbstore/receipts', () => ({
   queryLatestReceipts: jest.fn(() => []),
@@ -132,48 +134,49 @@ jest.mock('../../../src/dbstore/receipts', () => ({
   queryReceiptCountByCycles: jest.fn(() => []),
   queryReceiptCountBetweenCycles: jest.fn(() => 0),
   queryReceiptsBetweenCycles: jest.fn(() => []),
-  queryReceiptCount: jest.fn(() => 0)
+  queryReceiptCount: jest.fn(() => 0),
 }))
 jest.mock('../../../src/dbstore/originalTxsData', () => ({
   queryLatestOriginalTxs: jest.fn(() => []),
   queryOriginalTxDataByTxId: jest.fn(() => null),
   queryOriginalTxsData: jest.fn(() => []),
   queryOriginalTxDataCountByCycles: jest.fn(() => []),
-  queryOriginalTxDataCount: jest.fn(() => 0)
+  queryOriginalTxDataCount: jest.fn(() => 0),
 }))
 jest.mock('../../../src/Data/Collector')
 jest.mock('../../../src/Data/GossipData')
 jest.mock('../../../src/Data/AccountDataProvider')
 jest.mock('../../../src/GlobalAccount', () => ({
-  getGlobalNetworkAccount: jest.fn(() => 'mock-network-account-hash')
+  getGlobalNetworkAccount: jest.fn(() => 'mock-network-account-hash'),
 }))
 jest.mock('../../../src/DebugMode', () => ({
-  isDebugMiddleware: jest.fn((req, reply) => {})
+  isDebugMiddleware: jest.fn((req, reply) => {}),
 }))
 jest.mock('../../../src/primary-process', () => ({
   receivedReceiptCount: 100,
   verifiedReceiptCount: 80,
   successReceiptCount: 70,
-  failureReceiptCount: 10
+  failureReceiptCount: 10,
 }))
 jest.mock('../../../src/ServiceQueue', () => ({
-  getTxList: jest.fn(() => [])
+  getTxList: jest.fn(() => []),
 }))
 jest.mock('../../../src/routes/tickets', () => ({
-  default: jest.fn((fastify: any, opts: any, done: any) => done())
+  default: jest.fn((fastify: any, opts: any, done: any) => done()),
 }))
 jest.mock('../../../src/shardeum/allowedArchiversManager', () => ({
   allowedArchiversManager: {
     getCurrentConfig: jest.fn(() => ({ allowedArchivers: [] })),
-    isArchiverAllowed: jest.fn(() => true)
-  }
+    isArchiverAllowed: jest.fn(() => true),
+  },
 }))
 jest.mock('../../../src/checkpoint/CheckpointData', () => {
   const actualMap = new Map()
   const mockStatusMap = {
     entries: jest.fn(() => Array.from(actualMap.entries())),
     set: jest.fn((key, value) => actualMap.set(key, value)),
-    _getActualMap: () => actualMap // For test access
+    getLatestCycles: jest.fn(() => []),
+    _getActualMap: () => actualMap, // For test access
   }
   return {
     checkpointStatusMap: mockStatusMap,
@@ -181,26 +184,26 @@ jest.mock('../../../src/checkpoint/CheckpointData', () => {
     CheckpointType: {
       Cycle: 0,
       OriginalTx: 1,
-      Receipt: 2
+      Receipt: 2,
     },
-    CheckpointData: class MockCheckpointData {}
+    CheckpointData: class MockCheckpointData {},
   }
 })
 jest.mock('../../../src/checkpoint/Utils', () => ({
-  getCheckpointManager: jest.fn()
+  getCheckpointManager: jest.fn(),
 }))
 jest.mock('../../../src/dbstore/checkpointStatus', () => ({
   isBucketVerified: jest.fn(() => Promise.resolve(false)),
   CheckpointStatusType: {
     CYCLE: 0,
     RECEIPT: 1,
-    ORIGINAL_TX: 2
-  }
+    ORIGINAL_TX: 2,
+  },
 }))
 jest.mock('../../../src/profiler/archiverLogging', () => ({
   ArchiverLogging: {
-    logValidatorConnection: jest.fn()
-  }
+    logValidatorConnection: jest.fn(),
+  },
 }))
 
 // Import the functions to test after all mocks are set up
@@ -217,7 +220,7 @@ import { getGlobalNetworkAccount } from '../../../src/GlobalAccount'
 import * as Data from '../../../src/Data/Data'
 import { isBucketVerified } from '../../../src/dbstore/checkpointStatus'
 import { getCheckpointManager } from '../../../src/checkpoint/Utils'
-import { checkpointStatusMap, CheckpointBucket } from '../../../src/checkpoint/CheckpointData'
+import { checkpointStatusMap, CheckpointBucket, BucketHashes } from '../../../src/checkpoint/CheckpointData'
 
 describe('API', () => {
   let mockFastify: FastifyInstance
@@ -237,7 +240,7 @@ describe('API', () => {
       status: jest.fn().mockReturnThis(),
       send: jest.fn().mockReturnThis(),
       headers: jest.fn().mockReturnThis(),
-      code: jest.fn().mockReturnThis()
+      code: jest.fn().mockReturnThis(),
     } as unknown as FastifyReply
 
     // Setup mock request
@@ -246,12 +249,12 @@ describe('API', () => {
         socket: {
           remoteAddress: '192.168.1.1',
           remotePort: 12345,
-          destroy: jest.fn()
-        }
+          destroy: jest.fn(),
+        },
       },
       query: {},
       params: {},
-      body: {}
+      body: {},
     } as unknown as FastifyRequest
 
     // Setup mock fastify instance
@@ -274,7 +277,7 @@ describe('API', () => {
         patchRoutes.set(path, handler)
         registeredRoutes.set('PATCH', patchRoutes)
       }),
-      register: jest.fn()
+      register: jest.fn(),
     } as unknown as FastifyInstance
 
     jest.clearAllMocks()
@@ -317,9 +320,9 @@ describe('API', () => {
           socket: {
             remoteAddress: '::1',
             remotePort: 12345,
-            destroy: jest.fn()
-          }
-        }
+            destroy: jest.fn(),
+          },
+        },
       } as unknown as FastifyRequest
       handler(ipv6Request, mockReply)
 
@@ -346,7 +349,7 @@ describe('API', () => {
         ip: '127.0.0.1',
         port: 4000,
         version: expect.any(String),
-        time: mockDate
+        time: mockDate,
       })
     })
   })
@@ -363,17 +366,17 @@ describe('API', () => {
       ;(State as any).isActive = true
       ;(Crypto.sign as jest.Mock).mockReturnValue({
         status: { isActive: true },
-        sign: { owner: 'test-owner', sig: 'test-sig' }
+        sign: { owner: 'test-owner', sig: 'test-sig' },
       })
 
       await handler(mockRequest, mockReply)
 
       expect(Crypto.sign).toHaveBeenCalledWith({
-        status: { isActive: true }
+        status: { isActive: true },
       })
       expect(mockReply.send).toHaveBeenCalledWith({
         status: { isActive: true },
-        sign: { owner: 'test-owner', sig: 'test-sig' }
+        sign: { owner: 'test-owner', sig: 'test-sig' },
       })
     })
   })
@@ -390,12 +393,12 @@ describe('API', () => {
       ;(State as any).activeArchivers = [
         { publicKey: 'archiver1', ip: '10.0.0.1', port: 4000 },
         { publicKey: 'archiver2', ip: '10.0.0.2', port: 4000 },
-        { publicKey: 'archiver3', ip: '10.0.0.3', port: 4000 }
+        { publicKey: 'archiver3', ip: '10.0.0.3', port: 4000 },
       ]
       ;(State as any).archiversReputation = new Map([
         ['archiver1', 'up'],
         ['archiver2', 'up'],
-        ['archiver3', 'down']
+        ['archiver3', 'down'],
       ])
 
       handler(mockRequest, mockReply)
@@ -403,30 +406,26 @@ describe('API', () => {
       expect(Crypto.sign).toHaveBeenCalledWith({
         activeArchivers: [
           { publicKey: 'archiver1', ip: '10.0.0.1', port: 4000 },
-          { publicKey: 'archiver2', ip: '10.0.0.2', port: 4000 }
-        ]
+          { publicKey: 'archiver2', ip: '10.0.0.2', port: 4000 },
+        ],
       })
     })
 
     it('should return empty array when no archivers are up', () => {
-      ;(State as any).activeArchivers = [
-        { publicKey: 'archiver1', ip: '10.0.0.1', port: 4000 }
-      ]
-      ;(State as any).archiversReputation = new Map([
-        ['archiver1', 'down']
-      ])
+      ;(State as any).activeArchivers = [{ publicKey: 'archiver1', ip: '10.0.0.1', port: 4000 }]
+      ;(State as any).archiversReputation = new Map([['archiver1', 'down']])
 
       handler(mockRequest, mockReply)
 
       expect(Crypto.sign).toHaveBeenCalledWith({
-        activeArchivers: []
+        activeArchivers: [],
       })
     })
   })
 
   describe('validateRequestData', () => {
     beforeEach(() => {
-      (Utils.validateTypes as jest.Mock).mockReturnValue(null)
+      ;(Utils.validateTypes as jest.Mock).mockReturnValue(null)
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
     })
 
@@ -434,7 +433,7 @@ describe('API', () => {
       const data = {
         sender: 'test-sender',
         sign: { owner: 'test-sender', sig: 'test-sig' },
-        someData: 'test'
+        someData: 'test',
       }
 
       const result = validateRequestData(data, { sender: 's', sign: 'o', someData: 's' })
@@ -449,7 +448,7 @@ describe('API', () => {
 
       const data = {
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'test-sig' }
+        sign: { owner: 'test-sender', sig: 'test-sig' },
       }
 
       const result = validateRequestData(data, { sender: 's', sign: 'o' })
@@ -460,7 +459,7 @@ describe('API', () => {
     it('should fail when sender and sign owner do not match', () => {
       const data = {
         sender: 'test-sender',
-        sign: { owner: 'different-owner', sig: 'test-sig' }
+        sign: { owner: 'different-owner', sig: 'test-sig' },
       }
 
       const result = validateRequestData(data, { sender: 's', sign: 'o' })
@@ -473,7 +472,7 @@ describe('API', () => {
 
       const data = {
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'test-sig' }
+        sign: { owner: 'test-sender', sig: 'test-sig' },
       }
 
       const result = validateRequestData(data, { sender: 's', sign: 'o' })
@@ -488,7 +487,7 @@ describe('API', () => {
 
       const data = {
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'test-sig' }
+        sign: { owner: 'test-sender', sig: 'test-sig' },
       }
 
       const result = validateRequestData(data, { sender: 's', sign: 'o' })
@@ -507,7 +506,7 @@ describe('API', () => {
 
       const data = {
         sender: 'dev-sender',
-        sign: { owner: 'dev-sender', sig: 'test-sig' }
+        sign: { owner: 'dev-sender', sig: 'test-sig' },
       }
 
       const result = validateRequestData(data, { sender: 's', sign: 'o' })
@@ -525,7 +524,7 @@ describe('API', () => {
 
       const data = {
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'test-sig' }
+        sign: { owner: 'test-sender', sig: 'test-sig' },
       }
 
       const result = validateRequestData(data, { sender: 's', sign: 'o' }, true)
@@ -545,30 +544,34 @@ describe('API', () => {
       registerRoutes(mockFastify)
       // Find the handler with preHandler
       const calls = (mockFastify.get as jest.Mock).mock.calls
-      const configCall = calls.find(call => call[0] === '/config')
-      handler = configCall[configCall.length - 1] as Function
+      const configCall = calls.find((call) => call[0] === '/config')
+      if (configCall) {
+        handler = configCall[configCall.length - 1] as Function
+      }
     })
 
     it('should return config without secret key', () => {
       handler(mockRequest, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        ARCHIVER_IP: '127.0.0.1',
-        ARCHIVER_PORT: 4000,
-        ARCHIVER_PUBLIC_KEY: 'test-public-key',
-        ARCHIVER_SECRET_KEY: '',
-        VERBOSE: false
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ARCHIVER_IP: '127.0.0.1',
+          ARCHIVER_PORT: 4000,
+          ARCHIVER_PUBLIC_KEY: 'test-public-key',
+          ARCHIVER_SECRET_KEY: '',
+          VERBOSE: false,
+        })
+      )
     })
 
     it('should always return empty string for ARCHIVER_SECRET_KEY', () => {
       ;(config as any).ARCHIVER_SECRET_KEY = 'super-secret-key'
-      
+
       handler(mockRequest, mockReply)
 
       const sentConfig = (mockReply.send as jest.Mock).mock.calls[0][0] as any
       expect(sentConfig.ARCHIVER_SECRET_KEY).toBe('')
-      
+
       // Reset
       ;(config as any).ARCHIVER_SECRET_KEY = 'test-secret-key'
     })
@@ -586,8 +589,8 @@ describe('API', () => {
       const mockNodeList = {
         nodeList: [
           { ip: '10.0.0.1', port: 9001, publicKey: 'node1' },
-          { ip: '10.0.0.2', port: 9002, publicKey: 'node2' }
-        ]
+          { ip: '10.0.0.2', port: 9002, publicKey: 'node2' },
+        ],
       }
       ;(NodeList.getCachedNodeList as jest.Mock).mockReturnValue(mockNodeList)
 
@@ -667,7 +670,7 @@ describe('API', () => {
 
     it('should return allowed archivers config', async () => {
       const mockConfig = {
-        allowedArchivers: ['archiver1', 'archiver2']
+        allowedArchivers: ['archiver1', 'archiver2'],
       }
       ;(allowedArchiversManager.getCurrentConfig as jest.Mock).mockReturnValue(mockConfig)
 
@@ -684,7 +687,7 @@ describe('API', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(500)
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Internal server error'
+        error: 'Internal server error',
       })
     })
 
@@ -697,7 +700,7 @@ describe('API', () => {
 
       expect(mockReply.status).toHaveBeenCalledWith(500)
       expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Internal server error'
+        error: 'Internal server error',
       })
     })
   })
@@ -728,12 +731,12 @@ describe('API', () => {
           nodeInfo: {
             externalIp: '10.0.0.1',
             externalPort: 9001,
-            publicKey: 'first-node-key'
+            publicKey: 'first-node-key',
           },
           sign: {
             owner: 'first-node-key',
-            sig: 'valid-signature'
-          }
+            sig: 'valid-signature',
+          },
         }
         ;(Crypto.verify as jest.Mock).mockReturnValue(true)
         ;(Crypto.sign as jest.Mock).mockReturnValue({
@@ -741,21 +744,25 @@ describe('API', () => {
           joinRequest: { publicKey: 'test-public-key' },
           dataRequestCycle: {},
           dataRequestStateMetaData: {},
-          sign: { owner: 'test-owner', sig: 'test-sig' }
+          sign: { owner: 'test-owner', sig: 'test-sig' },
         })
 
         handler({ ...mockRequest, body: firstNodeInfo }, mockReply)
 
         expect(NodeList.toggleFirstNode).toHaveBeenCalled()
-        expect(NodeList.addNodes).toHaveBeenCalledWith('syncing', [{
-          ip: '10.0.0.1',
-          port: 9001,
-          publicKey: 'first-node-key'
-        }])
-        expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-          nodeList: expect.any(Array),
-          joinRequest: expect.any(Object)
-        }))
+        expect(NodeList.addNodes).toHaveBeenCalledWith('syncing', [
+          {
+            ip: '10.0.0.1',
+            port: 9001,
+            publicKey: 'first-node-key',
+          },
+        ])
+        expect(mockReply.send).toHaveBeenCalledWith(
+          expect.objectContaining({
+            nodeList: expect.any(Array),
+            joinRequest: expect.any(Object),
+          })
+        )
       })
 
       it('should reject invalid node info types', () => {
@@ -763,12 +770,12 @@ describe('API', () => {
           nodeInfo: {
             externalIp: 123, // Should be string
             externalPort: 9001,
-            publicKey: 'first-node-key'
+            publicKey: 'first-node-key',
           },
           sign: {
             owner: 'first-node-key',
-            sig: 'valid-signature'
-          }
+            sig: 'valid-signature',
+          },
         }
         ;(Utils.validateTypes as jest.Mock).mockReturnValue('Invalid type for externalIp')
 
@@ -776,7 +783,7 @@ describe('API', () => {
 
         expect(mockReply.send).toHaveBeenCalledWith({
           success: false,
-          error: 'Invalid type for externalIp'
+          error: 'Invalid type for externalIp',
         })
         expect(NodeList.toggleFirstNode).not.toHaveBeenCalled()
       })
@@ -786,12 +793,12 @@ describe('API', () => {
           nodeInfo: {
             externalIp: '10.0.0.1',
             externalPort: 9001,
-            publicKey: 'first-node-key'
+            publicKey: 'first-node-key',
           },
           sign: {
             owner: 'different-key',
-            sig: 'valid-signature'
-          }
+            sig: 'valid-signature',
+          },
         }
         ;(Utils.validateTypes as jest.Mock).mockReturnValue(null)
 
@@ -799,7 +806,7 @@ describe('API', () => {
 
         expect(mockReply.send).toHaveBeenCalledWith({
           success: false,
-          error: 'nodeInfo.publicKey does not match signature owner'
+          error: 'nodeInfo.publicKey does not match signature owner',
         })
       })
 
@@ -808,12 +815,12 @@ describe('API', () => {
           nodeInfo: {
             externalIp: '10.0.0.1',
             externalPort: 9001,
-            publicKey: 'first-node-key'
+            publicKey: 'first-node-key',
           },
           sign: {
             owner: 'first-node-key',
-            sig: 'invalid-signature'
-          }
+            sig: 'invalid-signature',
+          },
         }
         ;(Utils.validateTypes as jest.Mock).mockReturnValue(null)
         ;(Crypto.verify as jest.Mock).mockReturnValue(false)
@@ -822,7 +829,7 @@ describe('API', () => {
 
         expect(mockReply.send).toHaveBeenCalledWith({
           success: false,
-          error: 'Invalid signature'
+          error: 'Invalid signature',
         })
       })
 
@@ -834,12 +841,12 @@ describe('API', () => {
           nodeInfo: {
             externalIp: '10.0.0.1',
             externalPort: 9001,
-            publicKey: 'wrong-key'
+            publicKey: 'wrong-key',
           },
           sign: {
             owner: 'wrong-key',
-            sig: 'valid-signature'
-          }
+            sig: 'valid-signature',
+          },
         }
         ;(Utils.validateTypes as jest.Mock).mockReturnValue(null)
         ;(Crypto.verify as jest.Mock).mockReturnValue(true)
@@ -848,7 +855,7 @@ describe('API', () => {
 
         expect(mockReply.send).toHaveBeenCalledWith({
           success: false,
-          error: 'Invalid publicKey of first node info'
+          error: 'Invalid publicKey of first node info',
         })
 
         // Reset
@@ -864,12 +871,12 @@ describe('API', () => {
           nodeInfo: {
             externalIp: '10.0.0.1',
             externalPort: 9001,
-            publicKey: 'first-node-key'
+            publicKey: 'first-node-key',
           },
           sign: {
             owner: 'first-node-key',
-            sig: 'valid-signature'
-          }
+            sig: 'valid-signature',
+          },
         }
 
         handler({ ...mockRequest, body: nodeInfo }, mockReply)
@@ -889,12 +896,12 @@ describe('API', () => {
           nodeInfo: {
             externalIp: '10.0.0.1',
             externalPort: 9001,
-            publicKey: 'some-node-key'
+            publicKey: 'some-node-key',
           },
           sign: {
             owner: 'some-node-key',
-            sig: 'valid-signature'
-          }
+            sig: 'valid-signature',
+          },
         }
 
         handler({ ...mockRequest, body: nodeInfo }, mockReply)
@@ -916,14 +923,14 @@ describe('API', () => {
       const mockNetworkHash = 'mock-network-account-hash'
       ;(Crypto.sign as jest.Mock).mockReturnValueOnce({
         networkAccountHash: mockNetworkHash,
-        sign: { owner: 'test-owner', sig: 'test-sig' }
+        sign: { owner: 'test-owner', sig: 'test-sig' },
       })
 
       handler(mockRequest, mockReply)
 
       expect(mockReply.send).toHaveBeenCalledWith({
         networkAccountHash: mockNetworkHash,
-        sign: { owner: 'test-owner', sig: 'test-sig' }
+        sign: { owner: 'test-owner', sig: 'test-sig' },
       })
     })
 
@@ -932,7 +939,7 @@ describe('API', () => {
       ;(getGlobalNetworkAccount as jest.Mock).mockReturnValue(mockNetworkAccount)
       ;(Crypto.sign as jest.Mock).mockReturnValueOnce({
         networkAccount: mockNetworkAccount,
-        sign: { owner: 'test-owner', sig: 'test-sig' }
+        sign: { owner: 'test-owner', sig: 'test-sig' },
       })
 
       mockRequest.query = { hash: 'false' }
@@ -941,7 +948,7 @@ describe('API', () => {
       expect(getGlobalNetworkAccount).toHaveBeenCalledWith(false)
       expect(mockReply.send).toHaveBeenCalledWith({
         networkAccount: mockNetworkAccount,
-        sign: { owner: 'test-owner', sig: 'test-sig' }
+        sign: { owner: 'test-owner', sig: 'test-sig' },
       })
     })
   })
@@ -953,17 +960,20 @@ describe('API', () => {
       ;(Utils.getRandomItemFromArr as jest.Mock).mockReturnValue([
         { ip: '10.0.0.1', port: 4000 },
         { ip: '10.0.0.2', port: 4000 },
-        { ip: '10.0.0.3', port: 4000 }
+        { ip: '10.0.0.3', port: 4000 },
       ])
       // Reset Crypto.sign to default behavior
-      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } }))
+      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({
+        ...data,
+        sign: { owner: 'test-owner', sig: 'test-sig' },
+      }))
     })
 
     it('should query cycle info from archivers', async () => {
       const mockResponse = {
         cycleInfo: [{ counter: 1 }, { counter: 2 }],
         sign: { owner: 'archiver1', sig: 'sig1' },
-        sender: 'archiver1'
+        sender: 'archiver1',
       }
       ;(P2P.postJson as jest.Mock<any>).mockResolvedValue(mockResponse)
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
@@ -975,7 +985,7 @@ describe('API', () => {
         expect.objectContaining({
           start: 1,
           end: 2,
-          sender: 'test-public-key'
+          sender: 'test-public-key',
         }),
         undefined
       )
@@ -986,7 +996,7 @@ describe('API', () => {
       const mockResponse = {
         receipts: [{ receiptId: 'r1' }],
         sign: { owner: 'archiver1', sig: 'sig1' },
-        sender: 'archiver1'
+        sender: 'archiver1',
       }
       ;(P2P.postJson as jest.Mock<any>).mockResolvedValue(mockResponse)
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
@@ -997,7 +1007,7 @@ describe('API', () => {
         'http://10.0.0.1:4000/receipt',
         expect.objectContaining({
           count: 10,
-          sender: 'test-public-key'
+          sender: 'test-public-key',
         }),
         undefined
       )
@@ -1011,7 +1021,7 @@ describe('API', () => {
         .mockResolvedValueOnce({
           accounts: [],
           sign: { owner: 'archiver3', sig: 'sig3' },
-          sender: 'archiver3'
+          sender: 'archiver3',
         })
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
 
@@ -1021,7 +1031,7 @@ describe('API', () => {
       expect(result).toEqual({
         accounts: [],
         sign: { owner: 'archiver3', sig: 'sig3' },
-        sender: 'archiver3'
+        sender: 'archiver3',
       })
     })
 
@@ -1040,22 +1050,14 @@ describe('API', () => {
       const mockResponse = {
         originalTxs: [],
         sign: { owner: 'specific', sig: 'sig' },
-        sender: 'specific'
+        sender: 'specific',
       }
       ;(P2P.postJson as jest.Mock<any>).mockResolvedValue(mockResponse)
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
 
-      const result = await queryFromArchivers(
-        RequestDataType.ORIGINALTX,
-        { count: 5, archiver: specificArchiver },
-        10
-      )
+      const result = await queryFromArchivers(RequestDataType.ORIGINALTX, { count: 5, archiver: specificArchiver }, 10)
 
-      expect(P2P.postJson).toHaveBeenCalledWith(
-        'http://192.168.1.1:5000/originalTx',
-        expect.any(Object),
-        10
-      )
+      expect(P2P.postJson).toHaveBeenCalledWith('http://192.168.1.1:5000/originalTx', expect.any(Object), 10)
       expect(Utils.getRandomItemFromArr).not.toHaveBeenCalled()
       expect(result).toEqual(mockResponse)
     })
@@ -1065,7 +1067,7 @@ describe('API', () => {
         totalCycles: 100,
         totalAccounts: 1000,
         sign: { owner: 'archiver1', sig: 'sig1' },
-        sender: 'archiver1'
+        sender: 'archiver1',
       }
       ;(P2P.postJson as jest.Mock<any>).mockResolvedValue(mockResponse)
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
@@ -1075,7 +1077,7 @@ describe('API', () => {
       expect(P2P.postJson).toHaveBeenCalledWith(
         'http://10.0.0.1:4000/totalData',
         expect.objectContaining({
-          sender: 'test-public-key'
+          sender: 'test-public-key',
         }),
         undefined
       )
@@ -1086,7 +1088,7 @@ describe('API', () => {
       const mockResponse = {
         cycleInfo: [],
         sign: { owner: 'archiver1', sig: 'invalid' },
-        sender: 'archiver1'
+        sender: 'archiver1',
       }
       ;(P2P.postJson as jest.Mock<any>).mockResolvedValue(mockResponse)
       ;(Crypto.verify as jest.Mock).mockReturnValue(false)
@@ -1100,17 +1102,17 @@ describe('API', () => {
     it('should use bucket verification when checkpoint is enabled', async () => {
       ;(config.checkpoint.bucketConfig as any).allowCheckpointUpdates = true
       ;(isBucketVerified as jest.Mock<any>).mockResolvedValue(true)
-      
+
       const mockVerificationResponse = {
         success: true,
         isVerified: true,
         sign: { owner: 'archiver1', sig: 'sig1' },
-        sender: 'archiver1'
+        sender: 'archiver1',
       }
       const mockDataResponse = {
         cycleInfo: [{ counter: 5 }],
         sign: { owner: 'archiver1', sig: 'sig1' },
-        sender: 'archiver1'
+        sender: 'archiver1',
       }
       ;(P2P.postJson as jest.Mock<any>)
         .mockResolvedValueOnce(mockVerificationResponse)
@@ -1123,15 +1125,11 @@ describe('API', () => {
         'http://10.0.0.1:4000/bucket-verification',
         expect.objectContaining({
           bucketID: '5',
-          sender: 'test-public-key'
+          sender: 'test-public-key',
         }),
         undefined
       )
-      expect(P2P.postJson).toHaveBeenCalledWith(
-        'http://10.0.0.1:4000/cycleinfo',
-        expect.any(Object),
-        undefined
-      )
+      expect(P2P.postJson).toHaveBeenCalledWith('http://10.0.0.1:4000/cycleinfo', expect.any(Object), undefined)
       expect(result).toEqual(mockDataResponse)
 
       // Reset
@@ -1148,7 +1146,10 @@ describe('API', () => {
       handler = registeredRoutes.get('POST')?.get('/cycleinfo')!
       CycleDB = await import('../../../src/dbstore/cycles')
       jest.clearAllMocks()
-      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } }))
+      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({
+        ...data,
+        sign: { owner: 'test-owner', sig: 'test-sig' },
+      }))
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
     })
 
@@ -1159,15 +1160,17 @@ describe('API', () => {
       const requestData = {
         count: 3,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(CycleDB.queryLatestCycleRecords).toHaveBeenCalledWith(3)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        cycleInfo: mockCycles
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cycleInfo: mockCycles,
+        })
+      )
     })
 
     it('should query cycles between start and end', async () => {
@@ -1178,45 +1181,51 @@ describe('API', () => {
         start: 5,
         end: 7,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(CycleDB.queryCycleRecordsBetween).toHaveBeenCalledWith(5, 7)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        cycleInfo: mockCycles
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cycleInfo: mockCycles,
+        })
+      )
     })
 
     it('should reject invalid count', async () => {
       const requestData = {
         count: -1,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Invalid count'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Invalid count',
+        })
+      )
     })
 
     it('should reject count exceeding maximum', async () => {
       const requestData = {
         count: 101,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Max count is 100.'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Max count is 100.',
+        })
+      )
     })
 
     it('should reject invalid start and end counters', async () => {
@@ -1224,15 +1233,17 @@ describe('API', () => {
         start: 10,
         end: 5,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Invalid start and end counters'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Invalid start and end counters',
+        })
+      )
     })
 
     it('should reject when exceeding maximum cycle range', async () => {
@@ -1240,15 +1251,17 @@ describe('API', () => {
         start: 0,
         end: 101,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Exceed maximum limit of 100 cycles'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Exceed maximum limit of 100 cycles',
+        })
+      )
     })
 
     it('should reject request without valid signature', async () => {
@@ -1257,21 +1270,23 @@ describe('API', () => {
       const requestData = {
         count: 5,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'invalid-sig' }
+        sign: { owner: 'test-sender', sig: 'invalid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Invalid signature'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Invalid signature',
+        })
+      )
     })
 
     it('should handle download mode', async () => {
       const mockCycles = [{ counter: 1 }, { counter: 2 }]
       ;(CycleDB.queryCycleRecordsBetween as jest.Mock<any>).mockResolvedValue(mockCycles)
-      
+
       // Mock the Readable.from to return a mock stream
       const mockStream = { pipe: jest.fn() }
       jest.spyOn(require('stream').Readable, 'from').mockReturnValue(mockStream)
@@ -1281,14 +1296,14 @@ describe('API', () => {
         end: 2,
         download: true,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(mockReply.headers).toHaveBeenCalledWith({
         'content-disposition': 'attachment; filename="cycle_records_from_1_to_2"',
-        'content-type': 'application/octet-stream'
+        'content-type': 'application/octet-stream',
       })
       expect(mockReply.send).toHaveBeenCalledWith(mockStream)
     })
@@ -1296,15 +1311,17 @@ describe('API', () => {
     it('should reject when no query params specified', async () => {
       const requestData = {
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'not specified which cycle to show'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'not specified which cycle to show',
+        })
+      )
     })
   })
 
@@ -1317,7 +1334,10 @@ describe('API', () => {
       handler = registeredRoutes.get('POST')?.get('/receipt')!
       ReceiptDB = await import('../../../src/dbstore/receipts')
       jest.clearAllMocks()
-      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } }))
+      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({
+        ...data,
+        sign: { owner: 'test-owner', sig: 'test-sig' },
+      }))
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
     })
 
@@ -1328,15 +1348,17 @@ describe('API', () => {
       const requestData = {
         count: 2,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(ReceiptDB.queryLatestReceipts).toHaveBeenCalledWith(2)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        receipts: mockReceipts
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          receipts: mockReceipts,
+        })
+      )
     })
 
     it('should query receipt by txId', async () => {
@@ -1346,30 +1368,36 @@ describe('API', () => {
       const requestData = {
         txId: '1234567890123456789012345678901234567890123456789012345678901234',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(ReceiptDB.queryReceiptByReceiptId).toHaveBeenCalledWith('1234567890123456789012345678901234567890123456789012345678901234')
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        receipts: [mockReceipt]
-      }))
+      expect(ReceiptDB.queryReceiptByReceiptId).toHaveBeenCalledWith(
+        '1234567890123456789012345678901234567890123456789012345678901234'
+      )
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          receipts: [mockReceipt],
+        })
+      )
     })
 
     it('should reject invalid txId length', async () => {
       const requestData = {
         txId: 'short-id',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Invalid txId short-id'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Invalid txId short-id',
+        })
+      )
     })
 
     it('should query receipts by txIdList', async () => {
@@ -1382,35 +1410,42 @@ describe('API', () => {
       const requestData = {
         txIdList: [
           ['1234567890123456789012345678901234567890123456789012345678901234', 123456],
-          ['2234567890123456789012345678901234567890123456789012345678901234', 123457]
+          ['2234567890123456789012345678901234567890123456789012345678901234', 123457],
         ],
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(ReceiptDB.queryReceiptByReceiptId).toHaveBeenCalledTimes(2)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        receipts: [mockReceipt1, mockReceipt2]
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          receipts: [mockReceipt1, mockReceipt2],
+        })
+      )
     })
 
     it('should reject txIdList exceeding maximum', async () => {
-      const largeTxIdList = Array(1001).fill(['1234567890123456789012345678901234567890123456789012345678901234', 123456])
+      const largeTxIdList = Array(1001).fill([
+        '1234567890123456789012345678901234567890123456789012345678901234',
+        123456,
+      ])
 
       const requestData = {
         txIdList: largeTxIdList,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Exceed maximum limit of 1000 receipts'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Exceed maximum limit of 1000 receipts',
+        })
+      )
     })
 
     it('should query receipts between cycles with pagination', async () => {
@@ -1422,15 +1457,17 @@ describe('API', () => {
         endCycle: 20,
         page: 2,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(ReceiptDB.queryReceiptsBetweenCycles).toHaveBeenCalledWith(1000, 1000, 10, 20)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        receipts: mockReceipts
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          receipts: mockReceipts,
+        })
+      )
     })
 
     it('should query receipt count between cycles', async () => {
@@ -1441,19 +1478,24 @@ describe('API', () => {
         endCycle: 20,
         type: 'count',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(ReceiptDB.queryReceiptCountBetweenCycles).toHaveBeenCalledWith(10, 20)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        receipts: 500
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          receipts: 500,
+        })
+      )
     })
 
     it('should query receipt tally by cycles', async () => {
-      const mockTally = [{ cycle: 10, count: 50 }, { cycle: 11, count: 60 }]
+      const mockTally = [
+        { cycle: 10, count: 50 },
+        { cycle: 11, count: 60 },
+      ]
       ;(ReceiptDB.queryReceiptCountByCycles as jest.Mock<any>).mockResolvedValue(mockTally)
 
       const requestData = {
@@ -1461,15 +1503,17 @@ describe('API', () => {
         endCycle: 11,
         type: 'tally',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(ReceiptDB.queryReceiptCountByCycles).toHaveBeenCalledWith(10, 11)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        receipts: mockTally
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          receipts: mockTally,
+        })
+      )
     })
   })
 
@@ -1482,26 +1526,34 @@ describe('API', () => {
       handler = registeredRoutes.get('POST')?.get('/account')!
       AccountDB = await import('../../../src/dbstore/accounts')
       jest.clearAllMocks()
-      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } }))
+      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({
+        ...data,
+        sign: { owner: 'test-owner', sig: 'test-sig' },
+      }))
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
     })
 
     it('should query latest accounts by count', async () => {
-      const mockAccounts = [{ accountId: 'acc1', data: {} }, { accountId: 'acc2', data: {} }]
+      const mockAccounts = [
+        { accountId: 'acc1', data: {} },
+        { accountId: 'acc2', data: {} },
+      ]
       ;(AccountDB.queryLatestAccounts as jest.Mock<any>).mockResolvedValue(mockAccounts)
 
       const requestData = {
         count: 2,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(AccountDB.queryLatestAccounts).toHaveBeenCalledWith(2)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        accounts: mockAccounts
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accounts: mockAccounts,
+        })
+      )
     })
 
     it('should query accounts by range', async () => {
@@ -1512,15 +1564,17 @@ describe('API', () => {
         start: 0,
         end: 1,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(AccountDB.queryAccounts).toHaveBeenCalledWith(0, 2)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        accounts: mockAccounts
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accounts: mockAccounts,
+        })
+      )
     })
 
     it('should query accounts between cycles with pagination', async () => {
@@ -1533,17 +1587,19 @@ describe('API', () => {
         endCycle: 20,
         page: 2,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(AccountDB.queryAccountCountBetweenCycles).toHaveBeenCalledWith(10, 20)
       expect(AccountDB.queryAccountsBetweenCycles).toHaveBeenCalledWith(1000, 1000, 10, 20)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        accounts: mockAccounts,
-        totalAccounts: 100
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accounts: mockAccounts,
+          totalAccounts: 100,
+        })
+      )
     })
 
     it('should query account by accountId', async () => {
@@ -1553,15 +1609,17 @@ describe('API', () => {
       const requestData = {
         accountId: 'specific-account',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(AccountDB.queryAccountByAccountId).toHaveBeenCalledWith('specific-account')
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        accounts: mockAccount
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accounts: mockAccount,
+        })
+      )
     })
 
     it('should return only totalAccounts when no page specified', async () => {
@@ -1571,60 +1629,68 @@ describe('API', () => {
         startCycle: 10,
         endCycle: 20,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(AccountDB.queryAccountCountBetweenCycles).toHaveBeenCalledWith(10, 20)
       expect(AccountDB.queryAccountsBetweenCycles).not.toHaveBeenCalled()
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        totalAccounts: 500
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          totalAccounts: 500,
+        })
+      )
     })
 
     it('should reject when no query params specified', async () => {
       const requestData = {
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'not specified which account to show'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'not specified which account to show',
+        })
+      )
     })
 
     it('should reject invalid count', async () => {
       const requestData = {
         count: -1,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Invalid count'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Invalid count',
+        })
+      )
     })
 
     it('should reject count exceeding maximum', async () => {
       const requestData = {
         count: 1001,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Max count is 1000'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Max count is 1000',
+        })
+      )
     })
   })
 
@@ -1637,26 +1703,34 @@ describe('API', () => {
       handler = registeredRoutes.get('POST')?.get('/transaction')!
       TransactionDB = await import('../../../src/dbstore/transactions')
       jest.clearAllMocks()
-      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } }))
+      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({
+        ...data,
+        sign: { owner: 'test-owner', sig: 'test-sig' },
+      }))
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
     })
 
     it('should query latest transactions by count', async () => {
-      const mockTransactions = [{ txId: 'tx1', timestamp: 123 }, { txId: 'tx2', timestamp: 124 }]
+      const mockTransactions = [
+        { txId: 'tx1', timestamp: 123 },
+        { txId: 'tx2', timestamp: 124 },
+      ]
       ;(TransactionDB.queryLatestTransactions as jest.Mock<any>).mockResolvedValue(mockTransactions)
 
       const requestData = {
         count: 2,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(TransactionDB.queryLatestTransactions).toHaveBeenCalledWith(2)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        transactions: mockTransactions
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transactions: mockTransactions,
+        })
+      )
     })
 
     it('should query transaction by txId', async () => {
@@ -1666,15 +1740,17 @@ describe('API', () => {
       const requestData = {
         txId: 'specific-tx',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(TransactionDB.queryTransactionByTxId).toHaveBeenCalledWith('specific-tx')
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        transactions: mockTransaction
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transactions: mockTransaction,
+        })
+      )
     })
 
     it('should query transaction by appReceiptId', async () => {
@@ -1684,15 +1760,17 @@ describe('API', () => {
       const requestData = {
         appReceiptId: 'receipt1',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(TransactionDB.queryTransactionByAccountId).toHaveBeenCalledWith('receipt1')
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        transactions: mockTransactions
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transactions: mockTransactions,
+        })
+      )
     })
 
     it('should query transactions between cycles with pagination', async () => {
@@ -1705,31 +1783,35 @@ describe('API', () => {
         endCycle: 10,
         page: 3,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(TransactionDB.queryTransactionCountBetweenCycles).toHaveBeenCalledWith(5, 10)
       expect(TransactionDB.queryTransactionsBetweenCycles).toHaveBeenCalledWith(2000, 1000, 5, 10)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        transactions: mockTransactions,
-        totalTransactions: 200
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transactions: mockTransactions,
+          totalTransactions: 200,
+        })
+      )
     })
 
     it('should reject when no query params specified', async () => {
       const requestData = {
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'not specified which transaction to show'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'not specified which transaction to show',
+        })
+      )
     })
   })
 
@@ -1742,26 +1824,34 @@ describe('API', () => {
       handler = registeredRoutes.get('POST')?.get('/originalTx')!
       OriginalTxDB = await import('../../../src/dbstore/originalTxsData')
       jest.clearAllMocks()
-      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } }))
+      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({
+        ...data,
+        sign: { owner: 'test-owner', sig: 'test-sig' },
+      }))
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
     })
 
     it('should query latest original txs by count', async () => {
-      const mockOriginalTxs = [{ txId: 'tx1', timestamp: 123 }, { txId: 'tx2', timestamp: 124 }]
+      const mockOriginalTxs = [
+        { txId: 'tx1', timestamp: 123 },
+        { txId: 'tx2', timestamp: 124 },
+      ]
       ;(OriginalTxDB.queryLatestOriginalTxs as jest.Mock<any>).mockResolvedValue(mockOriginalTxs)
 
       const requestData = {
         count: 2,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(OriginalTxDB.queryLatestOriginalTxs).toHaveBeenCalledWith(2)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        originalTxs: mockOriginalTxs
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          originalTxs: mockOriginalTxs,
+        })
+      )
     })
 
     it('should query original tx by txId', async () => {
@@ -1771,19 +1861,26 @@ describe('API', () => {
       const requestData = {
         txId: '1234567890123456789012345678901234567890123456789012345678901234',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(OriginalTxDB.queryOriginalTxDataByTxId).toHaveBeenCalledWith('1234567890123456789012345678901234567890123456789012345678901234')
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        originalTxs: [mockOriginalTx]
-      }))
+      expect(OriginalTxDB.queryOriginalTxDataByTxId).toHaveBeenCalledWith(
+        '1234567890123456789012345678901234567890123456789012345678901234'
+      )
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          originalTxs: [mockOriginalTx],
+        })
+      )
     })
 
     it('should query original txs between cycles with type tally', async () => {
-      const mockTally = [{ cycle: 10, count: 50 }, { cycle: 11, count: 60 }]
+      const mockTally = [
+        { cycle: 10, count: 50 },
+        { cycle: 11, count: 60 },
+      ]
       ;(OriginalTxDB.queryOriginalTxDataCountByCycles as jest.Mock<any>).mockResolvedValue(mockTally)
 
       const requestData = {
@@ -1791,15 +1888,17 @@ describe('API', () => {
         endCycle: 11,
         type: 'tally',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(OriginalTxDB.queryOriginalTxDataCountByCycles).toHaveBeenCalledWith(10, 11)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        originalTxs: mockTally
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          originalTxs: mockTally,
+        })
+      )
     })
 
     it('should query original tx count between cycles', async () => {
@@ -1810,47 +1909,56 @@ describe('API', () => {
         endCycle: 15,
         type: 'count',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
       expect(OriginalTxDB.queryOriginalTxDataCount).toHaveBeenCalledWith(10, 15)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        originalTxs: 150
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          originalTxs: 150,
+        })
+      )
     })
 
     it('should reject invalid txId length', async () => {
       const requestData = {
         txId: 'short-id',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Invalid txId short-id'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Invalid txId short-id',
+        })
+      )
     })
 
     it('should reject txIdList exceeding maximum', async () => {
-      const largeTxIdList = Array(1001).fill(['1234567890123456789012345678901234567890123456789012345678901234', 123456])
+      const largeTxIdList = Array(1001).fill([
+        '1234567890123456789012345678901234567890123456789012345678901234',
+        123456,
+      ])
 
       const requestData = {
         txIdList: largeTxIdList,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Exceed maximum limit of 1000 original transactions'
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Exceed maximum limit of 1000 original transactions',
+        })
+      )
     })
   })
 
@@ -1871,7 +1979,10 @@ describe('API', () => {
       ReceiptDB = await import('../../../src/dbstore/receipts')
       OriginalTxDB = await import('../../../src/dbstore/originalTxsData')
       jest.clearAllMocks()
-      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } }))
+      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({
+        ...data,
+        sign: { owner: 'test-owner', sig: 'test-sig' },
+      }))
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
     })
 
@@ -1883,13 +1994,13 @@ describe('API', () => {
       ;(OriginalTxDB.queryOriginalTxDataCount as jest.Mock<any>).mockResolvedValue(4500)
 
       const mockCheckpointManager = {
-        hasLastFailedBucketExceededDuration: jest.fn().mockReturnValue(false)
+        hasLastFailedBucketExceededDuration: jest.fn().mockReturnValue(false),
       }
       ;(getCheckpointManager as jest.Mock).mockReturnValue(mockCheckpointManager)
 
       const requestData = {
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
@@ -1899,16 +2010,18 @@ describe('API', () => {
       expect(TransactionDB.queryTransactionCount).toHaveBeenCalled()
       expect(ReceiptDB.queryReceiptCount).toHaveBeenCalled()
       expect(OriginalTxDB.queryOriginalTxDataCount).toHaveBeenCalled()
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        totalCycles: 100,
-        totalAccounts: 1000,
-        totalTransactions: 5000,
-        totalReceipts: 5000,
-        totalOriginalTxs: 4500,
-        cycleLastFiveMinutesGiveUpBucketStatus: false,
-        originalTxLastFiveMinutesGiveUpBucketStatus: false,
-        receiptLastFiveMinutesGiveUpBucketStatus: false
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          totalCycles: 100,
+          totalAccounts: 1000,
+          totalTransactions: 5000,
+          totalReceipts: 5000,
+          totalOriginalTxs: 4500,
+          cycleLastFiveMinutesGiveUpBucketStatus: false,
+          originalTxLastFiveMinutesGiveUpBucketStatus: false,
+          receiptLastFiveMinutesGiveUpBucketStatus: false,
+        })
+      )
     })
 
     it('should handle checkpoint manager not available', async () => {
@@ -1921,21 +2034,23 @@ describe('API', () => {
 
       const requestData = {
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
 
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        totalCycles: 50,
-        totalAccounts: 500,
-        totalTransactions: 2500,
-        totalReceipts: 2500,
-        totalOriginalTxs: 2000,
-        cycleLastFiveMinutesGiveUpBucketStatus: undefined,
-        originalTxLastFiveMinutesGiveUpBucketStatus: undefined,
-        receiptLastFiveMinutesGiveUpBucketStatus: undefined
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          totalCycles: 50,
+          totalAccounts: 500,
+          totalTransactions: 2500,
+          totalReceipts: 2500,
+          totalOriginalTxs: 2000,
+          cycleLastFiveMinutesGiveUpBucketStatus: undefined,
+          originalTxLastFiveMinutesGiveUpBucketStatus: undefined,
+          receiptLastFiveMinutesGiveUpBucketStatus: undefined,
+        })
+      )
     })
   })
 
@@ -1948,14 +2063,17 @@ describe('API', () => {
       handler = registeredRoutes.get('POST')?.get('/gossip-data')!
       Collector = await import('../../../src/Data/Collector')
       jest.clearAllMocks()
-      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } }))
+      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({
+        ...data,
+        sign: { owner: 'test-owner', sig: 'test-sig' },
+      }))
     })
 
     it('should process valid gossip data', async () => {
       const gossipData = {
         type: 'receipt',
         data: { receiptId: 'r1', result: true },
-        sign: { owner: 'node1', sig: 'sig1' }
+        sign: { owner: 'node1', sig: 'sig1' },
       }
       ;(Collector.validateGossipData as jest.Mock).mockReturnValue({ success: true })
       ;(Collector.processGossipData as jest.Mock).mockImplementation(() => {})
@@ -1964,19 +2082,21 @@ describe('API', () => {
 
       expect(Collector.validateGossipData).toHaveBeenCalledWith(gossipData)
       expect(Collector.processGossipData).toHaveBeenCalledWith(gossipData)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: true
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+        })
+      )
     })
 
     it('should reject invalid gossip data', async () => {
       const invalidGossipData = {
         type: 'invalid',
-        data: {}
+        data: {},
       }
-      ;(Collector.validateGossipData as jest.Mock).mockReturnValue({ 
-        success: false, 
-        error: 'Invalid gossip data type' 
+      ;(Collector.validateGossipData as jest.Mock).mockReturnValue({
+        success: false,
+        error: 'Invalid gossip data type',
       })
 
       await handler({ ...mockRequest, body: invalidGossipData }, mockReply)
@@ -1985,7 +2105,7 @@ describe('API', () => {
       expect(Collector.processGossipData).not.toHaveBeenCalled()
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Invalid gossip data type'
+        error: 'Invalid gossip data type',
       })
     })
   })
@@ -2004,7 +2124,7 @@ describe('API', () => {
     it('should return network transaction list', () => {
       const mockTxList = [
         { txId: 'tx1', timestamp: 123456 },
-        { txId: 'tx2', timestamp: 123457 }
+        { txId: 'tx2', timestamp: 123457 },
       ]
       ;(ServiceQueue.getTxList as jest.Mock).mockReturnValue(mockTxList)
 
@@ -2025,59 +2145,48 @@ describe('API', () => {
 
   describe('GET /checkpoint-status', () => {
     let handler: Function
+    let getLatestCyclesSpy
 
     beforeEach(() => {
       registerRoutes(mockFastify)
       handler = registeredRoutes.get('GET')?.get('/checkpoint-status')!
       jest.clearAllMocks()
-      // Reset the checkpointStatusMap between tests
-      const actualMap = (checkpointStatusMap as any)._getActualMap()
-      actualMap.clear()
+    })
+
+    afterEach(() => {
+      if (getLatestCyclesSpy) getLatestCyclesSpy.mockRestore()
     })
 
     it('should return checkpoint statuses', () => {
-      // Add entries to the map
-      const actualMap = (checkpointStatusMap as any)._getActualMap()
-      actualMap.set(1, { 
-        cycleHash: 'hash1', 
-        receiptHash: 'rhash1', 
-        originalTxHash: 'othash1', 
-        otherData: 'ignore' 
-      })
-      actualMap.set(2, { 
-        cycleHash: 'hash2', 
-        receiptHash: 'rhash2', 
-        originalTxHash: 'othash2', 
-        otherData: 'ignore' 
-      })
+      getLatestCyclesSpy = jest.spyOn(checkpointStatusMap, 'getLatestCycles').mockReturnValue([
+        [1, { cycleHash: 'hash1', receiptHash: 'rhash1', originalTxHash: 'othash1' }],
+        [2, { cycleHash: 'hash2', receiptHash: 'rhash2', originalTxHash: 'othash2' }],
+      ])
 
       handler(mockRequest, mockReply)
 
-      // The handler should filter out otherData and only return the three hash fields
       expect(mockReply.send).toHaveBeenCalledWith({
         success: true,
         data: {
-          1: { cycleHash: 'hash1', receiptHash: 'rhash1', originalTxHash: 'othash1' },
-          2: { cycleHash: 'hash2', receiptHash: 'rhash2', originalTxHash: 'othash2' }
-        }
+          '1': { cycleHash: 'hash1', receiptHash: 'rhash1', originalTxHash: 'othash1' },
+          '2': { cycleHash: 'hash2', receiptHash: 'rhash2', originalTxHash: 'othash2' },
+        },
       })
     })
 
     it('should return error when no checkpoint statuses found', () => {
-      // Map is already cleared in beforeEach
-      
+      getLatestCyclesSpy = jest.spyOn(checkpointStatusMap, 'getLatestCycles').mockReturnValue([])
+
       handler(mockRequest, mockReply)
 
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'No checkpoint statuses found'
+        error: 'No checkpoint statuses found',
       })
     })
 
     it('should handle errors gracefully', () => {
-      // Force an error by making entries() throw
-      const originalEntries = checkpointStatusMap.entries
-      ;(checkpointStatusMap as any).entries = jest.fn().mockImplementation(() => {
+      getLatestCyclesSpy = jest.spyOn(checkpointStatusMap, 'getLatestCycles').mockImplementation(() => {
         throw new Error('Map error')
       })
 
@@ -2085,11 +2194,8 @@ describe('API', () => {
 
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Internal server error'
+        error: 'Internal server error',
       })
-
-      // Restore original method
-      ;(checkpointStatusMap as any).entries = originalEntries
     })
   })
 
@@ -2102,7 +2208,10 @@ describe('API', () => {
       handler = registeredRoutes.get('POST')?.get('/get_account_data_archiver')!
       AccountDataProvider = await import('../../../src/Data/AccountDataProvider')
       jest.clearAllMocks()
-      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } }))
+      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({
+        ...data,
+        sign: { owner: 'test-owner', sig: 'test-sig' },
+      }))
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
     })
 
@@ -2112,14 +2221,14 @@ describe('API', () => {
         accountEnd: 'ffff',
         maxRecords: 100,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
+
       const mockAccountData = [
         { accountId: 'acc1', data: {} },
-        { accountId: 'acc2', data: {} }
+        { accountId: 'acc2', data: {} },
       ]
-      
+
       ;(AccountDataProvider.validateAccountDataRequest as jest.Mock).mockReturnValue({ success: true })
       ;(AccountDataProvider.provideAccountDataRequest as jest.Mock<any>).mockResolvedValue(mockAccountData)
 
@@ -2127,10 +2236,12 @@ describe('API', () => {
 
       expect(AccountDataProvider.validateAccountDataRequest).toHaveBeenCalledWith(requestData)
       expect(AccountDataProvider.provideAccountDataRequest).toHaveBeenCalledWith(requestData)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: true,
-        data: mockAccountData
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: mockAccountData,
+        })
+      )
     })
 
     it('should reject invalid account data request', async () => {
@@ -2139,12 +2250,12 @@ describe('API', () => {
         // missing accountEnd
         maxRecords: 100,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
-      ;(AccountDataProvider.validateAccountDataRequest as jest.Mock).mockReturnValue({ 
-        success: false, 
-        error: 'Missing required field: accountEnd' 
+
+      ;(AccountDataProvider.validateAccountDataRequest as jest.Mock).mockReturnValue({
+        success: false,
+        error: 'Missing required field: accountEnd',
       })
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
@@ -2152,7 +2263,7 @@ describe('API', () => {
       expect(AccountDataProvider.provideAccountDataRequest).not.toHaveBeenCalled()
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Missing required field: accountEnd'
+        error: 'Missing required field: accountEnd',
       })
     })
 
@@ -2162,9 +2273,9 @@ describe('API', () => {
         accountEnd: 'ffff',
         maxRecords: 2000,
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
+
       ;(AccountDataProvider.validateAccountDataRequest as jest.Mock).mockReturnValue({ success: true })
       ;(config as any).maxRecordsPerRequest = 1000
 
@@ -2172,7 +2283,7 @@ describe('API', () => {
 
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Invalid AccountBucket size. Size was 2000. Must be greater than 0 and less than 1000.'
+        error: 'Invalid AccountBucket size. Size was 2000. Must be greater than 0 and less than 1000.',
       })
     })
   })
@@ -2186,7 +2297,10 @@ describe('API', () => {
       handler = registeredRoutes.get('POST')?.get('/get_account_data_by_list_archiver')!
       AccountDataProvider = await import('../../../src/Data/AccountDataProvider')
       jest.clearAllMocks()
-      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } }))
+      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({
+        ...data,
+        sign: { owner: 'test-owner', sig: 'test-sig' },
+      }))
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
     })
 
@@ -2194,15 +2308,15 @@ describe('API', () => {
       const requestData = {
         accountIds: ['acc1', 'acc2', 'acc3'],
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
+
       const mockAccountData = [
         { accountId: 'acc1', data: { balance: 100 } },
         { accountId: 'acc2', data: { balance: 200 } },
-        { accountId: 'acc3', data: { balance: 300 } }
+        { accountId: 'acc3', data: { balance: 300 } },
       ]
-      
+
       ;(AccountDataProvider.validateAccountDataByListRequest as jest.Mock).mockReturnValue({ success: true })
       ;(AccountDataProvider.provideAccountDataByListRequest as jest.Mock<any>).mockResolvedValue(mockAccountData)
 
@@ -2210,22 +2324,24 @@ describe('API', () => {
 
       expect(AccountDataProvider.validateAccountDataByListRequest).toHaveBeenCalledWith(requestData)
       expect(AccountDataProvider.provideAccountDataByListRequest).toHaveBeenCalledWith(requestData)
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        success: true,
-        accountData: mockAccountData
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          accountData: mockAccountData,
+        })
+      )
     })
 
     it('should reject invalid account list request', async () => {
       const requestData = {
         // missing accountIds
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
-      ;(AccountDataProvider.validateAccountDataByListRequest as jest.Mock).mockReturnValue({ 
-        success: false, 
-        error: 'Missing required field: accountIds' 
+
+      ;(AccountDataProvider.validateAccountDataByListRequest as jest.Mock).mockReturnValue({
+        success: false,
+        error: 'Missing required field: accountIds',
       })
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
@@ -2233,7 +2349,7 @@ describe('API', () => {
       expect(AccountDataProvider.provideAccountDataByListRequest).not.toHaveBeenCalled()
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Missing required field: accountIds'
+        error: 'Missing required field: accountIds',
       })
     })
   })
@@ -2247,22 +2363,25 @@ describe('API', () => {
       handler = registeredRoutes.get('POST')?.get('/get_globalaccountreport_archiver')!
       AccountDataProvider = await import('../../../src/Data/AccountDataProvider')
       jest.clearAllMocks()
-      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({ ...data, sign: { owner: 'test-owner', sig: 'test-sig' } }))
+      ;(Crypto.sign as jest.Mock).mockImplementation((data: any) => ({
+        ...data,
+        sign: { owner: 'test-owner', sig: 'test-sig' },
+      }))
       ;(Crypto.verify as jest.Mock).mockReturnValue(true)
     })
 
     it('should provide global account report', async () => {
       const requestData = {
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
+
       const mockReport = {
         totalAccounts: 1000,
         totalBalance: '1000000000',
-        timestamp: 123456789
+        timestamp: 123456789,
       }
-      
+
       ;(AccountDataProvider.validateGlobalAccountReportRequest as jest.Mock).mockReturnValue({ success: true })
       ;(AccountDataProvider.provideGlobalAccountReportRequest as jest.Mock<any>).mockResolvedValue(mockReport)
 
@@ -2270,22 +2389,24 @@ describe('API', () => {
 
       expect(AccountDataProvider.validateGlobalAccountReportRequest).toHaveBeenCalledWith(requestData)
       expect(AccountDataProvider.provideGlobalAccountReportRequest).toHaveBeenCalled()
-      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
-        totalAccounts: 1000,
-        totalBalance: '1000000000',
-        timestamp: 123456789
-      }))
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          totalAccounts: 1000,
+          totalBalance: '1000000000',
+          timestamp: 123456789,
+        })
+      )
     })
 
     it('should reject invalid global account report request', async () => {
       const requestData = {
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
-      ;(AccountDataProvider.validateGlobalAccountReportRequest as jest.Mock).mockReturnValue({ 
-        success: false, 
-        error: 'Invalid request format' 
+
+      ;(AccountDataProvider.validateGlobalAccountReportRequest as jest.Mock).mockReturnValue({
+        success: false,
+        error: 'Invalid request format',
       })
 
       await handler({ ...mockRequest, body: requestData }, mockReply)
@@ -2293,7 +2414,7 @@ describe('API', () => {
       expect(AccountDataProvider.provideGlobalAccountReportRequest).not.toHaveBeenCalled()
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Invalid request format'
+        error: 'Invalid request format',
       })
     })
   })
@@ -2304,8 +2425,10 @@ describe('API', () => {
     beforeEach(() => {
       registerRoutes(mockFastify)
       const calls = (mockFastify.get as jest.Mock).mock.calls
-      const counterCall = calls.find(call => call[0] === '/verified-receipt-counter')
-      handler = counterCall[counterCall.length - 1] as Function
+      const counterCall = calls.find((call) => call[0] === '/verified-receipt-counter')
+      if (counterCall) {
+        handler = counterCall[counterCall.length - 1] as Function
+      }
       jest.clearAllMocks()
     })
 
@@ -2316,7 +2439,7 @@ describe('API', () => {
         receivedReceiptCount: 100,
         verifiedReceiptCount: 80,
         successReceiptCount: 70,
-        failureReceiptCount: 10
+        failureReceiptCount: 10,
       })
     })
   })
@@ -2327,65 +2450,67 @@ describe('API', () => {
     beforeEach(() => {
       registerRoutes(mockFastify)
       const calls = (mockFastify.get as jest.Mock).mock.calls
-      const cycleCall = calls.find(call => call[0] === '/cycleinfo/:count')
-      handler = cycleCall[cycleCall.length - 1] as Function
+      const cycleCall = calls.find((call) => call[0] === '/cycleinfo/:count')
+      if (cycleCall) {
+        handler = cycleCall[cycleCall.length - 1] as Function
+      }
       jest.clearAllMocks()
     })
 
     it('should return latest cycle records for valid count', async () => {
       const mockCycles = [
         { counter: 1, mode: 'forming' },
-        { counter: 2, mode: 'active' }
+        { counter: 2, mode: 'active' },
       ]
-      
+
       ;(Cycles.getLatestCycleRecords as jest.Mock<any>).mockResolvedValue(mockCycles)
-      
+
       await handler({ ...mockRequest, params: { count: '2' } }, mockReply)
-      
+
       expect(Cycles.getLatestCycleRecords).toHaveBeenCalledWith(2)
       expect(mockReply.send).toHaveBeenCalledWith(mockCycles)
     })
 
     it('should limit count to MAX_CYCLES_PER_REQUEST', async () => {
       const mockCycles = Array(100).fill({ counter: 1, mode: 'active' })
-      
+
       ;(Cycles.getLatestCycleRecords as jest.Mock<any>).mockResolvedValue(mockCycles)
-      
+
       await handler({ ...mockRequest, params: { count: '200' } }, mockReply)
-      
+
       expect(Cycles.getLatestCycleRecords).toHaveBeenCalledWith(100)
       expect(mockReply.send).toHaveBeenCalledWith(mockCycles)
     })
 
     it('should return error for invalid count parameter', async () => {
       ;(Utils.validateTypes as jest.Mock).mockReturnValue('Invalid type')
-      
+
       await handler({ ...mockRequest, params: { count: null } }, mockReply)
-      
+
       expect(mockReply.send).toHaveBeenCalledWith({ success: false, error: 'Invalid type' })
     })
 
     it('should return error for zero count', async () => {
       ;(Utils.validateTypes as jest.Mock).mockReturnValue(null)
-      
+
       await handler({ ...mockRequest, params: { count: '0' } }, mockReply)
-      
+
       expect(mockReply.send).toHaveBeenCalledWith({ success: false, error: 'Invalid count' })
     })
 
     it('should return error for negative count', async () => {
       ;(Utils.validateTypes as jest.Mock).mockReturnValue(null)
-      
+
       await handler({ ...mockRequest, params: { count: '-5' } }, mockReply)
-      
+
       expect(mockReply.send).toHaveBeenCalledWith({ success: false, error: 'Invalid count' })
     })
 
     it('should return error for NaN count', async () => {
       ;(Utils.validateTypes as jest.Mock).mockReturnValue(null)
-      
+
       await handler({ ...mockRequest, params: { count: 'abc' } }, mockReply)
-      
+
       expect(mockReply.send).toHaveBeenCalledWith({ success: false, error: 'Invalid count' })
     })
   })
@@ -2399,22 +2524,21 @@ describe('API', () => {
       registerRoutes(mockFastify)
       handler = registeredRoutes.get('POST')?.get('/shareCheckpointRadixDigests')!
       jest.clearAllMocks()
-      
+
       mockBucket = {
-        checkpointBuckets: new Map()
+        checkpointBuckets: new Map(),
       }
-      
+
       const mockCheckpointBuckets = new Map()
       mockCheckpointBuckets.set = jest.fn(mockCheckpointBuckets.set.bind(mockCheckpointBuckets))
-      
+
       mockManager = {
         checkpointBuckets: mockCheckpointBuckets,
         validateData: jest.fn(),
         updateData: jest.fn(),
         checkpointType: 0,
-        onHashDigestsReceived: jest.fn()
+        onHashDigestsReceived: jest.fn(),
       }
-      
       ;(getCheckpointManager as jest.Mock).mockReturnValue(mockManager)
     })
 
@@ -2427,19 +2551,17 @@ describe('API', () => {
         radixDigests: JSON.stringify([{ radix: '1', hash: 'hash1' }]),
         checkpointType: 0,
         startTime: 1000,
-        endTime: 2000
+        endTime: 2000,
       }
-      
+
       mockManager.checkpointBuckets.set('bucket1', mockBucket)
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(getCheckpointManager).toHaveBeenCalledWith(0)
-      expect(mockManager.onHashDigestsReceived).toHaveBeenCalledWith(
-        'sender-address',
-        'bucket1',
-        [{ radix: '1', hash: 'hash1' }]
-      )
+      expect(mockManager.onHashDigestsReceived).toHaveBeenCalledWith('sender-address', 'bucket1', [
+        { radix: '1', hash: 'hash1' },
+      ])
       expect(mockReply.status).toHaveBeenCalledWith(200)
       expect(mockReply.send).toHaveBeenCalledWith({ success: true })
     })
@@ -2453,15 +2575,15 @@ describe('API', () => {
         radixDigests: JSON.stringify([{ radix: '2', hash: 'hash2' }]),
         checkpointType: 1,
         startTime: 3000,
-        endTime: 4000
+        endTime: 4000,
       }
-      
+
       // Mock CheckpointBucket constructor
       const MockCheckpointBucket = jest.fn().mockImplementation(() => mockBucket)
       ;(CheckpointBucket as jest.Mock).mockImplementation(MockCheckpointBucket)
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(getCheckpointManager).toHaveBeenCalledWith(1)
       expect(CheckpointBucket).toHaveBeenCalledWith(
         3000,
@@ -2472,11 +2594,9 @@ describe('API', () => {
         mockManager.checkpointType
       )
       expect(mockManager.checkpointBuckets.set).toHaveBeenCalledWith('bucket2', mockBucket)
-      expect(mockManager.onHashDigestsReceived).toHaveBeenCalledWith(
-        'sender-address',
-        'bucket2',
-        [{ radix: '2', hash: 'hash2' }]
-      )
+      expect(mockManager.onHashDigestsReceived).toHaveBeenCalledWith('sender-address', 'bucket2', [
+        { radix: '2', hash: 'hash2' },
+      ])
     })
 
     it('should return error for invalid request data', async () => {
@@ -2485,12 +2605,12 @@ describe('API', () => {
         sign: { owner: 'test-sender', sig: 'valid-sig' },
         // Missing required fields
       }
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: expect.any(String)
+        error: expect.any(String),
       })
     })
 
@@ -2503,19 +2623,19 @@ describe('API', () => {
         radixDigests: JSON.stringify([{ radix: '3', hash: 'hash3' }]),
         checkpointType: 2,
         startTime: 5000,
-        endTime: 6000
+        endTime: 6000,
       }
-      
+
       ;(getCheckpointManager as jest.Mock).mockImplementation(() => {
         throw new Error('Manager error')
       })
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(mockReply.status).toHaveBeenCalledWith(500)
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Server error'
+        error: 'Server error',
       })
     })
   })
@@ -2529,17 +2649,16 @@ describe('API', () => {
       registerRoutes(mockFastify)
       handler = registeredRoutes.get('POST')?.get('/exchangeCheckpointRadixEntries')!
       jest.clearAllMocks()
-      
+
       mockBucket = {
         radixEntries: new Map(),
-        onExchangeRadixEntries: jest.fn()
+        onExchangeRadixEntries: jest.fn(),
       }
-      
+
       mockManager = {
         checkpointBuckets: new Map(),
-        checkpointType: 0
+        checkpointType: 0,
       }
-      
       ;(getCheckpointManager as jest.Mock).mockReturnValue(mockManager)
     })
 
@@ -2550,44 +2669,41 @@ describe('API', () => {
         bucketID: 'bucket1',
         entries: JSON.stringify([
           { digest: { radix: '1' }, data: 'data1' },
-          { digest: { radix: '2' }, data: 'data2' }
+          { digest: { radix: '2' }, data: 'data2' },
         ]),
-        checkpointType: 0
+        checkpointType: 0,
       }
-      
-      const ourEntry1 = { 
-        digest: { radix: '1' }, 
+
+      const ourEntry1 = {
+        digest: { radix: '1' },
         data: 'ourData1',
-        updateDigest: jest.fn()
+        updateDigest: jest.fn(),
       }
-      const ourEntry2 = { 
-        digest: { radix: '2' }, 
+      const ourEntry2 = {
+        digest: { radix: '2' },
         data: 'ourData2',
-        updateDigest: jest.fn()
+        updateDigest: jest.fn(),
       }
-      
+
       mockBucket.radixEntries.set('1', ourEntry1)
       mockBucket.radixEntries.set('2', ourEntry2)
       mockManager.checkpointBuckets.set('bucket1', mockBucket)
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(getCheckpointManager).toHaveBeenCalledWith(0)
       expect(ourEntry1.updateDigest).toHaveBeenCalled()
       expect(ourEntry2.updateDigest).toHaveBeenCalled()
-      expect(mockBucket.onExchangeRadixEntries).toHaveBeenCalledWith(
-        'bucket1',
-        [
-          { digest: { radix: '1' }, data: 'data1' },
-          { digest: { radix: '2' }, data: 'data2' }
-        ]
-      )
+      expect(mockBucket.onExchangeRadixEntries).toHaveBeenCalledWith('bucket1', [
+        { digest: { radix: '1' }, data: 'data1' },
+        { digest: { radix: '2' }, data: 'data2' },
+      ])
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
           bucketID: 'bucket1',
           entries: [ourEntry1, ourEntry2],
           success: true,
-          sign: expect.any(Object)
+          sign: expect.any(Object),
         })
       )
     })
@@ -2598,15 +2714,15 @@ describe('API', () => {
         sign: { owner: 'test-sender', sig: 'valid-sig' },
         bucketID: 'nonexistent',
         entries: JSON.stringify([]),
-        checkpointType: 0
+        checkpointType: 0,
       }
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(mockReply.status).toHaveBeenCalledWith(404)
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Bucket not found for ID=nonexistent.'
+        error: 'Bucket not found for ID=nonexistent.',
       })
     })
 
@@ -2616,12 +2732,12 @@ describe('API', () => {
         sign: { owner: 'test-sender', sig: 'valid-sig' },
         // Missing required fields
       }
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: expect.any(String)
+        error: expect.any(String),
       })
     })
 
@@ -2631,19 +2747,19 @@ describe('API', () => {
         sign: { owner: 'test-sender', sig: 'valid-sig' },
         bucketID: 'bucket1',
         entries: JSON.stringify([]),
-        checkpointType: 0
+        checkpointType: 0,
       }
-      
+
       ;(getCheckpointManager as jest.Mock).mockImplementation(() => {
         throw new Error('Manager error')
       })
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(mockReply.status).toHaveBeenCalledWith(500)
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Server error in exchangeCheckpointRadixEntries for type 0'
+        error: 'Server error in exchangeCheckpointRadixEntries for type 0',
       })
     })
   })
@@ -2654,8 +2770,10 @@ describe('API', () => {
     beforeEach(() => {
       registerRoutes(mockFastify)
       const calls = (mockFastify.get as jest.Mock).mock.calls
-      const senderCall = calls.find(call => call[0] === '/dataSenders')
-      handler = senderCall[senderCall.length - 1] as Function
+      const senderCall = calls.find((call) => call[0] === '/dataSenders')
+      if (senderCall) {
+        handler = senderCall[senderCall.length - 1] as Function
+      }
       jest.clearAllMocks()
     })
 
@@ -2670,7 +2788,7 @@ describe('API', () => {
 
       expect(mockReply.send).toHaveBeenCalledWith({
         dataSendersSize: 2,
-        socketClientsSize: 1
+        socketClientsSize: 1,
       })
     })
 
@@ -2679,14 +2797,14 @@ describe('API', () => {
       ;(Data.dataSenders as Map<any, any>).set('sender1', { nodeInfo: { ip: '10.0.0.1', port: 9001 } })
       ;(Data.dataSenders as Map<any, any>).set('sender2', { nodeInfo: { ip: '10.0.0.2', port: 9002 } })
       ;(Data.socketClients as Map<any, any>).clear()
-      
+
       mockRequest.query = { dataSendersList: 'true' }
       handler(mockRequest, mockReply)
 
       expect(mockReply.send).toHaveBeenCalledWith({
         dataSendersSize: 2,
         socketClientsSize: 0,
-        dataSendersList: ['10.0.0.1:9001', '10.0.0.2:9002']
+        dataSendersList: ['10.0.0.1:9001', '10.0.0.2:9002'],
       })
     })
   })
@@ -2704,19 +2822,19 @@ describe('API', () => {
       const requestData = {
         bucketID: '10',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
+
       ;(isBucketVerified as jest.Mock<any>).mockResolvedValue(true)
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(isBucketVerified).toHaveBeenCalledWith(10, undefined)
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
           isVerified: true,
-          sign: expect.any(Object)
+          sign: expect.any(Object),
         })
       )
     })
@@ -2726,19 +2844,19 @@ describe('API', () => {
         bucketID: '10',
         endBucketID: '20',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
+
       ;(isBucketVerified as jest.Mock<any>).mockResolvedValue(false)
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(isBucketVerified).toHaveBeenCalledWith(10, 20)
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
           isVerified: false,
-          sign: expect.any(Object)
+          sign: expect.any(Object),
         })
       )
     })
@@ -2747,15 +2865,15 @@ describe('API', () => {
       const requestData = {
         bucketID: 'invalid',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(mockReply.code).toHaveBeenCalledWith(400)
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Invalid bucketID. Must be a non-negative integer.'
+        error: 'Invalid bucketID. Must be a non-negative integer.',
       })
     })
 
@@ -2764,15 +2882,15 @@ describe('API', () => {
         bucketID: '10',
         endBucketID: '-5',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(mockReply.code).toHaveBeenCalledWith(400)
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Invalid endBucketID. Must be a non-negative integer.'
+        error: 'Invalid endBucketID. Must be a non-negative integer.',
       })
     })
 
@@ -2780,17 +2898,17 @@ describe('API', () => {
       const requestData = {
         bucketID: '10',
         sender: 'test-sender',
-        sign: { owner: 'test-sender', sig: 'valid-sig' }
+        sign: { owner: 'test-sender', sig: 'valid-sig' },
       }
-      
+
       ;(isBucketVerified as jest.Mock<any>).mockRejectedValue(new Error('DB error'))
-      
+
       await handler({ ...mockRequest, body: requestData }, mockReply)
-      
+
       expect(mockReply.code).toHaveBeenCalledWith(500)
       expect(mockReply.send).toHaveBeenCalledWith({
         success: false,
-        error: 'Internal server error while checking bucket verification status'
+        error: 'Internal server error while checking bucket verification status',
       })
     })
   })

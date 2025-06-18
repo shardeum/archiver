@@ -14,7 +14,7 @@ export enum CheckpointType {
   OriginalTx = 1,
   Receipt = 2,
 }
-type BucketHashes = {
+export type BucketHashes = {
   cycleHash?: string | undefined
   receiptHash?: string | undefined
   originalTxHash?: string | undefined
