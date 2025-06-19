@@ -50,7 +50,7 @@ jobs:
           echo "*** End - Check inputs in repo workflow ***"
   ci-test-only:
     if: ${{ github.event.inputs.workflowBranch == 'dev' }}
-    uses: shardeum/github-automation/.github/workflows/reusable-node-ci.yml@dev
+    uses: shardeum/github-automation/.github/workflows/reusable-node-ci.yml@fix/pr-agent-version
     permissions:
       issues: write
       pull-requests: write
