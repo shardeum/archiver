@@ -117,10 +117,19 @@ export function initSocketServer(io: Server): void {
 }
 
 export function unsubscribeDataSender(publicKey: NodeList.ConsensusNodeInfo['publicKey']): void {
+  Logger.mainLogger.debug('[archiver-debug] unsubscribeDataSender called', { publicKey, currentDataSender })
   Logger.mainLogger.debug('Disconnecting previous connection', publicKey)
-  if (!socketClient) return
-  socketClient.emit('UNSUBSCRIBE', config.ARCHIVER_PUBLIC_KEY)
-  socketClient.disconnect()
+  if (!socketClient) {
+    Logger.mainLogger.debug('[archiver-debug] unsubscribeDataSender: No active socketClient for', { publicKey })
+    return
+  }
+  try {
+    socketClient.emit('UNSUBSCRIBE', config.ARCHIVER_PUBLIC_KEY)
+    socketClient.disconnect()
+    Logger.mainLogger.debug('[archiver-debug] unsubscribeDataSender: UNSUBSCRIBE emitted and socket disconnected', { publicKey })
+  } catch (err) {
+    Logger.mainLogger.error('[archiver-debug] unsubscribeDataSender: Error during UNSUBSCRIBE/disconnect', { publicKey, error: err?.message })
+  }
   if (config.VERBOSE) console.log('Killing the connection to', publicKey)
   removeDataSenders(publicKey)
   currentDataSender = ''
@@ -246,8 +255,10 @@ const timeoutPadding = 1000
 export const emitter = new EventEmitter()
 
 export async function replaceDataSender(publicKey: NodeList.ConsensusNodeInfo['publicKey']): Promise<void> {
+  Logger.mainLogger.debug('[archiver-debug] replaceDataSender called', { publicKey, activeNodeCount: NodeList.getActiveNodeCount() })
   nestedCountersInstance.countEvent('archiver', 'replace_data_sender')
   if (NodeList.getActiveNodeCount() < 2) {
+    Logger.mainLogger.warn('[archiver-debug] replaceDataSender: Only one active node, cannot replace', { publicKey })
     Logger.mainLogger.debug('There is only one active node in the network. Unable to replace data sender')
     const sender = dataSenders.get(publicKey)
     if (sender && sender.replaceTimeout) {
@@ -258,21 +269,21 @@ export async function replaceDataSender(publicKey: NodeList.ConsensusNodeInfo['p
     }
     return
   }
-  Logger.mainLogger.debug(`replaceDataSender: replacing ${publicKey}`)
+  Logger.mainLogger.debug('[archiver-debug] replaceDataSender: replacing sender', { publicKey })
 
   // Remove old dataSender
   const removedSenders = removeDataSenders(publicKey)
   if (removedSenders.length < 1) {
-    Logger.mainLogger.debug('replaceDataSender failed: old sender not removed')
+    Logger.mainLogger.warn('[archiver-debug] replaceDataSender: old sender not removed', { publicKey })
   }
 
   // Pick a new dataSender
   const newSenderInfo = selectNewDataSender(publicKey)
   if (!newSenderInfo) {
-    Logger.mainLogger.error('Unable to select a new data sender.')
+    Logger.mainLogger.error('[archiver-debug] replaceDataSender: Unable to select a new data sender', { publicKey })
     return
   }
-  Logger.mainLogger.debug('Before sleep', publicKey, newSenderInfo)
+  Logger.mainLogger.debug('[archiver-debug] replaceDataSender: Before sleep', { publicKey, newSenderInfo })
   await Utils.sleep(1000) // Wait about 1s to be sure that socket client connection is killed
   initSocketClient(newSenderInfo)
   const newSender: DataSender = {
@@ -305,6 +316,7 @@ export async function replaceDataSender(publicKey: NodeList.ConsensusNodeInfo['p
     publicKey: State.getNodeInfo().publicKey,
     nodeInfo: State.getNodeInfo(),
   }
+  Logger.mainLogger.debug('[archiver-debug] replaceDataSender: sending dataRequest to new sender', { newSenderPublicKey: newSenderInfo.publicKey, dataRequest })
   sendDataRequest(newSender, dataRequest)
 }
 
@@ -410,19 +422,26 @@ function selectNewDataSender(publicKey: string): NodeList.ConsensusNodeInfo | un
 }
 
 export async function createDataTransferConnection(newSenderInfo: NodeList.ConsensusNodeInfo): Promise<boolean> {
+  Logger.mainLogger.debug('[archiver-debug] createDataTransferConnection called', { newSenderPublicKey: newSenderInfo.publicKey })
   initSocketClient(newSenderInfo)
   let count = 0
   while (!socketClients.has(newSenderInfo.publicKey) && count <= 50) {
     await Utils.sleep(100)
     count++
     if (count === 50) {
-      // This means the socket connection to the node is not successful.
+      Logger.mainLogger.error('[archiver-debug] createDataTransferConnection: Socket connection to new sender failed', { newSenderPublicKey: newSenderInfo.publicKey })
       return false
     }
   }
-  if (socketConnectionsTracker.get(newSenderInfo.publicKey) === 'disconnected') return false
+  if (socketConnectionsTracker.get(newSenderInfo.publicKey) === 'disconnected') {
+    Logger.mainLogger.error('[archiver-debug] createDataTransferConnection: Socket connection refused (disconnected)', { newSenderPublicKey: newSenderInfo.publicKey })
+    return false
+  }
   await Utils.sleep(200) // Wait 1s before sending data request to be sure if the connection is not refused
-  if (socketConnectionsTracker.get(newSenderInfo.publicKey) === 'disconnected') return false
+  if (socketConnectionsTracker.get(newSenderInfo.publicKey) === 'disconnected') {
+    Logger.mainLogger.error('[archiver-debug] createDataTransferConnection: Socket connection refused after wait', { newSenderPublicKey: newSenderInfo.publicKey })
+    return false
+  }
   const newSender: DataSender = {
     nodeInfo: newSenderInfo,
     types: [P2PTypes.SnapshotTypes.TypeNames.CYCLE, P2PTypes.SnapshotTypes.TypeNames.STATE_METADATA],
@@ -453,6 +472,7 @@ export async function createDataTransferConnection(newSenderInfo: NodeList.Conse
     publicKey: State.getNodeInfo().publicKey,
     nodeInfo: State.getNodeInfo(),
   }
+  Logger.mainLogger.debug('[archiver-debug] createDataTransferConnection: sending dataRequest to new sender', { newSenderPublicKey: newSenderInfo.publicKey, dataRequest })
   sendDataRequest(newSender, dataRequest)
   return true
 }
@@ -508,6 +528,7 @@ export async function subscribeMoreConsensors(numbersToSubscribe: number): Promi
       publicKey: State.getNodeInfo().publicKey,
       nodeInfo: State.getNodeInfo(),
     }
+    Logger.mainLogger.debug('[archiver-debug] subscribeMoreConsensors: sending dataRequest to new sender', { newSenderPublicKey: newSenderInfo.publicKey, dataRequest })
     sendDataRequest(newSender, dataRequest)
   }
 }
@@ -1176,10 +1197,14 @@ export async function compareWithOldCyclesData(
 }
 
 export async function syncStateMetaData(activeArchivers: State.ArchiverNodeInfo[]): Promise<boolean> {
+  Logger.mainLogger.debug('[archiver-debug] syncStateMetaData called', { activeArchiversCount: activeArchivers.length })
   const randomArchiver = Utils.getRandomItemFromArr(activeArchivers)[0]
+  Logger.mainLogger.debug('[archiver-debug] syncStateMetaData: selected randomArchiver', { randomArchiver })
   const allCycleRecords = await Storage.queryAllCycleRecords()
   const lastCycleCounter = allCycleRecords[0].counter
+  Logger.mainLogger.debug('[archiver-debug] syncStateMetaData: lastCycleCounter', { lastCycleCounter })
   const downloadedArchivedCycles = await downloadArchivedCycles(randomArchiver, lastCycleCounter)
+  Logger.mainLogger.debug('[archiver-debug] syncStateMetaData: downloadedArchivedCycles', { count: downloadedArchivedCycles.length })
 
   const networkReceiptHashesFromRecords = new Map()
   const networkDataHashesFromRecords = new Map()
@@ -1204,6 +1229,7 @@ export async function syncStateMetaData(activeArchivers: State.ArchiverNodeInfo[
   })
 
   for (let i = 0; i < downloadedArchivedCycles.length; i++) {
+    Logger.mainLogger.debug('[archiver-debug] syncStateMetaData: processing downloadedArchivedCycle', { index: i })
     // eslint-disable-next-line security/detect-object-injection
     const marker = downloadedArchivedCycles[i].cycleRecord.marker
     // eslint-disable-next-line security/detect-object-injection
@@ -1212,7 +1238,7 @@ export async function syncStateMetaData(activeArchivers: State.ArchiverNodeInfo[
     const downloadedArchivedCycle = downloadedArchivedCycles[i]
 
     if (!downloadedArchivedCycle) {
-      Logger.mainLogger.debug('Unable to download archivedCycle for counter', counter)
+      Logger.mainLogger.error('[archiver-debug] syncStateMetaData: Unable to download archivedCycle', { counter })
       continue
     }
 
@@ -1226,12 +1252,12 @@ export async function syncStateMetaData(activeArchivers: State.ArchiverNodeInfo[
       const calculatedDataHash = calculateNetworkHash(downloadedArchivedCycle.data.partitionHashes)
       if (downloadedNetworkDataHash === calculatedDataHash) {
         if (downloadedNetworkDataHash !== networkDataHashesFromRecords.get(counter)) {
-          Logger.mainLogger.debug('Different with hash from downloaded Cycle Records', 'state data', counter)
+          Logger.mainLogger.warn('[archiver-debug] syncStateMetaData: Data hash mismatch with downloaded Cycle Records', { counter, downloadedNetworkDataHash, recordHash: networkDataHashesFromRecords.get(counter) })
         }
         await Storage.updateArchivedCycle(marker, 'data', downloadedArchivedCycle.data)
         isDataSynced = true
       } else {
-        Logger.mainLogger.error('Different network data hash for cycle', counter)
+        Logger.mainLogger.error('[archiver-debug] syncStateMetaData: Different network data hash for cycle', { counter, downloadedNetworkDataHash, calculatedDataHash })
       }
     } else {
       Logger.mainLogger.error(
@@ -1249,12 +1275,12 @@ export async function syncStateMetaData(activeArchivers: State.ArchiverNodeInfo[
         downloadedNetworkReceiptHash === calculatedReceiptHash
       ) {
         if (downloadedNetworkReceiptHash !== networkReceiptHashesFromRecords.get(counter)) {
-          Logger.mainLogger.debug('Different with hash from downloaded Cycle Records', 'receipt', counter)
+          Logger.mainLogger.warn('[archiver-debug] syncStateMetaData: Receipt hash mismatch with downloaded Cycle Records', { counter, downloadedNetworkReceiptHash, recordHash: networkReceiptHashesFromRecords.get(counter) })
         }
         await Storage.updateArchivedCycle(marker, 'receipt', downloadedArchivedCycle.receipt)
         isReceiptSynced = true
       } else {
-        Logger.mainLogger.error('Different network receipt hash for cycle', counter)
+        Logger.mainLogger.error('[archiver-debug] syncStateMetaData: Different network receipt hash for cycle', { counter, downloadedNetworkReceiptHash, calculatedReceiptHash })
       }
     } else {
       Logger.mainLogger.error(
@@ -1269,12 +1295,12 @@ export async function syncStateMetaData(activeArchivers: State.ArchiverNodeInfo[
       const calculatedSummaryHash = calculateNetworkHash(downloadedArchivedCycle.summary.partitionHashes)
       if (downloadedNetworkSummaryHash === calculatedSummaryHash) {
         if (downloadedNetworkSummaryHash !== networkSummaryHashesFromRecords.get(counter)) {
-          Logger.mainLogger.debug('Different with hash from downloaded Cycle Records', 'summary', counter)
+          Logger.mainLogger.warn('[archiver-debug] syncStateMetaData: Summary hash mismatch with downloaded Cycle Records', { counter, downloadedNetworkSummaryHash, recordHash: networkSummaryHashesFromRecords.get(counter) })
         }
         await Storage.updateArchivedCycle(marker, 'summary', downloadedArchivedCycle.summary)
         isSummarySynced = true
       } else {
-        Logger.mainLogger.error('Different network summary hash for cycle', counter)
+        Logger.mainLogger.error('[archiver-debug] syncStateMetaData: Different network summary hash for cycle', { counter, downloadedNetworkSummaryHash, calculatedSummaryHash })
       }
     } else {
       Logger.mainLogger.error(
@@ -1282,7 +1308,7 @@ export async function syncStateMetaData(activeArchivers: State.ArchiverNodeInfo[
       )
     }
     if (isDataSynced && isReceiptSynced && isSummarySynced) {
-      Logger.mainLogger.debug(`Successfully synced statemetadata for counter ${counter}`)
+      Logger.mainLogger.info('[archiver-debug] syncStateMetaData: Successfully synced statemetadata', { counter })
       if (counter > Cycles.lastProcessedMetaData) {
         Cycles.setLastProcessedMetaDataCounter(counter)
       }
