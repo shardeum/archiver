@@ -177,9 +177,35 @@ export async function bulkInsertReceipts(receipts: Receipt[], storeCheckpoints: 
     }
 
     // Compress all receipts if optimization is enabled
-    const processedReceipts = await Promise.all(
+    const compressionResults = await Promise.allSettled(
       receipts.map(receipt => compressReceiptSignatures(receipt))
     )
+
+    // Separate successful and failed compressions
+    const processedReceipts = []
+    const failedCompressions = []
+    
+    compressionResults.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        processedReceipts.push(result.value)
+      } else {
+        failedCompressions.push({
+          receiptId: receipts[index].receiptId,
+          error: result.reason
+        })
+        Logger.mainLogger.error(`Failed to compress receipt ${receipts[index].receiptId}:`, result.reason)
+      }
+    })
+
+    // If no receipts were successfully processed, throw an error
+    if (processedReceipts.length === 0) {
+      throw new Error(`All receipt compressions failed. Total failures: ${failedCompressions.length}`)
+    }
+
+    // Log compression statistics
+    if (failedCompressions.length > 0) {
+      Logger.mainLogger.warn(`Receipt compression completed with ${processedReceipts.length} successes and ${failedCompressions.length} failures`)
+    }
 
     // Define the table columns based on schema
     const columns = [
