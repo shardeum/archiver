@@ -170,7 +170,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
           publicKey,
         }
 
-        Data.initSocketClient(firstNode)
+        Data.initSocketClientWithDataSenders(firstNode)
 
         ArchiverLogging.logValidatorConnection({
           validatorId: signedFirstNodeInfo.nodeInfo.publicKey,
@@ -194,7 +194,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
           types: [P2PTypes.SnapshotTypes.TypeNames.CYCLE, P2PTypes.SnapshotTypes.TypeNames.STATE_METADATA],
           contactTimeout: Data.createContactTimeout(firstNode.publicKey, 'This timeout is created for the first node'),
         }
-        Data.addDataSender(firstDataSender)
+        Data.addDataSenderWithDataSenders(firstDataSender)
         let res: P2P.FirstNodeResponse
 
         if (config.experimentalSnapshot) {

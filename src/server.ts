@@ -220,7 +220,7 @@ async function start(): Promise<void> {
 
       Logger.mainLogger.debug('We have successfully joined the network')
       await startServer()
-      await Data.subscribeNodeForDataTransfer()
+      await Data.subscribeNodeForDataTransferWithDataSenders()
     } else {
       await startServer()
     }
@@ -394,7 +394,7 @@ async function syncAndStartServer(): Promise<void> {
       await sendActiveMessage()
     } else {
       State.setSyncing(false)
-      await Data.subscribeNodeForDataTransfer()
+      await Data.subscribeNodeForDataTransferWithDataSenders()
     }
 
     // Schedule multi-signature keys sync
@@ -595,7 +595,7 @@ async function sendActiveMessage(): Promise<void> {
     isActive = true
   }
 
-  await Data.subscribeNodeForDataTransfer()
+  await Data.subscribeNodeForDataTransferWithDataSenders()
   State.setSyncing(false)
 }
 

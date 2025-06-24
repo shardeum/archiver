@@ -14,11 +14,11 @@ import {
   clearDataSenders,
   dataSenders,
   getConsensusRadius,
-  nodesPerConsensusGroup,
-  nodesPerEdge,
-  subscribeConsensorsByConsensusRadius,
+  subscribeConsensorsByConsensusRadiusWithDataSenders,
   subscriptionCycleData,
-  unsubscribeDataSender,
+  unsubscribeDataSenderWithDataSenders,
+  nodesPerConsensusGroup,
+  nodesPerEdge
 } from './Data'
 import * as Utils from '../Utils'
 import { config } from '../Config'
@@ -233,17 +233,17 @@ export const validateCycleData = (
   }
 
   const cycleRecordWithoutMarker = { ...cycleRecord }
-  delete cycleRecordWithoutMarker.marker
+  delete (cycleRecordWithoutMarker as any).marker
 
-  const computedMarker = computeCycleMarker(cycleRecordWithoutMarker)
+  const computedMarker = computeCycleMarker(cycleRecordWithoutMarker as P2PTypes.CycleCreatorTypes.CycleRecord)
   Logger.mainLogger.debug(
     'validateCycleData: Computed marker: ',
     computedMarker,
     ' Provided marker: ',
-    cycleRecord.marker
+    (cycleRecord as any).marker
   )
 
-  if (computedMarker !== cycleRecord.marker) {
+  if (computedMarker !== (cycleRecord as any).marker) {
     Logger.mainLogger.error('Invalid Cycle Record: cycle marker does not match with the computed marker')
     return false
   }
@@ -372,7 +372,7 @@ function updateNodeList(cycle: P2PTypes.CycleCreatorTypes.CycleData): void {
   const nodesToUnsubscribed = [...apoptosizedPks, ...removedPks]
   if (nodesToUnsubscribed.length > 0) {
     for (const key of nodesToUnsubscribed) {
-      if (dataSenders.has(key)) unsubscribeDataSender(key)
+      if (dataSenders.has(key)) unsubscribeDataSenderWithDataSenders(key)
     }
   }
   if (removedConsensusNodes.length > 0 || apoptosizedConsensusNodes.length > 0) {
@@ -390,7 +390,7 @@ function updateNodeList(cycle: P2PTypes.CycleCreatorTypes.CycleData): void {
   NodeList.realUpdatedTimes.set('/full-nodelist', Date.now())
   // To pick nodes only when the archiver is active
   if (State.isActive) {
-    subscribeConsensorsByConsensusRadius()
+    subscribeConsensorsByConsensusRadiusWithDataSenders()
   }
 }
 
