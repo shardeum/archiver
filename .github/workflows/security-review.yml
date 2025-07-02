@@ -12,7 +12,7 @@ jobs:
 
     permissions:
       contents: read
-      pull-requests: write
+      pull-requests: read
       issues: write
       actions: read # To read workflow runs
       statuses: read # To read commit statuses
