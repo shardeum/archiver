@@ -399,7 +399,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
           cycleHash: hashes.cycleHash!,
           receiptHash: hashes.receiptHash!,
           originalTxHash: hashes.originalTxHash!,
-        };
+        }
       }
 
       reply.send({
@@ -1199,7 +1199,10 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
         return
       }
       const accountData = await AccountDataProvider.provideAccountDataByListRequest(payload)
-      // Logger.mainLogger.debug('Account Data By List result', accountData)
+      Logger.mainLogger.debug(
+        '[DEBUG RESTORE] Account Data By List result',
+        accountData.map((account) => `${account.accountId}: ${account.stateId}`)
+      )
       const res = Crypto.sign({
         success: true,
         accountData,
@@ -1222,7 +1225,10 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
         return
       }
       const report = await AccountDataProvider.provideGlobalAccountReportRequest()
-      // Logger.mainLogger.debug('Global Account Report result', report)
+      Logger.mainLogger.debug(
+        '[DEBUG RESTORE] Global Account Report result',
+        report.accounts.map((account) => `${account.id}: ${account.hash}`)
+      )
       const res = Crypto.sign(report)
       reply.send(res)
     } finally {

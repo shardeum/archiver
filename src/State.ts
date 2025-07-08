@@ -264,7 +264,7 @@ export async function compareCycleRecordWithOtherArchivers(
     })
     .catch((error) => {
       // Handle any errors that occurred
-      console.error(error)
+      console.error('compareCycleRecordWithOtherArchivers Error', error)
     })
   return foundMatch
 }

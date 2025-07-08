@@ -878,7 +878,9 @@ export const storeReceiptData = async (
       //   timestamp: tx.timestamp,
       // })
       const { afterStates, cycle, tx, appReceiptData, signedReceipt, globalModification } = receipt
-      const sortedVoteOffsets = globalModification ? [] : [...(signedReceipt as Receipt.SignedReceipt).voteOffsets].sort((a, b) => a - b)
+      const sortedVoteOffsets = globalModification
+        ? []
+        : [...(signedReceipt as Receipt.SignedReceipt).voteOffsets].sort((a, b) => a - b)
       const medianOffset = sortedVoteOffsets[Math.floor(sortedVoteOffsets.length / 2)] ?? 0
       const applyTimestamp = tx.timestamp + medianOffset * 1000
       if (config.VERBOSE) console.log('RECEIPT', 'Save', txId, timestamp, senderInfo)
@@ -931,8 +933,17 @@ export const storeReceiptData = async (
               }
               if (account.timestamp !== account.data['timestamp'])
                 Logger.mainLogger.error('Mismatched account timestamp', txId, account.accountId)
-              if (account.hash !== account.data['hash'])
-                Logger.mainLogger.error('Mismatched account hash', txId, account.accountId)
+              if (account.hash !== account.data['hash']) {
+                Logger.mainLogger.error(
+                  '[DEBUG RESTORE] Mismatched account hash',
+                  txId,
+                  account.accountId,
+                  'account.hash:',
+                  account.hash,
+                  'account.data.hash:',
+                  account.data['hash']
+                )
+              }
 
               const accountExist = await Account.queryAccountByAccountId(account.accountId)
               if (accountExist) {
