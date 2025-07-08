@@ -9,6 +9,7 @@ import { robustQuery, deepCopy } from './Utils'
 import { isDeepStrictEqual } from 'util'
 import { accountSpecificHash } from './shardeum/calculateAccountHash'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 
 let cachedGlobalNetworkAccount: AccountDB.AccountsCopy
 let cachedGlobalNetworkAccountHash: string
@@ -217,7 +218,9 @@ export const loadGlobalAccounts = async (): Promise<void> => {
         'account.hash:',
         account.hash,
         'recalculatedHash:',
-        recalculatedHash
+        recalculatedHash,
+        '\naccount data:',
+        StringUtils.safeStringify(account)
       )
       account.hash = recalculatedHash
       account.data.hash = recalculatedHash
