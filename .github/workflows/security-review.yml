@@ -12,8 +12,8 @@ jobs:
 
     permissions:
       contents: read
-      pull-requests: read
-      issues: write
+      pull-requests: write # To create comments on PRs
+      #issues: read # To read issues
       actions: read # To read workflow runs
       statuses: read # To read commit statuses
 
