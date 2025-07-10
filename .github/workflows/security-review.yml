@@ -25,7 +25,7 @@ jobs:
           username: ${{ github.event.comment.user.login }}
           organization: shardeum
           team: 'Tech Team'
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ secrets.security_review_script }}
 
       - name: Debug team check output
         run: |
