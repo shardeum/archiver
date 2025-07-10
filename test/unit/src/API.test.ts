@@ -2380,6 +2380,7 @@ describe('API', () => {
         totalAccounts: 1000,
         totalBalance: '1000000000',
         timestamp: 123456789,
+        accounts: [],
       }
 
       ;(AccountDataProvider.validateGlobalAccountReportRequest as jest.Mock).mockReturnValue({ success: true })
@@ -2394,6 +2395,7 @@ describe('API', () => {
           totalAccounts: 1000,
           totalBalance: '1000000000',
           timestamp: 123456789,
+          accounts: [],
         })
       )
     })

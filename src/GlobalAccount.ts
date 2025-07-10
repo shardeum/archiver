@@ -210,7 +210,7 @@ export const loadGlobalAccounts = async (): Promise<void> => {
   for (const account of accounts) {
     const recalculatedHash = accountSpecificHash(account.data)
 
-    if (recalculatedHash !== account.hash) {
+    if (recalculatedHash && recalculatedHash !== account.hash) {
       Logger.mainLogger.warn(
         '[DEBUG RESTORE] loadGlobalAccounts() - recalculatedHash !== account.hash',
         'accountId:',
