@@ -45,16 +45,9 @@ describe('server module configuration', () => {
 
   it('should validate server startup dependencies', () => {
     // Test that all required modules for server startup are present
-    const requiredModules = [
-      'fastify',
-      '@fastify/cors',
-      '@fastify/rate-limit',
-      'cluster',
-      'fs',
-      'path',
-    ]
+    const requiredModules = ['fastify', '@fastify/cors', '@fastify/rate-limit', 'cluster', 'fs', 'path']
 
-    requiredModules.forEach(moduleName => {
+    requiredModules.forEach((moduleName) => {
       expect(() => require.resolve(moduleName)).not.toThrow()
     })
   })

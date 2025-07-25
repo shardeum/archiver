@@ -102,9 +102,7 @@ describe('Logger', () => {
           dir: 'logs',
         }
 
-        expect(() => new Logger('/base', config)).toThrow(
-          'Fatal Error: Valid log file locations not provided.'
-        )
+        expect(() => new Logger('/base', config)).toThrow('Fatal Error: Valid log file locations not provided.')
       })
 
       it('should throw error if files is not an object', () => {
@@ -113,9 +111,7 @@ describe('Logger', () => {
           files: 'invalid' as any,
         }
 
-        expect(() => new Logger('/base', config)).toThrow(
-          'Fatal Error: Valid log file locations not provided.'
-        )
+        expect(() => new Logger('/base', config)).toThrow('Fatal Error: Valid log file locations not provided.')
       })
 
       it('should not throw for valid config', () => {
@@ -176,11 +172,11 @@ describe('Logger', () => {
           files: { main: 'main.log' },
           options: {
             appenders: {
-              main: { type: 'file' }
+              main: { type: 'file' },
             },
             categories: {
-              default: { appenders: ['main'], level: 'info' }
-            }
+              default: { appenders: ['main'], level: 'info' },
+            },
           },
         }
 
@@ -202,12 +198,12 @@ describe('Logger', () => {
         }
 
         const logger = new Logger('/base', config)
-        
+
         // Reset the mock and call the real implementation
         logger.getLogger = jest.fn((name: string) => {
           return mockLog4js.getLogger(name)
         })
-        
+
         const result = logger.getLogger('test')
 
         expect(logger.getLogger).toHaveBeenCalledWith('test')
@@ -307,11 +303,11 @@ describe('Logger', () => {
         }
 
         const logger = new Logger('/base', config)
-        
+
         // Test that shutdown returns a promise
         const shutdownPromise = logger.shutdown()
         expect(shutdownPromise).toBeInstanceOf(Promise)
-        
+
         // Skip waiting for the actual result since the real log4js might be used
       }, 1000)
 
@@ -323,7 +319,7 @@ describe('Logger', () => {
         }
 
         const logger = new Logger('/base', config)
-        
+
         // Just verify that the shutdown method exists and is callable
         expect(typeof logger.shutdown).toBe('function')
       })
@@ -387,7 +383,7 @@ describe('Logger', () => {
 
     it('should handle log4js-extend correctly', () => {
       const log4jsExtend = require('log4js-extend')
-      
+
       const config = {
         dir: 'logs',
         files: { main: 'main.log' },

@@ -69,7 +69,7 @@ describe('sync-v2/queries', () => {
   describe('robustQueryForCycleRecordHash', () => {
     it('should return cycle record hash on successful robust query', async () => {
       const mockResult = { currentCycleHash: 'abc123' }
-      
+
       mockedAttempt.mockResolvedValueOnce({
         count: 3,
         nodes: mockNodes,
@@ -119,7 +119,7 @@ describe('sync-v2/queries', () => {
 
       expect(result.isErr()).toBe(true)
       if (result.isErr()) {
-        expect(result.error.message).toContain("robust query failed")
+        expect(result.error.message).toContain('robust query failed')
       }
     })
   })
@@ -127,7 +127,7 @@ describe('sync-v2/queries', () => {
   describe('robustQueryForValidatorListHash', () => {
     it('should return validator list hash and timestamp on success', async () => {
       const mockResult = { nodeListHash: 'hash123', nextCycleTimestamp: 1234567890 }
-      
+
       mockedAttempt.mockResolvedValueOnce({
         count: 3,
         nodes: mockNodes,
@@ -158,7 +158,7 @@ describe('sync-v2/queries', () => {
   describe('robustQueryForArchiverListHash', () => {
     it('should return archiver list hash on success', async () => {
       const mockResult = { archiverListHash: 'archiverhash456' }
-      
+
       mockedAttempt.mockResolvedValueOnce({
         count: 3,
         nodes: mockNodes,
@@ -177,7 +177,7 @@ describe('sync-v2/queries', () => {
   describe('robustQueryForStandbyNodeListHash', () => {
     it('should return standby node list hash on success', async () => {
       const mockResult = { standbyNodeListHash: 'standbyhash789' }
-      
+
       mockedAttempt.mockResolvedValueOnce({
         count: 3,
         nodes: mockNodes,
@@ -196,7 +196,7 @@ describe('sync-v2/queries', () => {
   describe('robustQueryForTxListHash', () => {
     it('should return tx list hash on success', async () => {
       const mockResult = { txListHash: 'txhash000' }
-      
+
       mockedAttempt.mockResolvedValueOnce({
         count: 3,
         nodes: mockNodes,
@@ -256,7 +256,7 @@ describe('sync-v2/queries', () => {
         txlisthash: 'txlisthash',
         networkStateHash: 'statehash',
       } as unknown as CycleRecord
-      
+
       mockedAttempt.mockResolvedValueOnce(mockCycle)
       mockedGet.mockResolvedValueOnce({
         ok: true,
@@ -329,7 +329,7 @@ describe('sync-v2/queries', () => {
           status: 'active' as any,
         },
       ]
-      
+
       mockedAttempt.mockResolvedValueOnce(mockValidators)
       mockedGet.mockResolvedValueOnce({
         ok: true,
@@ -342,9 +342,7 @@ describe('sync-v2/queries', () => {
       if (result.isOk()) {
         expect(result.value).toEqual(mockValidators)
       }
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        'getting validator list from 127.0.0.1:8080 with hash hash123'
-      )
+      expect(consoleLogSpy).toHaveBeenCalledWith('getting validator list from 127.0.0.1:8080 with hash hash123')
     })
 
     it('should handle empty validator list', async () => {
@@ -373,7 +371,7 @@ describe('sync-v2/queries', () => {
           curvePk: 'curvepk1',
         },
       ]
-      
+
       mockedAttempt.mockResolvedValueOnce(mockArchivers)
       mockedGet.mockResolvedValueOnce({
         ok: true,
@@ -386,9 +384,7 @@ describe('sync-v2/queries', () => {
       if (result.isOk()) {
         expect(result.value).toEqual(mockArchivers)
       }
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        'getting archiver list from 127.0.0.1:8080 with hash archiverhash'
-      )
+      expect(consoleLogSpy).toHaveBeenCalledWith('getting archiver list from 127.0.0.1:8080 with hash archiverhash')
     })
   })
 
@@ -417,7 +413,7 @@ describe('sync-v2/queries', () => {
           sign: { owner: 'owner', sig: 'sig' },
         },
       ]
-      
+
       mockedAttempt.mockResolvedValueOnce(mockStandbyNodes)
       mockedGet.mockResolvedValueOnce({
         ok: true,
@@ -451,7 +447,7 @@ describe('sync-v2/queries', () => {
           },
         },
       ]
-      
+
       mockedAttempt.mockResolvedValueOnce(mockTxList)
       mockedGet.mockResolvedValueOnce({
         ok: true,
@@ -484,7 +480,7 @@ describe('sync-v2/queries', () => {
         ...mockNode,
         port: 3000,
       }
-      
+
       mockedAttempt.mockImplementationOnce(async (fn) => {
         mockedGet.mockResolvedValueOnce({
           ok: true,
@@ -495,15 +491,15 @@ describe('sync-v2/queries', () => {
 
       await getCurrentCycleDataFromNode(customNode, 'marker')
 
-      expect(mockedGet).toHaveBeenCalledWith(
-        expect.stringContaining(':3000/')
-      )
+      expect(mockedGet).toHaveBeenCalledWith(expect.stringContaining(':3000/'))
     })
 
     it('should handle malformed JSON response', async () => {
       mockedGet.mockResolvedValueOnce({
         ok: true,
-        json: async () => { throw new Error('Invalid JSON') },
+        json: async () => {
+          throw new Error('Invalid JSON')
+        },
       } as any)
 
       mockedAttempt.mockRejectedValueOnce(new Error('Invalid JSON'))
@@ -522,10 +518,7 @@ describe('sync-v2/queries', () => {
       const result = await getCurrentCycleDataFromNode(mockNode, 'marker')
 
       expect(result.isErr()).toBe(true)
-      expect(mockedAttempt).toHaveBeenCalledWith(
-        expect.any(Function),
-        expect.objectContaining({ maxRetries: 3 })
-      )
+      expect(mockedAttempt).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ maxRetries: 3 }))
     })
   })
 })

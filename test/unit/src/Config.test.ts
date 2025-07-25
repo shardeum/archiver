@@ -77,24 +77,26 @@ describe('Config', () => {
   describe('overrideDefaultConfig', () => {
     it('should override config from config file', async () => {
       const mockFs = fs as jest.Mocked<typeof fs>
-      
+
       // Setup the mock to return valid JSON
-      mockFs.readFileSync.mockReturnValue(JSON.stringify({
-        ARCHIVER_PORT: 5000,
-        VERBOSE: true,
-        RATE_LIMIT: 200,
-      }) as any)
-      
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          ARCHIVER_PORT: 5000,
+          VERBOSE: true,
+          RATE_LIMIT: 200,
+        }) as any
+      )
+
       mockFs.existsSync.mockReturnValue(false)
-      
+
       // Clear process.argv
       process.argv = ['node', 'test']
-      
+
       // The issue is that overrideDefaultConfig expects the config value to be merged
       // but the fs mock isn't being called properly. Let's check if it works
       // by testing the updateConfig function directly instead
       const originalPort = Config.config.ARCHIVER_PORT
-      
+
       // Since overrideDefaultConfig has issues with mocking, let's verify
       // that at least the config can be updated
       Config.updateConfig({
@@ -106,7 +108,7 @@ describe('Config', () => {
       expect(Config.config.ARCHIVER_PORT).toBe(5000)
       expect(Config.config.VERBOSE).toBe(true)
       expect(Config.config.RATE_LIMIT).toBe(200)
-      
+
       // Restore original values
       Config.updateConfig({
         ARCHIVER_PORT: originalPort,
@@ -200,16 +202,7 @@ describe('Config', () => {
     })
 
     it('should override config from CLI arguments', async () => {
-      process.argv = [
-        'node',
-        'script.js',
-        '--ARCHIVER_PORT',
-        '7000',
-        '--VERBOSE',
-        'true',
-        '--RATE_LIMIT',
-        '400',
-      ]
+      process.argv = ['node', 'script.js', '--ARCHIVER_PORT', '7000', '--VERBOSE', 'true', '--RATE_LIMIT', '400']
 
       const mockFs = fs as jest.Mocked<typeof fs>
       const error = new Error('File not found') as any
@@ -251,7 +244,7 @@ describe('Config', () => {
         secretKey: Config.config.ARCHIVER_SECRET_KEY,
         hashKey: Config.config.ARCHIVER_HASH_KEY,
       }
-      
+
       // Update with test values
       Config.updateConfig({
         ARCHIVER_PUBLIC_KEY: 'test_public_key',
@@ -262,7 +255,7 @@ describe('Config', () => {
       expect(Config.config.ARCHIVER_PUBLIC_KEY).toBe('test_public_key')
       expect(Config.config.ARCHIVER_SECRET_KEY).toBe('test_secret_key')
       expect(Config.config.ARCHIVER_HASH_KEY).toBe('test_hash_key')
-      
+
       // Restore original values
       Config.updateConfig({
         ARCHIVER_PUBLIC_KEY: originalKeys.publicKey,
@@ -282,9 +275,7 @@ describe('Config', () => {
 
       await Config.overrideDefaultConfig('config.json')
 
-      expect(Config.config.ARCHIVER_HASH_KEY).toBe(
-        '69fa4195670576c0160d660c3be36556ff8d504725be8a59b5a96509e0c994bc'
-      )
+      expect(Config.config.ARCHIVER_HASH_KEY).toBe('69fa4195670576c0160d660c3be36556ff8d504725be8a59b5a96509e0c994bc')
     })
 
     it('should use default dev public key when not provided', async () => {
@@ -298,9 +289,7 @@ describe('Config', () => {
 
       await Config.overrideDefaultConfig('config.json')
 
-      expect(Config.config.DevPublicKey).toBe(
-        '774491f80f47fedb119bb861601490f42bc3ea3b57fc63906c0d08e6d777a592'
-      )
+      expect(Config.config.DevPublicKey).toBe('774491f80f47fedb119bb861601490f42bc3ea3b57fc63906c0d08e6d777a592')
     })
 
     it('should apply overrides in correct order: file -> env -> cli', async () => {
@@ -354,9 +343,7 @@ describe('Config', () => {
     it('should throw error for incorrect type', () => {
       expect(() => {
         Config.updateConfig({ ARCHIVER_PORT: '8000' as any })
-      }).toThrow(
-        'Value with incorrect type passed to update the Archiver Config: ARCHIVER_PORT:8000 of type string'
-      )
+      }).toThrow('Value with incorrect type passed to update the Archiver Config: ARCHIVER_PORT:8000 of type string')
     })
 
     it('should merge nested objects correctly', () => {

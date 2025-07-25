@@ -8,42 +8,42 @@ jest.mock('../../../../src/Config', () => ({
     DATASENDER_TIMEOUT: 60000,
     experimentalSnapshot: false,
     REQUEST_LIMIT: {
-      MAX_CYCLES_PER_REQUEST: 100
+      MAX_CYCLES_PER_REQUEST: 100,
     },
     checkpoint: {
       enable: false,
       statusArraySize: 1000,
       bucketConfig: {
-        lastFailedBucketDuration: 300000
-      }
+        lastFailedBucketDuration: 300000,
+      },
     },
     tickets: {
       allowedTicketSigners: ['signer1', 'signer2'],
       minSigRequired: 2,
-      requiredSecurityLevel: 5
-    }
-  }
+      requiredSecurityLevel: 5,
+    },
+  },
 }))
 
 jest.mock('../../../../src/Logger', () => ({
   mainLogger: {
     debug: jest.fn(),
     info: jest.fn(),
-    error: jest.fn()
-  }
+    error: jest.fn(),
+  },
 }))
 
 jest.mock('../../../../src/profiler/nestedCounters', () => ({
   nestedCountersInstance: {
-    countEvent: jest.fn()
-  }
+    countEvent: jest.fn(),
+  },
 }))
 
 jest.mock('../../../../src/profiler/profiler', () => ({
   profilerInstance: {
     profileSectionStart: jest.fn(),
-    profileSectionEnd: jest.fn()
-  }
+    profileSectionEnd: jest.fn(),
+  },
 }))
 
 describe('StateMetaData - Utility Functions', () => {
@@ -57,7 +57,7 @@ describe('StateMetaData - Utility Functions', () => {
 
       // Mock dependencies
       jest.doMock('../../../../src/Crypto', () => ({
-        hashObj: jest.fn((data) => 'hashed-' + JSON.stringify(data))
+        hashObj: jest.fn((data) => 'hashed-' + JSON.stringify(data)),
       }))
 
       // Import function after mocking
@@ -70,7 +70,7 @@ describe('StateMetaData - Utility Functions', () => {
       const partitionHashes = {
         '0': 'hash0',
         '1': 'hash1',
-        '2': 'hash2'
+        '2': 'hash2',
       }
 
       const result = calculateNetworkHash(partitionHashes)
@@ -97,7 +97,7 @@ describe('StateMetaData - Utility Functions', () => {
       const partitionHashes = {
         '2': 'hash2',
         '0': 'hash0',
-        '1': 'hash1'
+        '1': 'hash1',
       }
 
       calculateNetworkHash(partitionHashes)
@@ -117,7 +117,7 @@ describe('StateMetaData - Utility Functions', () => {
 
       // Mock dependencies
       jest.doMock('../../../../src/Crypto', () => ({
-        tag: jest.fn((data, recipient) => ({ ...data, recipient, sign: { owner: 'test', sig: 'test-sig' } }))
+        tag: jest.fn((data, recipient) => ({ ...data, recipient, sign: { owner: 'test', sig: 'test-sig' } })),
       }))
 
       // Import function after mocking
@@ -127,32 +127,30 @@ describe('StateMetaData - Utility Functions', () => {
     })
 
     it('should create a tagged data request for CYCLE type', () => {
-      const result = createDataRequest(
-        P2PTypes.SnapshotTypes.TypeNames.CYCLE,
-        5,
+      const result = createDataRequest(P2PTypes.SnapshotTypes.TypeNames.CYCLE, 5, 'recipient-key')
+
+      expect(mockTag).toHaveBeenCalledWith(
+        {
+          type: 'CYCLE',
+          lastData: 5,
+        },
         'recipient-key'
       )
-
-      expect(mockTag).toHaveBeenCalledWith({
-        type: 'CYCLE',
-        lastData: 5
-      }, 'recipient-key')
       expect(result).toHaveProperty('type', 'CYCLE')
       expect(result).toHaveProperty('lastData', 5)
       expect(result).toHaveProperty('recipient', 'recipient-key')
     })
 
     it('should create a tagged data request for STATE_METADATA type', () => {
-      const result = createDataRequest(
-        P2PTypes.SnapshotTypes.TypeNames.STATE_METADATA,
-        10,
+      const result = createDataRequest(P2PTypes.SnapshotTypes.TypeNames.STATE_METADATA, 10, 'another-recipient')
+
+      expect(mockTag).toHaveBeenCalledWith(
+        {
+          type: 'STATE_METADATA',
+          lastData: 10,
+        },
         'another-recipient'
       )
-
-      expect(mockTag).toHaveBeenCalledWith({
-        type: 'STATE_METADATA',
-        lastData: 10
-      }, 'another-recipient')
       expect(result).toHaveProperty('type', 'STATE_METADATA')
       expect(result).toHaveProperty('lastData', 10)
     })
@@ -168,7 +166,7 @@ describe('StateMetaData - Utility Functions', () => {
 
       // Mock dependencies
       jest.doMock('../../../../src/Crypto', () => ({
-        tag: jest.fn((data, recipient) => ({ ...data, recipient, sign: { owner: 'test', sig: 'test-sig' } }))
+        tag: jest.fn((data, recipient) => ({ ...data, recipient, sign: { owner: 'test', sig: 'test-sig' } })),
       }))
 
       // Import function after mocking
@@ -180,10 +178,13 @@ describe('StateMetaData - Utility Functions', () => {
     it('should create a tagged query request', () => {
       const result = createQueryRequest('RECEIPT_MAP', 10, 'recipient-key')
 
-      expect(mockTag).toHaveBeenCalledWith({
-        type: 'RECEIPT_MAP',
-        lastData: 10
-      }, 'recipient-key')
+      expect(mockTag).toHaveBeenCalledWith(
+        {
+          type: 'RECEIPT_MAP',
+          lastData: 10,
+        },
+        'recipient-key'
+      )
       expect(result).toHaveProperty('type', 'RECEIPT_MAP')
       expect(result).toHaveProperty('lastData', 10)
     })
@@ -191,10 +192,13 @@ describe('StateMetaData - Utility Functions', () => {
     it('should handle different query types', () => {
       const result = createQueryRequest('SUMMARY_BLOB', 20, 'node-key')
 
-      expect(mockTag).toHaveBeenCalledWith({
-        type: 'SUMMARY_BLOB',
-        lastData: 20
-      }, 'node-key')
+      expect(mockTag).toHaveBeenCalledWith(
+        {
+          type: 'SUMMARY_BLOB',
+          lastData: 20,
+        },
+        'node-key'
+      )
       expect(result).toHaveProperty('type', 'SUMMARY_BLOB')
       expect(result).toHaveProperty('lastData', 20)
     })
@@ -214,7 +218,7 @@ describe('StateMetaData - Utility Functions', () => {
           constructor() {
             this._id = 'test-id'
           }
-        }
+        },
       }))
 
       // Import class after mocking

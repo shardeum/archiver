@@ -10,7 +10,7 @@ describe('State', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    
+
     // Mock process event listeners
     processListeners = { SIGINT: [], SIGTERM: [] }
     jest.spyOn(process, 'on').mockImplementation((event: string | symbol, listener: any) => {
@@ -19,7 +19,7 @@ describe('State', () => {
       }
       return process
     })
-    
+
     jest.spyOn(process, 'removeAllListeners').mockImplementation((event?: string | symbol) => {
       if (typeof event === 'string' && event) {
         processListeners[event] = []
@@ -28,9 +28,9 @@ describe('State', () => {
       }
       return process
     })
-    
+
     processExitSpy = jest.spyOn(process, 'exit').mockImplementation(() => undefined as never)
-    
+
     // Create a mock State module
     mockState = {
       isFirst: false,
@@ -42,29 +42,29 @@ describe('State', () => {
       otherArchivers: [],
       joinedArchivers: [],
       archiversReputation: new Map(),
-      
-      initFromConfig: jest.fn().mockImplementation(async (config: any, shutDownMode = false, useArchiverDiscovery = true) => {
-        if (!useArchiverDiscovery) return
-        if (config.ARCHIVER_IP && config.ARCHIVER_PORT) {
-          // Simulate successful initialization
-          mockState.isFirst = true
-        }
-      }),
-      
+
+      initFromConfig: jest
+        .fn()
+        .mockImplementation(async (config: any, shutDownMode = false, useArchiverDiscovery = true) => {
+          if (!useArchiverDiscovery) return
+          if (config.ARCHIVER_IP && config.ARCHIVER_PORT) {
+            // Simulate successful initialization
+            mockState.isFirst = true
+          }
+        }),
+
       addArchiver: jest.fn().mockImplementation((archiver: any) => {
         const found = mockState.activeArchivers.find((a: any) => a.publicKey === archiver.publicKey)
         if (!found) {
           mockState.activeArchivers.push(archiver)
           mockState.activeArchiversByPublicKeySorted.push(archiver)
-          mockState.activeArchiversByPublicKeySorted.sort((a: any, b: any) => 
-            a.publicKey.localeCompare(b.publicKey)
-          )
+          mockState.activeArchiversByPublicKeySorted.sort((a: any, b: any) => a.publicKey.localeCompare(b.publicKey))
           if (archiver.publicKey !== 'test-public-key') {
             mockState.otherArchivers.push(archiver)
           }
         }
       }),
-      
+
       removeActiveArchiver: jest.fn().mockImplementation((publicKey) => {
         mockState.activeArchivers = mockState.activeArchivers.filter((a: any) => a.publicKey !== publicKey)
         mockState.activeArchiversByPublicKeySorted = mockState.activeArchiversByPublicKeySorted.filter(
@@ -73,10 +73,10 @@ describe('State', () => {
         mockState.otherArchivers = mockState.otherArchivers.filter((a: any) => a.publicKey !== publicKey)
         mockState.archiversReputation.delete(publicKey)
       }),
-      
+
       resetActiveArchivers: jest.fn().mockImplementation((archivers: any[]) => {
         mockState.activeArchivers = archivers
-        mockState.activeArchiversByPublicKeySorted = [...archivers].sort((a: any, b: any) => 
+        mockState.activeArchiversByPublicKeySorted = [...archivers].sort((a: any, b: any) =>
           a.publicKey.localeCompare(b.publicKey)
         )
         mockState.otherArchivers = archivers.filter((a: any) => a.publicKey !== 'test-public-key')
@@ -85,21 +85,19 @@ describe('State', () => {
           mockState.archiversReputation.set(archiver.publicKey, 'up')
         }
       }),
-      
+
       updateOtherArchivers: jest.fn().mockImplementation(() => {
-        mockState.otherArchivers = mockState.activeArchivers.filter(
-          (a: any) => a.publicKey !== 'test-public-key'
-        )
+        mockState.otherArchivers = mockState.activeArchivers.filter((a: any) => a.publicKey !== 'test-public-key')
       }),
-      
+
       compareCycleRecordWithOtherArchivers: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
-      
+
       exitArchiver: jest.fn().mockImplementation(async () => {
         setTimeout(() => {
-          (process.exit as any)()
+          ;(process.exit as any)()
         }, 3000)
       }),
-      
+
       addSigListeners: jest.fn().mockImplementation((sigint = true, sigterm = true) => {
         if (sigint) {
           process.on('SIGINT', async () => {
@@ -114,30 +112,30 @@ describe('State', () => {
           })
         }
       }),
-      
+
       getNodeInfo: jest.fn().mockReturnValue({
         ip: '127.0.0.1',
         port: 4000,
         publicKey: 'test-public-key',
         curvePk: 'test-curve-pk',
       }),
-      
+
       getSecretKey: jest.fn().mockReturnValue('test-secret-key'),
       getCurveSk: jest.fn().mockReturnValue('test-curve-sk'),
       getCurvePk: jest.fn().mockReturnValue('test-curve-pk'),
-      
+
       setActive: jest.fn().mockImplementation(() => {
         mockState.isActive = true
       }),
-      
+
       setSyncing: jest.fn().mockImplementation((syncing) => {
         mockState.isSyncing = syncing
       }),
-      
+
       setLastCycleToSync: jest.fn().mockImplementation((cycle) => {
         mockState.lastCycleToSync = cycle
       }),
-      
+
       getRandomArchiver: jest.fn().mockImplementation(() => {
         return mockState.otherArchivers[0]
       }),
@@ -262,9 +260,7 @@ describe('State', () => {
 
   describe('cycle record comparison', () => {
     it('should compare cycle records with other archivers', async () => {
-      const archivers = [
-        { ip: '10.0.0.1', port: 4001, publicKey: 'archiver1', curvePk: 'curve1' },
-      ]
+      const archivers = [{ ip: '10.0.0.1', port: 4001, publicKey: 'archiver1', curvePk: 'curve1' }]
       const ourCycleRecord = { counter: 100, mode: 'processing' }
 
       const result = await mockState.compareCycleRecordWithOtherArchivers(archivers, ourCycleRecord)
@@ -281,7 +277,7 @@ describe('State', () => {
       await mockState.exitArchiver()
 
       expect(mockState.exitArchiver).toHaveBeenCalled()
-      
+
       jest.advanceTimersByTime(3000)
 
       expect(processExitSpy).toHaveBeenCalled()
@@ -301,7 +297,7 @@ describe('State', () => {
 
     it('should handle SIGINT signal', async () => {
       mockState.addSigListeners(true, false)
-      
+
       // Trigger the SIGINT handler
       const sigintHandler = processListeners['SIGINT'][0]
       await sigintHandler()
@@ -311,7 +307,7 @@ describe('State', () => {
 
     it('should handle SIGTERM signal', async () => {
       mockState.addSigListeners(false, true)
-      
+
       // Trigger the SIGTERM handler
       const sigtermHandler = processListeners['SIGTERM'][0]
       await sigtermHandler()

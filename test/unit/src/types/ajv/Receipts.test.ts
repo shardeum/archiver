@@ -8,7 +8,7 @@ const mockSchemaMap = new Map<string, object>()
 jest.mock('../../../../../src/utils/serialization/SchemaHelpers', () => ({
   addSchema: jest.fn((name: string, schema: object) => {
     mockSchemaMap.set(name, schema)
-  })
+  }),
 }))
 
 // Helper to get schema from our mock
@@ -34,7 +34,7 @@ describe('ajv/Receipts schemas', () => {
 
     it('should register all receipt schemas', () => {
       initReceipts()
-      
+
       expect(getSchema(AJVSchemaEnum.ArchiverReceipt)).toBeDefined()
       expect(getSchema(AJVSchemaEnum.Receipt)).toBeDefined()
       expect(getSchema(AJVSchemaEnum.GlobalTxReceipt)).toBeDefined()
@@ -43,10 +43,10 @@ describe('ajv/Receipts schemas', () => {
     it('should be idempotent', () => {
       initReceipts()
       const schema1 = getSchema(AJVSchemaEnum.Receipt)
-      
+
       initReceipts()
       const schema2 = getSchema(AJVSchemaEnum.Receipt)
-      
+
       expect(schema1).toBe(schema2)
     })
   })
@@ -67,7 +67,7 @@ describe('ajv/Receipts schemas', () => {
       const validReceipt = {
         signs: [
           { owner: '0xowner1', sig: '0xsig1' },
-          { owner: '0xowner2', sig: '0xsig2' }
+          { owner: '0xowner2', sig: '0xsig2' },
         ],
         tx: {
           address: '0x123456',
@@ -76,8 +76,8 @@ describe('ajv/Receipts schemas', () => {
           when: 1234567890,
           source: 'test-source',
           txId: 'tx-123',
-          afterStateHash: 'state-hash-123'
-        }
+          afterStateHash: 'state-hash-123',
+        },
       }
 
       const valid = validate(validReceipt)
@@ -95,9 +95,9 @@ describe('ajv/Receipts schemas', () => {
           when: 123,
           source: 'src',
           txId: 'tx1',
-          afterStateHash: 'hash2'
+          afterStateHash: 'hash2',
         },
-        txGroupCycle: 42
+        txGroupCycle: 42,
       }
 
       const valid = validate(receipt)
@@ -113,8 +113,8 @@ describe('ajv/Receipts schemas', () => {
           when: 123,
           source: 'src',
           txId: 'tx1',
-          afterStateHash: 'hash2'
-        }
+          afterStateHash: 'hash2',
+        },
       }
 
       const valid = validate(invalidReceipt)
@@ -122,7 +122,7 @@ describe('ajv/Receipts schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'signs' }
+          params: { missingProperty: 'signs' },
         })
       )
     })
@@ -137,9 +137,9 @@ describe('ajv/Receipts schemas', () => {
           when: 123,
           source: 'src',
           txId: 'tx1',
-          afterStateHash: 'hash2'
+          afterStateHash: 'hash2',
         },
-        consensusGroup: 'should not be allowed'
+        consensusGroup: 'should not be allowed',
       }
 
       const valid = validate(invalidReceipt)
@@ -147,7 +147,7 @@ describe('ajv/Receipts schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'additionalProperties',
-          params: { additionalProperty: 'consensusGroup' }
+          params: { additionalProperty: 'consensusGroup' },
         })
       )
     })
@@ -162,8 +162,8 @@ describe('ajv/Receipts schemas', () => {
           when: 0,
           source: '',
           txId: '',
-          afterStateHash: ''
-        }
+          afterStateHash: '',
+        },
       }
 
       const valid = validate(receipt)
@@ -180,9 +180,9 @@ describe('ajv/Receipts schemas', () => {
           when: 123,
           source: 'src',
           txId: 'tx1',
-          afterStateHash: 'hash2'
+          afterStateHash: 'hash2',
         },
-        txGroupCycle: -1
+        txGroupCycle: -1,
       }
 
       const valid = validate(receipt)
@@ -190,7 +190,7 @@ describe('ajv/Receipts schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'minimum',
-          dataPath: expect.stringContaining('txGroupCycle')
+          dataPath: expect.stringContaining('txGroupCycle'),
         })
       )
     })
@@ -205,31 +205,37 @@ describe('ajv/Receipts schemas', () => {
       if (!schema) {
         throw new Error('Schema not found')
       }
-      
+
       // Add referenced schemas for validation
-      ajv.addSchema({
-        type: 'object',
-        properties: {
-          accountId: { type: 'string' },
-          data: { type: 'object' },
-          timestamp: { type: 'integer' },
-          hash: { type: 'string' },
-          isGlobal: { type: 'boolean' }
+      ajv.addSchema(
+        {
+          type: 'object',
+          properties: {
+            accountId: { type: 'string' },
+            data: { type: 'object' },
+            timestamp: { type: 'integer' },
+            hash: { type: 'string' },
+            isGlobal: { type: 'boolean' },
+          },
+          required: ['accountId', 'data', 'timestamp', 'hash', 'isGlobal'],
         },
-        required: ['accountId', 'data', 'timestamp', 'hash', 'isGlobal']
-      }, AJVSchemaEnum.AccountsCopy)
-      
-      ajv.addSchema({
-        type: 'object',
-        properties: {
-          txId: { type: 'string' },
-          timestamp: { type: 'integer' },
-          cycle: { type: 'integer' },
-          originalTxData: { type: 'object' }
+        AJVSchemaEnum.AccountsCopy
+      )
+
+      ajv.addSchema(
+        {
+          type: 'object',
+          properties: {
+            txId: { type: 'string' },
+            timestamp: { type: 'integer' },
+            cycle: { type: 'integer' },
+            originalTxData: { type: 'object' },
+          },
+          required: ['txId', 'timestamp', 'cycle', 'originalTxData'],
         },
-        required: ['txId', 'timestamp', 'cycle', 'originalTxData']
-      }, AJVSchemaEnum.OriginalTxData)
-      
+        AJVSchemaEnum.OriginalTxData
+      )
+
       validate = ajv.compile(schema)
     })
 
@@ -238,7 +244,7 @@ describe('ajv/Receipts schemas', () => {
         tx: {
           originalTxData: { data: 'test' },
           txId: 'tx-123',
-          timestamp: 1234567890
+          timestamp: 1234567890,
         },
         cycle: 10,
         signedReceipt: {
@@ -249,19 +255,19 @@ describe('ajv/Receipts schemas', () => {
             beforeStateHashes: ['hash1', 'hash2'],
             afterStateHashes: ['hash3', 'hash4'],
             appReceiptDataHash: 'app-hash',
-            txid: 'tx-123'
+            txid: 'tx-123',
           },
           proposalHash: 'proposal-hash',
           signaturePack: [
             { owner: 'node1', sig: 'sig1' },
-            { owner: 'node2', sig: 'sig2' }
+            { owner: 'node2', sig: 'sig2' },
           ],
-          voteOffsets: [0, 1]
+          voteOffsets: [0, 1],
         },
         appReceiptData: {
-          data: { result: 'success' }
+          data: { result: 'success' },
         },
-        globalModification: false
+        globalModification: false,
       }
 
       const valid = validate(validReceipt)
@@ -273,7 +279,7 @@ describe('ajv/Receipts schemas', () => {
         tx: {
           originalTxData: {},
           txId: 'tx-456',
-          timestamp: 9876543210
+          timestamp: 9876543210,
         },
         cycle: 20,
         signedReceipt: {
@@ -285,14 +291,14 @@ describe('ajv/Receipts schemas', () => {
             when: 123,
             source: 'source',
             txId: 'tx-456',
-            afterStateHash: 'state-hash'
-          }
+            afterStateHash: 'state-hash',
+          },
         },
         appReceiptData: {
           accountId: 'acc-123',
-          data: {}
+          data: {},
         },
-        globalModification: true
+        globalModification: true,
       }
 
       const valid = validate(validReceipt)
@@ -304,7 +310,7 @@ describe('ajv/Receipts schemas', () => {
         tx: {
           originalTxData: {},
           txId: 'tx-789',
-          timestamp: 123
+          timestamp: 123,
         },
         cycle: 5,
         signedReceipt: {
@@ -316,8 +322,8 @@ describe('ajv/Receipts schemas', () => {
             when: 1,
             source: 's',
             txId: 't',
-            afterStateHash: 'ash'
-          }
+            afterStateHash: 'ash',
+          },
         },
         afterStates: [
           {
@@ -325,8 +331,8 @@ describe('ajv/Receipts schemas', () => {
             data: {},
             timestamp: 123,
             hash: 'h1',
-            isGlobal: false
-          }
+            isGlobal: false,
+          },
         ],
         beforeStates: [
           {
@@ -334,13 +340,13 @@ describe('ajv/Receipts schemas', () => {
             data: {},
             timestamp: 456,
             hash: 'h2',
-            isGlobal: true
-          }
+            isGlobal: true,
+          },
         ],
         appReceiptData: {
-          data: {}
+          data: {},
         },
-        globalModification: false
+        globalModification: false,
       }
 
       const valid = validate(receipt)
@@ -352,21 +358,21 @@ describe('ajv/Receipts schemas', () => {
         tx: {
           originalTxData: {},
           txId: 'tx-123',
-          timestamp: 123
+          timestamp: 123,
         },
-        cycle: 1
+        cycle: 1,
         // Missing signedReceipt, appReceiptData, globalModification
       }
 
       const valid = validate(invalidReceipt)
       expect(valid).toBe(false)
-      
+
       const missingProps = ['signedReceipt', 'appReceiptData', 'globalModification']
-      missingProps.forEach(prop => {
+      missingProps.forEach((prop) => {
         expect(validate.errors).toContainEqual(
           expect.objectContaining({
             keyword: 'required',
-            params: { missingProperty: prop }
+            params: { missingProperty: prop },
           })
         )
       })
@@ -377,22 +383,22 @@ describe('ajv/Receipts schemas', () => {
         tx: {
           originalTxData: {},
           txId: 'tx-123',
-          timestamp: 123
+          timestamp: 123,
         },
         cycle: 1,
         signedReceipt: {
           // Invalid - has neither SignedReceipt nor GlobalTxReceipt structure
-          invalidField: 'test'
+          invalidField: 'test',
         },
         appReceiptData: { data: {} },
-        globalModification: false
+        globalModification: false,
       }
 
       const valid = validate(invalidReceipt)
       expect(valid).toBe(false)
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
-          keyword: 'oneOf'
+          keyword: 'oneOf',
         })
       )
     })
@@ -407,31 +413,37 @@ describe('ajv/Receipts schemas', () => {
       if (!schema) {
         throw new Error('Schema not found')
       }
-      
+
       // Add referenced schemas
-      ajv.addSchema({
-        type: 'object',
-        properties: {
-          accountId: { type: 'string' },
-          data: { type: 'object' },
-          timestamp: { type: 'integer' },
-          hash: { type: 'string' },
-          isGlobal: { type: 'boolean' }
+      ajv.addSchema(
+        {
+          type: 'object',
+          properties: {
+            accountId: { type: 'string' },
+            data: { type: 'object' },
+            timestamp: { type: 'integer' },
+            hash: { type: 'string' },
+            isGlobal: { type: 'boolean' },
+          },
+          required: ['accountId', 'data', 'timestamp', 'hash', 'isGlobal'],
         },
-        required: ['accountId', 'data', 'timestamp', 'hash', 'isGlobal']
-      }, AJVSchemaEnum.AccountsCopy)
-      
-      ajv.addSchema({
-        type: 'object',
-        properties: {
-          txId: { type: 'string' },
-          timestamp: { type: 'integer' },
-          cycle: { type: 'integer' },
-          originalTxData: { type: 'object' }
+        AJVSchemaEnum.AccountsCopy
+      )
+
+      ajv.addSchema(
+        {
+          type: 'object',
+          properties: {
+            txId: { type: 'string' },
+            timestamp: { type: 'integer' },
+            cycle: { type: 'integer' },
+            originalTxData: { type: 'object' },
+          },
+          required: ['txId', 'timestamp', 'cycle', 'originalTxData'],
         },
-        required: ['txId', 'timestamp', 'cycle', 'originalTxData']
-      }, AJVSchemaEnum.OriginalTxData)
-      
+        AJVSchemaEnum.OriginalTxData
+      )
+
       validate = ajv.compile(schema)
     })
 
@@ -443,7 +455,7 @@ describe('ajv/Receipts schemas', () => {
         tx: {
           originalTxData: { test: true },
           txId: 'tx-123',
-          timestamp: 1234567880
+          timestamp: 1234567880,
         },
         cycle: 100,
         signedReceipt: {
@@ -455,13 +467,13 @@ describe('ajv/Receipts schemas', () => {
             when: 123,
             source: 'src',
             txId: 'tx-123',
-            afterStateHash: 'hash'
-          }
+            afterStateHash: 'hash',
+          },
         },
         appReceiptData: {
-          data: { status: 'applied' }
+          data: { status: 'applied' },
         },
-        globalModification: false
+        globalModification: false,
       }
 
       const valid = validate(validReceipt)
@@ -476,7 +488,7 @@ describe('ajv/Receipts schemas', () => {
         tx: {
           originalTxData: {},
           txId: 'tx',
-          timestamp: 100
+          timestamp: 100,
         },
         cycle: 1,
         signedReceipt: {
@@ -488,11 +500,11 @@ describe('ajv/Receipts schemas', () => {
             when: 1,
             source: 's',
             txId: 't',
-            afterStateHash: 'ash'
-          }
+            afterStateHash: 'ash',
+          },
         },
         appReceiptData: { data: {} },
-        globalModification: false
+        globalModification: false,
       }
 
       const valid = validate(invalidReceipt)
@@ -500,7 +512,7 @@ describe('ajv/Receipts schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'receiptId' }
+          params: { missingProperty: 'receiptId' },
         })
       )
     })
@@ -513,7 +525,7 @@ describe('ajv/Receipts schemas', () => {
         tx: {
           originalTxData: {},
           txId: 'tx-1',
-          timestamp: 50
+          timestamp: 50,
         },
         cycle: 0,
         signedReceipt: {
@@ -525,22 +537,22 @@ describe('ajv/Receipts schemas', () => {
             afterStateHashes: [],
             appReceiptDataHash: '',
             txid: 'tx-1',
-            executionShardKey: 'shard-1'
+            executionShardKey: 'shard-1',
           },
           proposalHash: 'ph',
           signaturePack: [],
           voteOffsets: [],
           sign: { owner: 'o', sig: 's' },
-          txGroupCycle: 0
+          txGroupCycle: 0,
         },
         afterStates: [],
         beforeStates: [],
         appReceiptData: {
           accountId: 'acc',
           data: {},
-          extraField: 'allowed'
+          extraField: 'allowed',
         },
-        globalModification: true
+        globalModification: true,
       }
 
       const valid = validate(receipt)
@@ -555,7 +567,7 @@ describe('ajv/Receipts schemas', () => {
         tx: {
           originalTxData: {},
           txId: 'tx-1',
-          timestamp: 50
+          timestamp: 50,
         },
         cycle: 0,
         signedReceipt: {
@@ -567,12 +579,12 @@ describe('ajv/Receipts schemas', () => {
             when: 1,
             source: 's',
             txId: 't',
-            afterStateHash: 'ash'
-          }
+            afterStateHash: 'ash',
+          },
         },
         appReceiptData: { data: {} },
         globalModification: false,
-        extraField: 'not allowed'
+        extraField: 'not allowed',
       }
 
       const valid = validate(invalidReceipt)
@@ -580,7 +592,7 @@ describe('ajv/Receipts schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'additionalProperties',
-          params: { additionalProperty: 'extraField' }
+          params: { additionalProperty: 'extraField' },
         })
       )
     })
@@ -589,19 +601,19 @@ describe('ajv/Receipts schemas', () => {
   describe('Schema structure', () => {
     it('should have correct structure for all schemas', () => {
       initReceipts()
-      
+
       const archiverReceipt = getSchema(AJVSchemaEnum.ArchiverReceipt)
       expect(archiverReceipt).toBeDefined()
       expect(archiverReceipt).toHaveProperty('type', 'object')
       expect(archiverReceipt).toHaveProperty('required')
       expect(archiverReceipt).toHaveProperty('additionalProperties', false)
-      
+
       const receipt = getSchema(AJVSchemaEnum.Receipt)
       expect(receipt).toBeDefined()
       expect(receipt).toHaveProperty('type', 'object')
       expect(receipt).toHaveProperty('required')
       expect(receipt).toHaveProperty('properties.receiptId')
-      
+
       const globalTxReceipt = getSchema(AJVSchemaEnum.GlobalTxReceipt)
       expect(globalTxReceipt).toBeDefined()
       expect(globalTxReceipt).toHaveProperty('type', 'object')
@@ -611,7 +623,7 @@ describe('ajv/Receipts schemas', () => {
 
     it('should register exactly 3 schemas', () => {
       initReceipts()
-      
+
       const registeredSchemas = Array.from(mockSchemaMap.keys())
       expect(registeredSchemas).toHaveLength(3)
       expect(registeredSchemas).toContain(AJVSchemaEnum.ArchiverReceipt)
@@ -621,7 +633,7 @@ describe('ajv/Receipts schemas', () => {
 
     it('should have correct oneOf for signedReceipt', () => {
       initReceipts()
-      
+
       const archiverReceipt = getSchema(AJVSchemaEnum.ArchiverReceipt) as any
       expect(archiverReceipt.properties.signedReceipt).toHaveProperty('oneOf')
       expect(archiverReceipt.properties.signedReceipt.oneOf).toHaveLength(2)
@@ -629,17 +641,20 @@ describe('ajv/Receipts schemas', () => {
 
     it('should reference external schemas correctly', () => {
       initReceipts()
-      
+
       const archiverReceipt = getSchema(AJVSchemaEnum.ArchiverReceipt) as any
-      
+
       // Check afterStates references AccountsCopy
       expect(archiverReceipt.properties.afterStates.items).toHaveProperty('$ref', AJVSchemaEnum.AccountsCopy)
-      
+
       // Check beforeStates references AccountsCopy
       expect(archiverReceipt.properties.beforeStates.items).toHaveProperty('$ref', AJVSchemaEnum.AccountsCopy)
-      
+
       // Check tx.originalTxData references OriginalTxData
-      expect(archiverReceipt.properties.tx.properties.originalTxData.items).toHaveProperty('$ref', AJVSchemaEnum.OriginalTxData)
+      expect(archiverReceipt.properties.tx.properties.originalTxData.items).toHaveProperty(
+        '$ref',
+        AJVSchemaEnum.OriginalTxData
+      )
     })
   })
 })

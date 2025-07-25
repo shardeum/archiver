@@ -160,7 +160,7 @@ describe('AJVSchemaEnum', () => {
 
     it('should be immutable - values cannot be changed', () => {
       const originalValue = AJVSchemaEnum.Receipt
-      
+
       // Attempt to modify the enum value (this should not work in TypeScript)
       try {
         // @ts-ignore - intentionally testing mutation
@@ -168,11 +168,11 @@ describe('AJVSchemaEnum', () => {
       } catch (e) {
         // Expected to fail in strict mode
       }
-      
+
       // In non-strict mode, the assignment might succeed
       // The test verifies whether the enum is actually immutable
       const isImmutable = AJVSchemaEnum.Receipt === originalValue
-      
+
       // Note: TypeScript enums are not frozen by default in JavaScript runtime
       // This test documents the actual behavior
       expect(typeof AJVSchemaEnum.Receipt).toBe('string')
@@ -190,7 +190,7 @@ describe('AJVSchemaEnum', () => {
     it('should work correctly with Object.entries()', () => {
       const entries = Object.entries(AJVSchemaEnum)
       const schemaEntries = entries.filter(([key, value]) => typeof value === 'string')
-      
+
       expect(schemaEntries).toContainEqual(['Receipt', 'Receipt'])
       expect(schemaEntries).toContainEqual(['AccountsCopy', 'AccountsCopy'])
       expect(schemaEntries).toContainEqual(['ArchiverReceipt', 'ArchiverReceipt'])
@@ -211,7 +211,7 @@ describe('AJVSchemaEnum', () => {
 
     it('should work with Set operations', () => {
       const schemaSet = new Set(Object.values(AJVSchemaEnum))
-      
+
       expect(schemaSet.has(AJVSchemaEnum.Receipt)).toBe(true)
       expect(schemaSet.has(AJVSchemaEnum.AccountsCopy)).toBe(true)
       expect(schemaSet.has('InvalidValue' as any)).toBe(false)
@@ -221,7 +221,7 @@ describe('AJVSchemaEnum', () => {
     it('should maintain referential equality', () => {
       const ref1 = AJVSchemaEnum.Receipt
       const ref2 = AJVSchemaEnum.Receipt
-      
+
       expect(ref1).toBe(ref2)
       expect(Object.is(ref1, ref2)).toBe(true)
     })
@@ -229,13 +229,13 @@ describe('AJVSchemaEnum', () => {
     it('should work correctly in template literals', () => {
       const schemaType = AJVSchemaEnum.Receipt
       const message = `Schema type is: ${schemaType}`
-      
+
       expect(message).toBe('Schema type is: Receipt')
     })
 
     it('should handle destructuring correctly', () => {
       const { Receipt, AccountsCopy, ArchiverReceipt, OriginalTxData, GlobalTxReceipt } = AJVSchemaEnum
-      
+
       expect(Receipt).toBe('Receipt')
       expect(AccountsCopy).toBe('AccountsCopy')
       expect(ArchiverReceipt).toBe('ArchiverReceipt')
@@ -248,7 +248,7 @@ describe('AJVSchemaEnum', () => {
       const processSchema = (schema: AJVSchemaEnum): string => {
         return `Processing ${schema}`
       }
-      
+
       expect(processSchema(AJVSchemaEnum.Receipt)).toBe('Processing Receipt')
       expect(processSchema(AJVSchemaEnum.GlobalTxReceipt)).toBe('Processing GlobalTxReceipt')
     })
@@ -257,11 +257,11 @@ describe('AJVSchemaEnum', () => {
       // Note: TypeScript enums are NOT frozen by default in JavaScript runtime
       // This test documents the actual behavior
       const isFrozen = Object.isFrozen(AJVSchemaEnum)
-      
+
       // Create a frozen copy to test freeze behavior
       const frozenEnum = Object.freeze({ ...AJVSchemaEnum })
       expect(Object.isFrozen(frozenEnum)).toBe(true)
-      
+
       // Attempt to modify frozen copy
       try {
         // @ts-ignore - testing frozen object
@@ -269,7 +269,7 @@ describe('AJVSchemaEnum', () => {
       } catch (e) {
         // Expected to fail
       }
-      
+
       expect(frozenEnum.Receipt).toBe('Receipt')
     })
 

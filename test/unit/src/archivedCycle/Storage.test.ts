@@ -54,7 +54,7 @@ describe('archivedCycle/Storage', () => {
     // Get mocked instances
     mockLogger = Logger.mainLogger
     mockCycleChain = CycleChain
-    
+
     // Create a new mock database instance
     mockDatabase = {
       createIndex: jest.fn(() => Promise.resolve()),
@@ -62,7 +62,7 @@ describe('archivedCycle/Storage', () => {
       update: jest.fn(() => Promise.resolve()),
       find: jest.fn(() => Promise.resolve([])),
     }
-    
+
     // Mock Database constructor to return our mock
     ;(Database as jest.Mock).mockImplementation(() => mockDatabase)
 
@@ -96,7 +96,7 @@ describe('archivedCycle/Storage', () => {
 
     it('should handle custom database path from config', async () => {
       mockConfig.ARCHIVER_DB = '/custom/path/archiver.db'
-      
+
       await Storage.initStorage(mockConfig)
 
       expect(Database).toHaveBeenCalledWith(
@@ -122,17 +122,10 @@ describe('archivedCycle/Storage', () => {
 
       await Storage.insertArchivedCycle(archivedCycle)
 
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Inserting archived cycle',
-        10,
-        'marker123'
-      )
+      expect(mockLogger.debug).toHaveBeenCalledWith('Inserting archived cycle', 10, 'marker123')
       expect(StateMetaData.ArchivedCycle.new).toHaveBeenCalledWith(archivedCycle)
       expect(mockDatabase.insert).toHaveBeenCalledWith([archivedCycle])
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Successfully inserted archivedCycle',
-        10
-      )
+      expect(mockLogger.debug).toHaveBeenCalledWith('Successfully inserted archivedCycle', 10)
     })
 
     it('should handle insertion errors', async () => {
@@ -217,10 +210,7 @@ describe('archivedCycle/Storage', () => {
 
       await Storage.updateReceiptMap(receiptMapResult)
 
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Unable find record with parent cycle with counter',
-        5
-      )
+      expect(mockLogger.error).toHaveBeenCalledWith('Unable find record with parent cycle with counter', 5)
       expect(mockDatabase.update).not.toHaveBeenCalled()
     })
 
@@ -231,10 +221,7 @@ describe('archivedCycle/Storage', () => {
 
       await Storage.updateReceiptMap(receiptMapResult)
 
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Unable find existing archived cycle with marker',
-        'marker'
-      )
+      expect(mockLogger.error).toHaveBeenCalledWith('Unable find existing archived cycle with marker', 'marker')
       expect(mockDatabase.update).not.toHaveBeenCalled()
     })
 
@@ -267,15 +254,13 @@ describe('archivedCycle/Storage', () => {
       const receiptMapResult = { cycle: 5, partition: 2 } as any
       mockCycleChain.get.mockReturnValue({ marker: 'marker' })
       mockDatabase.find.mockResolvedValueOnce([{ receipt: {} }])
-      
+
       const error = new Error('Update failed')
       mockDatabase.update.mockRejectedValueOnce(error)
 
       await Storage.updateReceiptMap(receiptMapResult)
 
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Unable to update receipt maps in archived cycle'
-      )
+      expect(mockLogger.error).toHaveBeenCalledWith('Unable to update receipt maps in archived cycle')
       expect(mockLogger.error).toHaveBeenCalledWith(error)
     })
   })
@@ -292,11 +277,13 @@ describe('archivedCycle/Storage', () => {
       } as any
 
       mockCycleChain.get.mockReturnValue({ marker: 'marker' })
-      mockDatabase.find.mockResolvedValueOnce([{
-        summary: {
-          partitionBlobs: { 1: 'existing' },
+      mockDatabase.find.mockResolvedValueOnce([
+        {
+          summary: {
+            partitionBlobs: { 1: 'existing' },
+          },
         },
-      }])
+      ])
 
       await Storage.updateSummaryBlob(summaryBlob, 10)
 
@@ -324,15 +311,13 @@ describe('archivedCycle/Storage', () => {
       const summaryBlob = { partition: 3 } as any
       mockCycleChain.get.mockReturnValue({ marker: 'marker' })
       mockDatabase.find.mockResolvedValueOnce([{}])
-      
+
       const error = new Error('Update failed')
       mockDatabase.update.mockRejectedValueOnce(error)
 
       await Storage.updateSummaryBlob(summaryBlob, 10)
 
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Unable to update summary blobs in archived cycle'
-      )
+      expect(mockLogger.error).toHaveBeenCalledWith('Unable to update summary blobs in archived cycle')
       expect(mockLogger.error).toHaveBeenCalledWith(error)
     })
   })
@@ -353,7 +338,7 @@ describe('archivedCycle/Storage', () => {
 
     it('should handle complex field values', async () => {
       const complexData = { nested: { value: 123 } }
-      
+
       await Storage.updateArchivedCycle('marker123', 'data', complexData)
 
       expect(mockDatabase.update).toHaveBeenCalledWith({
@@ -404,10 +389,7 @@ describe('archivedCycle/Storage', () => {
 
         expect(mockDatabase.find).toHaveBeenCalledWith({
           filter: {
-            $and: [
-              { 'cycleRecord.counter': { $gte: 10 } },
-              { 'cycleRecord.counter': { $lte: 20 } },
-            ],
+            $and: [{ 'cycleRecord.counter': { $gte: 10 } }, { 'cycleRecord.counter': { $lte: 20 } }],
           },
           sort: { 'cycleRecord.counter': -1 },
           limit: 11, // end - start + 1
@@ -419,10 +401,7 @@ describe('archivedCycle/Storage', () => {
 
     describe('queryAllCycleRecords', () => {
       it('should return only cycle records', async () => {
-        const mockData = [
-          { cycleRecord: { counter: 10 } },
-          { cycleRecord: { counter: 9 } },
-        ]
+        const mockData = [{ cycleRecord: { counter: 10 } }, { cycleRecord: { counter: 9 } }]
         mockDatabase.find.mockResolvedValueOnce(mockData)
 
         const result = await Storage.queryAllCycleRecords()
@@ -470,20 +449,14 @@ describe('archivedCycle/Storage', () => {
 
     describe('queryCycleRecordsBetween', () => {
       it('should query cycle records between range', async () => {
-        const mockData = [
-          { cycleRecord: { counter: 15 } },
-          { cycleRecord: { counter: 12 } },
-        ]
+        const mockData = [{ cycleRecord: { counter: 15 } }, { cycleRecord: { counter: 12 } }]
         mockDatabase.find.mockResolvedValueOnce(mockData)
 
         const result = await Storage.queryCycleRecordsBetween(10, 20)
 
         expect(mockDatabase.find).toHaveBeenCalledWith({
           filter: {
-            $and: [
-              { 'cycleRecord.counter': { $gte: 10 } },
-              { 'cycleRecord.counter': { $lte: 20 } },
-            ],
+            $and: [{ 'cycleRecord.counter': { $gte: 10 } }, { 'cycleRecord.counter': { $lte: 20 } }],
           },
           sort: { 'cycleRecord.counter': -1 },
         })
@@ -632,7 +605,7 @@ describe('archivedCycle/Storage', () => {
       // Test querying a large range
       const start = 1
       const end = 10000
-      
+
       await Storage.queryAllArchivedCyclesBetween(start, end)
 
       expect(mockDatabase.find).toHaveBeenCalledWith(

@@ -59,7 +59,7 @@ const createMockWorker = (pid: number) => {
     // Helper to emit events for testing
     emit: (event: string, ...args: any[]) => {
       const handlers = listeners.get(event) || []
-      handlers.forEach(handler => handler(...args))
+      handlers.forEach((handler) => handler(...args))
     },
   }
   return worker
@@ -68,7 +68,7 @@ const createMockWorker = (pid: number) => {
 const createMockCluster = () => {
   let workerIdCounter = 1000
   const workers = new Map<number, any>()
-  
+
   const cluster = {
     fork: jest.fn(() => {
       const pid = workerIdCounter++
@@ -159,17 +159,15 @@ describe('primary-process/index', () => {
 
     it('should handle worker lifecycle with debug logging enabled', () => {
       mockConfig.workerProcessesDebugLog = true
-      
+
       primaryProcessModule.setupWorkerProcesses(mockCluster)
       const intervalCallback = setIntervalSpy.mock.calls[0][0]
-      
+
       // Run interval
       intervalCallback()
-      
+
       // Should log debug message about receipt load
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Receipt load is below the limit')
-      )
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Receipt load is below the limit'))
     })
   })
 
@@ -224,35 +222,31 @@ describe('primary-process/index', () => {
   describe('integration behavior', () => {
     it('should handle complete worker lifecycle', async () => {
       mockConfig.workerProcessesDebugLog = true
-      
+
       // Setup cluster with workers
       primaryProcessModule.setupWorkerProcesses(mockCluster)
-      
+
       // Get interval callback
       const intervalCallback = setIntervalSpy.mock.calls[0][0]
-      
+
       // Simulate creating workers by manipulating internal state
       // Since we can't directly access internal variables, we test the observable behavior
-      
+
       // First interval - should log about low load
       intervalCallback()
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Receipt load is below the limit')
-      )
-      
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Receipt load is below the limit'))
+
       // Verify adjusted worker count is logged
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Adjusted worker count to')
-      )
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Adjusted worker count to'))
     })
 
     it('should handle config changes', () => {
       // Test with different config values
       mockConfig.receiptLoadTrakerLimit = 50
       mockConfig.receiptLoadTrakerInterval = 5000
-      
+
       primaryProcessModule.setupWorkerProcesses(mockCluster)
-      
+
       // Verify interval is set with new value
       expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 5000)
     })
@@ -261,7 +255,7 @@ describe('primary-process/index', () => {
       // Remove config values to test defaults
       delete mockConfig.workerProcessesDebugLog
       delete mockConfig.VERBOSE
-      
+
       // Should not throw
       expect(() => {
         primaryProcessModule.setupWorkerProcesses(mockCluster)
@@ -289,11 +283,11 @@ describe('primary-process/index', () => {
       // Mock cpus to return empty array
       const os = require('os')
       os.cpus.mockReturnValue([])
-      
+
       // Re-import module to get new MAX_WORKERS calculation
       jest.resetModules()
       const freshModule = require('../../../../src/primary-process/index')
-      
+
       // Should still work with MAX_WORKERS = -1
       expect(() => {
         freshModule.setupWorkerProcesses(mockCluster)
@@ -304,10 +298,10 @@ describe('primary-process/index', () => {
   describe('timing and intervals', () => {
     it('should clear intervals on process exit', () => {
       primaryProcessModule.setupWorkerProcesses(mockCluster)
-      
+
       // Verify interval was created
       expect(setIntervalSpy).toHaveBeenCalled()
-      
+
       // Note: The current implementation doesn't clear intervals on exit
       // This is a potential memory leak that should be addressed
     })
@@ -315,12 +309,12 @@ describe('primary-process/index', () => {
     it('should handle rapid interval executions', () => {
       primaryProcessModule.setupWorkerProcesses(mockCluster)
       const intervalCallback = setIntervalSpy.mock.calls[0][0]
-      
+
       // Execute interval multiple times rapidly
       for (let i = 0; i < 10; i++) {
         intervalCallback()
       }
-      
+
       // Should not cause any errors
       expect(consoleErrorSpy).not.toHaveBeenCalled()
     })

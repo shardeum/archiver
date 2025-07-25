@@ -26,7 +26,13 @@ jest.mock('../../../../src/Config', () => ({
 }))
 
 // Import after mocks
-import { initDataLogWriter, CycleLogWriter, ReceiptLogWriter, OriginalTxDataLogWriter, ReceiptOverwriteLogWriter } from '../../../../src/Data/DataLogWriter'
+import {
+  initDataLogWriter,
+  CycleLogWriter,
+  ReceiptLogWriter,
+  OriginalTxDataLogWriter,
+  ReceiptOverwriteLogWriter,
+} from '../../../../src/Data/DataLogWriter'
 
 // We need to access the class, so we'll test via the exported instances
 describe('DataLogWriter', () => {
@@ -89,10 +95,7 @@ describe('DataLogWriter', () => {
       expect(OriginalTxDataLogWriter).toBeDefined()
       expect(ReceiptOverwriteLogWriter).toBeDefined()
 
-      expect(mockedMkdir).toHaveBeenCalledWith(
-        expect.stringContaining('test-logs/127.0.0.1_4000'),
-        { recursive: true }
-      )
+      expect(mockedMkdir).toHaveBeenCalledWith(expect.stringContaining('test-logs/127.0.0.1_4000'), { recursive: true })
     })
 
     it('should create log directory if it does not exist', async () => {
@@ -104,11 +107,11 @@ describe('DataLogWriter', () => {
     it('should handle existing active log file', async () => {
       // Only mock exists for CycleLogWriter's active log
       mockedExistsSync
-        .mockReturnValueOnce(true)  // CycleLogWriter
+        .mockReturnValueOnce(true) // CycleLogWriter
         .mockReturnValueOnce(false) // ReceiptLogWriter
         .mockReturnValueOnce(false) // OriginalTxDataLogWriter
         .mockReturnValueOnce(false) // ReceiptOverwriteLogWriter
-      
+
       // Mock readFile calls only for CycleLogWriter
       mockedReadFile
         .mockResolvedValueOnce('cycle-log2.txt') // CycleLogWriter active log
@@ -116,10 +119,7 @@ describe('DataLogWriter', () => {
 
       await initDataLogWriter()
 
-      expect(mockedReadFile).toHaveBeenCalledWith(
-        expect.stringContaining('active-cycle-log.txt'),
-        'utf8'
-      )
+      expect(mockedReadFile).toHaveBeenCalledWith(expect.stringContaining('active-cycle-log.txt'), 'utf8')
       expect(CycleLogWriter.logCounter).toBe(2)
       expect(CycleLogWriter.totalNumberOfEntries).toBe(3)
     })
@@ -127,11 +127,11 @@ describe('DataLogWriter', () => {
     it('should rotate log when entries exceed max', async () => {
       // Only mock exists for CycleLogWriter's active log
       mockedExistsSync
-        .mockReturnValueOnce(true)  // CycleLogWriter
+        .mockReturnValueOnce(true) // CycleLogWriter
         .mockReturnValueOnce(false) // ReceiptLogWriter
         .mockReturnValueOnce(false) // OriginalTxDataLogWriter
         .mockReturnValueOnce(false) // ReceiptOverwriteLogWriter
-      
+
       // Mock readFile calls only for CycleLogWriter
       mockedReadFile
         .mockResolvedValueOnce('cycle-log1.txt') // CycleLogWriter active log
@@ -146,7 +146,7 @@ describe('DataLogWriter', () => {
     it('should handle errors when reading active log file', async () => {
       // Only mock exists for CycleLogWriter's active log
       mockedExistsSync
-        .mockReturnValueOnce(true)  // CycleLogWriter
+        .mockReturnValueOnce(true) // CycleLogWriter
         .mockReturnValueOnce(false) // ReceiptLogWriter
         .mockReturnValueOnce(false) // OriginalTxDataLogWriter
         .mockReturnValueOnce(false) // ReceiptOverwriteLogWriter
@@ -155,9 +155,7 @@ describe('DataLogWriter', () => {
 
       await initDataLogWriter()
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to read active log file:')
-      )
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to read active log file:'))
     })
   })
 
@@ -199,10 +197,7 @@ describe('DataLogWriter', () => {
 
       await CycleLogWriter.writeToLog('test data\n')
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Error while writing data to log file',
-        expect.any(Error)
-      )
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Error while writing data to log file', expect.any(Error))
     })
 
     it('should handle backpressure', async () => {
@@ -261,16 +256,13 @@ describe('DataLogWriter', () => {
     })
 
     it('should handle rotation with verbose logging', async () => {
-      (config as any).VERBOSE = true
+      ;(config as any).VERBOSE = true
       mockedReaddir.mockResolvedValue(['old-cycle-log1.txt'] as any)
 
       await CycleLogWriter.rotateLogFile()
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Rotated log file:')
-      );
-      
-      (config as any).VERBOSE = false
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Rotated log file:'))
+      ;(config as any).VERBOSE = false
     })
   })
 
@@ -347,10 +339,7 @@ describe('DataLogWriter', () => {
 
       await expect(CycleLogWriter.endStream()).rejects.toThrow('End stream error')
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Error while ending stream',
-        expect.any(Error)
-      )
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Error while ending stream', expect.any(Error))
     })
   })
 
@@ -378,9 +367,11 @@ describe('DataLogWriter', () => {
     })
 
     it('should handle concurrent writes properly', async () => {
-      const writes = Array(10).fill(null).map((_, i) => `entry${i}\n`)
-      
-      await Promise.all(writes.map(data => CycleLogWriter.writeToLog(data)))
+      const writes = Array(10)
+        .fill(null)
+        .map((_, i) => `entry${i}\n`)
+
+      await Promise.all(writes.map((data) => CycleLogWriter.writeToLog(data)))
 
       expect(mockWriteStream.write).toHaveBeenCalledTimes(10)
       expect(CycleLogWriter.totalNumberOfEntries).toBe(10)

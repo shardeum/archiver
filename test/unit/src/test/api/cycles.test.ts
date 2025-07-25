@@ -22,9 +22,7 @@ describe('test/api/cycles', () => {
       const mockResponse1 = { data: 'cycle info 1' }
       const mockResponse2 = { data: 'cycle info 2' }
 
-      mockP2P.getJson
-        .mockResolvedValueOnce(mockResponse1)
-        .mockResolvedValueOnce(mockResponse2)
+      mockP2P.getJson.mockResolvedValueOnce(mockResponse1).mockResolvedValueOnce(mockResponse2)
 
       await queryCycles('127.0.0.1', '8080', 10, 5, 15)
 
@@ -37,9 +35,7 @@ describe('test/api/cycles', () => {
       const mockResponse1 = { cycleInfo: 'test data 1' }
       const mockResponse2 = { cycleInfo: 'test data 2' }
 
-      mockP2P.getJson
-        .mockResolvedValueOnce(mockResponse1)
-        .mockResolvedValueOnce(mockResponse2)
+      mockP2P.getJson.mockResolvedValueOnce(mockResponse1).mockResolvedValueOnce(mockResponse2)
 
       await queryCycles('192.168.1.1', '3000', 20, 10, 30)
 
@@ -93,9 +89,7 @@ describe('test/api/cycles', () => {
     })
 
     it('should handle null or undefined responses', async () => {
-      mockP2P.getJson
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(undefined)
+      mockP2P.getJson.mockResolvedValueOnce(null).mockResolvedValueOnce(undefined)
 
       await queryCycles('127.0.0.1', '8080', 10, 5, 15)
 
@@ -117,10 +111,7 @@ describe('test/api/cycles', () => {
 
       await queryCycles('127.0.0.1', '8080', Number.MAX_SAFE_INTEGER, 0, Number.MAX_SAFE_INTEGER)
 
-      expect(mockP2P.getJson).toHaveBeenNthCalledWith(
-        1,
-        `http://127.0.0.1:8080/cycleinfo/${Number.MAX_SAFE_INTEGER}`
-      )
+      expect(mockP2P.getJson).toHaveBeenNthCalledWith(1, `http://127.0.0.1:8080/cycleinfo/${Number.MAX_SAFE_INTEGER}`)
       expect(mockP2P.getJson).toHaveBeenNthCalledWith(
         2,
         `http://127.0.0.1:8080/cycleinfo?start=0&end=${Number.MAX_SAFE_INTEGER}`
@@ -131,9 +122,7 @@ describe('test/api/cycles', () => {
       const errorResponse = { error: 'Invalid cycle' }
       const successResponse = { cycleInfo: 'valid data' }
 
-      mockP2P.getJson
-        .mockResolvedValueOnce(errorResponse)
-        .mockResolvedValueOnce(successResponse)
+      mockP2P.getJson.mockResolvedValueOnce(errorResponse).mockResolvedValueOnce(successResponse)
 
       await queryCycles('127.0.0.1', '8080', 10, 5, 15)
 

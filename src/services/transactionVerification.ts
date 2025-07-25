@@ -91,7 +91,7 @@ type Response = {
 }
 
 export const scheduleMultiSigKeysSyncFromNetConfig = (): void => {
-  if(config.passiveMode) {
+  if (config.passiveMode) {
     Logger.mainLogger.info('passive mode is enabled, skipping scheduleMultiSigKeysSyncFromNetConfig')
     return
   }

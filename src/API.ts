@@ -399,7 +399,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
           cycleHash: hashes.cycleHash!,
           receiptHash: hashes.receiptHash!,
           originalTxHash: hashes.originalTxHash!,
-        };
+        }
       }
 
       reply.send({

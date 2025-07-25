@@ -61,14 +61,14 @@ describe('Utils', () => {
     it('should produce different permutations over multiple runs', () => {
       const original = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
       const permutations = new Set<string>()
-      
+
       // Run shuffle 100 times and collect unique permutations
       for (let i = 0; i < 100; i++) {
         const arr = [...original]
         Utils.shuffleArray(arr)
         permutations.add(arr.join(','))
       }
-      
+
       // With 10 elements, we should see multiple different permutations
       // in 100 runs (probability of getting the same permutation twice is very low)
       expect(permutations.size).toBeGreaterThan(1)

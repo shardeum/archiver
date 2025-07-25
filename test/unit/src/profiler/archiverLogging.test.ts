@@ -3,7 +3,7 @@ import {
   ArchiverRegistrationLog,
   ValidatorConnectionLog,
   DataSyncLog,
-  OperationType
+  OperationType,
 } from '../../../../src/profiler/archiverLogging'
 import { nestedCountersInstance } from '../../../../src/profiler/nestedCounters'
 import * as Logger from '../../../../src/Logger'
@@ -11,14 +11,14 @@ import * as Logger from '../../../../src/Logger'
 // Mock dependencies
 jest.mock('../../../../src/profiler/nestedCounters', () => ({
   nestedCountersInstance: {
-    countEvent: jest.fn()
-  }
+    countEvent: jest.fn(),
+  },
 }))
 
 jest.mock('../../../../src/Logger', () => ({
   mainLogger: {
-    info: jest.fn()
-  }
+    info: jest.fn(),
+  },
 }))
 
 describe('archiverLogging', () => {
@@ -43,12 +43,12 @@ describe('archiverLogging', () => {
 
       it('should generate different IDs for different timestamps', () => {
         const id1 = ArchiverLogging.generateOperationId()
-        
+
         jest.spyOn(Date, 'now').mockReturnValue(9876543210)
         jest.spyOn(Math, 'random').mockReturnValue(0.987654321)
-        
+
         const id2 = ArchiverLogging.generateOperationId()
-        
+
         expect(id1).not.toBe(id2)
         expect(id2).toMatch(/^op-9876543210-[a-z0-9]{9}$/)
       })
@@ -66,9 +66,9 @@ describe('archiverLogging', () => {
           timestamp: 1234567890,
           validators: {
             discovered: 10,
-            connected: 8
+            connected: 8,
           },
-          state: 'REGISTERED'
+          state: 'REGISTERED',
         }
 
         ArchiverLogging.logArchiverRegistration(log)
@@ -85,9 +85,9 @@ describe('archiverLogging', () => {
           timestamp: 1234567890,
           validators: {
             discovered: 5,
-            connected: 0
+            connected: 0,
           },
-          state: 'REGISTERING'
+          state: 'REGISTERING',
         }
 
         ArchiverLogging.logArchiverRegistration(log)
@@ -103,9 +103,9 @@ describe('archiverLogging', () => {
           timestamp: 1234567890,
           validators: {
             discovered: 0,
-            connected: 0
+            connected: 0,
           },
-          state: 'ERROR'
+          state: 'ERROR',
         }
 
         ArchiverLogging.logArchiverRegistration(log)
@@ -122,7 +122,7 @@ describe('archiverLogging', () => {
           archiverId: 'arch-null',
           timestamp: 1234567890,
           validators: { discovered: 1, connected: 1 },
-          state: 'REGISTERED'
+          state: 'REGISTERED',
         }
 
         // Should not throw
@@ -137,7 +137,7 @@ describe('archiverLogging', () => {
         const log = {
           archiverId: 'arch-missing',
           timestamp: 1234567890,
-          state: 'REGISTERED'
+          state: 'REGISTERED',
         } as ArchiverRegistrationLog
 
         ArchiverLogging.logArchiverRegistration(log)
@@ -157,8 +157,8 @@ describe('archiverLogging', () => {
           status: 'CONNECTED',
           handshake: {
             success: true,
-            duration: 250
-          }
+            duration: 250,
+          },
         }
 
         ArchiverLogging.logValidatorConnection(log)
@@ -177,8 +177,8 @@ describe('archiverLogging', () => {
           handshake: {
             success: false,
             duration: 5000,
-            error: 'Timeout'
-          }
+            error: 'Timeout',
+          },
         }
 
         ArchiverLogging.logValidatorConnection(log)
@@ -195,8 +195,8 @@ describe('archiverLogging', () => {
           status: 'CONNECTING',
           handshake: {
             success: false,
-            duration: 0
-          }
+            duration: 0,
+          },
         }
 
         ArchiverLogging.logValidatorConnection(log)
@@ -210,7 +210,7 @@ describe('archiverLogging', () => {
           validatorId: 'val-missing',
           archiverId: 'arch-missing',
           timestamp: 1234567890,
-          status: 'CONNECTED'
+          status: 'CONNECTED',
         } as ValidatorConnectionLog
 
         ArchiverLogging.logValidatorConnection(log)
@@ -232,9 +232,9 @@ describe('archiverLogging', () => {
           status: 'COMPLETE',
           metrics: {
             duration: 1500,
-            dataSize: 2048
+            dataSize: 2048,
           },
-          operationId: 'op-123'
+          operationId: 'op-123',
         }
 
         ArchiverLogging.logDataSync(log)
@@ -246,16 +246,11 @@ describe('archiverLogging', () => {
       })
 
       it('should handle different data types', () => {
-        const dataTypes: DataSyncLog['dataType'][] = [
-          'CYCLE_RECORD',
-          'TX_LIST',
-          'STANDBY_LIST',
-          'ARCHIVER_LIST'
-        ]
+        const dataTypes: DataSyncLog['dataType'][] = ['CYCLE_RECORD', 'TX_LIST', 'STANDBY_LIST', 'ARCHIVER_LIST']
 
-        dataTypes.forEach(dataType => {
+        dataTypes.forEach((dataType) => {
           jest.clearAllMocks()
-          
+
           const log: DataSyncLog = {
             sourceArchiver: 'arch-1',
             targetArchiver: 'arch-2',
@@ -265,8 +260,8 @@ describe('archiverLogging', () => {
             status: 'IN_PROGRESS',
             metrics: {
               duration: 500,
-              dataSize: 1024
-            }
+              dataSize: 1024,
+            },
           }
 
           ArchiverLogging.logDataSync(log)
@@ -286,9 +281,9 @@ describe('archiverLogging', () => {
           status: 'ERROR',
           metrics: {
             duration: 10000,
-            dataSize: 0
+            dataSize: 0,
           },
-          error: 'Network timeout'
+          error: 'Network timeout',
         }
 
         ArchiverLogging.logDataSync(log)
@@ -307,8 +302,8 @@ describe('archiverLogging', () => {
           status: 'STARTED',
           metrics: {
             duration: 0,
-            dataSize: 0
-          }
+            dataSize: 0,
+          },
         }
 
         ArchiverLogging.logDataSync(log)
@@ -323,7 +318,7 @@ describe('archiverLogging', () => {
           cycle: 10,
           dataType: 'CYCLE_RECORD',
           dataHash: 'hash',
-          status: 'COMPLETE'
+          status: 'COMPLETE',
         } as DataSyncLog
 
         ArchiverLogging.logDataSync(log)
@@ -343,8 +338,8 @@ describe('archiverLogging', () => {
           status: 'COMPLETE',
           metrics: {
             duration: 0,
-            dataSize: 0
-          }
+            dataSize: 0,
+          },
         }
 
         ArchiverLogging.logDataSync(log)
@@ -356,15 +351,9 @@ describe('archiverLogging', () => {
 
   describe('Type exports', () => {
     it('should create valid OperationType values', () => {
-      const operationTypes: OperationType[] = [
-        'CYCLE_SYNC',
-        'VALIDATOR_SYNC',
-        'TX_SYNC',
-        'REGISTRATION',
-        'CONNECTION'
-      ]
+      const operationTypes: OperationType[] = ['CYCLE_SYNC', 'VALIDATOR_SYNC', 'TX_SYNC', 'REGISTRATION', 'CONNECTION']
 
-      operationTypes.forEach(type => {
+      operationTypes.forEach((type) => {
         expect(typeof type).toBe('string')
       })
     })
@@ -375,9 +364,9 @@ describe('archiverLogging', () => {
         timestamp: Date.now(),
         validators: {
           discovered: 5,
-          connected: 3
+          connected: 3,
         },
-        state: 'REGISTERED'
+        state: 'REGISTERED',
       }
 
       expect(log.state).toMatch(/^(REGISTERING|REGISTERED|ERROR)$/)
@@ -392,8 +381,8 @@ describe('archiverLogging', () => {
         handshake: {
           success: true,
           duration: 100,
-          error: undefined
-        }
+          error: undefined,
+        },
       }
 
       expect(log.status).toMatch(/^(CONNECTING|CONNECTED|ERROR)$/)
@@ -409,8 +398,8 @@ describe('archiverLogging', () => {
         status: 'COMPLETE',
         metrics: {
           duration: 1000,
-          dataSize: 2048
-        }
+          dataSize: 2048,
+        },
       }
 
       expect(log.dataType).toMatch(/^(VALIDATOR_LIST|CYCLE_RECORD|TX_LIST|STANDBY_LIST|ARCHIVER_LIST)$/)

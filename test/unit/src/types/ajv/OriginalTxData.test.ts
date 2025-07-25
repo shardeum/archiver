@@ -8,7 +8,7 @@ const mockSchemaMap = new Map<string, object>()
 jest.mock('../../../../../src/utils/serialization/SchemaHelpers', () => ({
   addSchema: jest.fn((name: string, schema: object) => {
     mockSchemaMap.set(name, schema)
-  })
+  }),
 }))
 
 // Helper to get schema from our mock
@@ -42,10 +42,10 @@ describe('ajv/OriginalTxData schemas', () => {
     it('should be idempotent', () => {
       initOriginalTxData()
       const schema1 = getSchema(AJVSchemaEnum.OriginalTxData)
-      
+
       initOriginalTxData()
       const schema2 = getSchema(AJVSchemaEnum.OriginalTxData)
-      
+
       expect(schema1).toBe(schema2)
     })
   })
@@ -71,8 +71,8 @@ describe('ajv/OriginalTxData schemas', () => {
           from: '0x123',
           to: '0x456',
           value: 100,
-          data: 'test'
-        }
+          data: 'test',
+        },
       }
 
       const valid = validate(validData)
@@ -85,7 +85,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: '',
         timestamp: 0,
         cycle: -1,
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(minData)
@@ -102,15 +102,15 @@ describe('ajv/OriginalTxData schemas', () => {
             deep: {
               data: [1, 2, 3],
               more: {
-                info: 'here'
-              }
-            }
+                info: 'here',
+              },
+            },
           },
           array: ['a', 'b', 'c'],
           number: 3.14159,
           boolean: true,
-          null: null
-        }
+          null: null,
+        },
       }
 
       const valid = validate(complexData)
@@ -121,7 +121,7 @@ describe('ajv/OriginalTxData schemas', () => {
       const invalidData = {
         timestamp: 123,
         cycle: 1,
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(invalidData)
@@ -129,7 +129,7 @@ describe('ajv/OriginalTxData schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'txId' }
+          params: { missingProperty: 'txId' },
         })
       )
     })
@@ -138,7 +138,7 @@ describe('ajv/OriginalTxData schemas', () => {
       const invalidData = {
         txId: 'tx-123',
         cycle: 1,
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(invalidData)
@@ -146,7 +146,7 @@ describe('ajv/OriginalTxData schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'timestamp' }
+          params: { missingProperty: 'timestamp' },
         })
       )
     })
@@ -155,7 +155,7 @@ describe('ajv/OriginalTxData schemas', () => {
       const invalidData = {
         txId: 'tx-123',
         timestamp: 123,
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(invalidData)
@@ -163,7 +163,7 @@ describe('ajv/OriginalTxData schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'cycle' }
+          params: { missingProperty: 'cycle' },
         })
       )
     })
@@ -172,7 +172,7 @@ describe('ajv/OriginalTxData schemas', () => {
       const invalidData = {
         txId: 'tx-123',
         timestamp: 123,
-        cycle: 1
+        cycle: 1,
       }
 
       const valid = validate(invalidData)
@@ -180,7 +180,7 @@ describe('ajv/OriginalTxData schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'originalTxData' }
+          params: { missingProperty: 'originalTxData' },
         })
       )
     })
@@ -190,7 +190,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: 123, // Should be string
         timestamp: 123,
         cycle: 1,
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(invalidData)
@@ -199,7 +199,7 @@ describe('ajv/OriginalTxData schemas', () => {
         expect.objectContaining({
           keyword: 'type',
           dataPath: expect.stringContaining('txId'),
-          params: { type: 'string' }
+          params: { type: 'string' },
         })
       )
     })
@@ -209,7 +209,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: 'tx-123',
         timestamp: '123', // Should be integer
         cycle: 1,
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(invalidData)
@@ -218,7 +218,7 @@ describe('ajv/OriginalTxData schemas', () => {
         expect.objectContaining({
           keyword: 'type',
           dataPath: expect.stringContaining('timestamp'),
-          params: { type: 'integer' }
+          params: { type: 'integer' },
         })
       )
     })
@@ -228,7 +228,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: 'tx-123',
         timestamp: -1, // Must be >= 0
         cycle: 1,
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(invalidData)
@@ -236,7 +236,7 @@ describe('ajv/OriginalTxData schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'minimum',
-          dataPath: expect.stringContaining('timestamp')
+          dataPath: expect.stringContaining('timestamp'),
         })
       )
     })
@@ -246,7 +246,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: 'tx-123',
         timestamp: 123,
         cycle: '1', // Should be integer
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(invalidData)
@@ -255,7 +255,7 @@ describe('ajv/OriginalTxData schemas', () => {
         expect.objectContaining({
           keyword: 'type',
           dataPath: expect.stringContaining('cycle'),
-          params: { type: 'integer' }
+          params: { type: 'integer' },
         })
       )
     })
@@ -265,7 +265,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: 'tx-123',
         timestamp: 123,
         cycle: -2, // Must be >= -1
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(invalidData)
@@ -273,7 +273,7 @@ describe('ajv/OriginalTxData schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'minimum',
-          dataPath: expect.stringContaining('cycle')
+          dataPath: expect.stringContaining('cycle'),
         })
       )
     })
@@ -283,7 +283,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: 'tx-123',
         timestamp: 123,
         cycle: -1,
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(validData)
@@ -295,7 +295,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: 'tx-123',
         timestamp: 123,
         cycle: 1,
-        originalTxData: 'not-an-object' // Should be object
+        originalTxData: 'not-an-object', // Should be object
       }
 
       const valid = validate(invalidData)
@@ -304,7 +304,7 @@ describe('ajv/OriginalTxData schemas', () => {
         expect.objectContaining({
           keyword: 'type',
           dataPath: expect.stringContaining('originalTxData'),
-          params: { type: 'object' }
+          params: { type: 'object' },
         })
       )
     })
@@ -315,7 +315,7 @@ describe('ajv/OriginalTxData schemas', () => {
         timestamp: 123,
         cycle: 1,
         originalTxData: {},
-        extraField: 'not allowed'
+        extraField: 'not allowed',
       }
 
       const valid = validate(invalidData)
@@ -323,7 +323,7 @@ describe('ajv/OriginalTxData schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'additionalProperties',
-          params: { additionalProperty: 'extraField' }
+          params: { additionalProperty: 'extraField' },
         })
       )
     })
@@ -333,7 +333,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: 'tx-123',
         timestamp: Number.MAX_SAFE_INTEGER,
         cycle: 1,
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(validData)
@@ -345,7 +345,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: 'tx-123',
         timestamp: 123,
         cycle: Number.MAX_SAFE_INTEGER,
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(validData)
@@ -357,7 +357,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: 'tx-123',
         timestamp: 123.45, // Should be integer
         cycle: 1.5, // Should be integer
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(invalidData)
@@ -373,7 +373,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: '',
         timestamp: 123,
         cycle: 1,
-        originalTxData: {}
+        originalTxData: {},
       }
 
       const valid = validate(validData)
@@ -388,9 +388,9 @@ describe('ajv/OriginalTxData schemas', () => {
         originalTxData: {
           nullField: null,
           nested: {
-            alsoNull: null
-          }
-        }
+            alsoNull: null,
+          },
+        },
       }
 
       const valid = validate(validData)
@@ -402,7 +402,7 @@ describe('ajv/OriginalTxData schemas', () => {
         txId: 'tx-123',
         timestamp: 123,
         cycle: 1,
-        originalTxData: [1, 2, 3] // Arrays are objects in JS, but schema expects object literal
+        originalTxData: [1, 2, 3], // Arrays are objects in JS, but schema expects object literal
       }
 
       const valid = validate(invalidData)
@@ -414,23 +414,23 @@ describe('ajv/OriginalTxData schemas', () => {
     it('should have correct structure', () => {
       initOriginalTxData()
       const schema = getSchema(AJVSchemaEnum.OriginalTxData)
-      
+
       expect(schema).toEqual({
         type: 'object',
         properties: {
           txId: { type: 'string' },
           timestamp: { type: 'integer', minimum: 0 },
           cycle: { type: 'integer', minimum: -1 },
-          originalTxData: { type: 'object' }
+          originalTxData: { type: 'object' },
         },
         required: ['txId', 'timestamp', 'cycle', 'originalTxData'],
-        additionalProperties: false
+        additionalProperties: false,
       })
     })
 
     it('should not have external dependencies', () => {
       initOriginalTxData()
-      
+
       const registeredSchemas = Array.from(mockSchemaMap.keys())
       expect(registeredSchemas).toEqual([AJVSchemaEnum.OriginalTxData])
     })

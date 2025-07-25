@@ -42,8 +42,8 @@ jest.mock('../../../../src/Data/DataLogWriter')
 jest.mock('@shardeum-foundation/lib-types', () => ({
   P2P: {},
   Utils: {
-    safeStringify: jest.fn((obj) => JSON.stringify(obj))
-  }
+    safeStringify: jest.fn((obj) => JSON.stringify(obj)),
+  },
 }))
 
 describe('Collector Module', () => {
@@ -54,7 +54,7 @@ describe('Collector Module', () => {
       error: jest.fn(),
       debug: jest.fn(),
       log: jest.fn(),
-      info: jest.fn()
+      info: jest.fn(),
     }
   })
 
@@ -69,11 +69,11 @@ describe('Collector Module', () => {
 
       const mockReceipt = {
         receiptId: 'test-receipt',
-        tx: { txId: 'test-tx', timestamp: 1000000 }
+        tx: { txId: 'test-tx', timestamp: 1000000 },
       } as any
 
       const result = Collector.validateReceiptType(mockReceipt)
-      
+
       expect(result).toBe(true)
       expect(verifyPayload).toHaveBeenCalledWith('Receipt', mockReceipt)
     })
@@ -82,13 +82,13 @@ describe('Collector Module', () => {
       const { verifyPayload } = await import('../../../../src/types/ajv/Helpers')
       ;(verifyPayload as any).mockReturnValueOnce(false)
 
-      const receiptWithKey = { 
+      const receiptWithKey = {
         executionShardKey: 'test-key',
-        receiptId: 'test-receipt'
+        receiptId: 'test-receipt',
       } as any
 
       Collector.validateReceiptType(receiptWithKey)
-      
+
       expect(receiptWithKey).not.toHaveProperty('executionShardKey')
     })
   })
@@ -96,25 +96,25 @@ describe('Collector Module', () => {
   describe('verifyReceiptData', () => {
     it('should fail when cycle shard data not found', async () => {
       const { getCurrentCycleCounter, shardValuesByCycle } = await import('../../../../src/Data/Cycles')
-      
+
       ;(getCurrentCycleCounter as any).mockReturnValue(1)
       ;(shardValuesByCycle as any).get = jest.fn().mockReturnValue(null)
 
       const mockReceipt = {
         cycle: 1,
         tx: { txId: 'test-tx', timestamp: 1000000 },
-        globalModification: false
+        globalModification: false,
       } as any
 
       const result = await Collector.verifyReceiptData(mockReceipt)
-      
+
       expect(result.success).toBe(false)
       expect(Logger.mainLogger.error).toHaveBeenCalledWith('Cycle shard data not found')
     })
 
     it('should handle verification errors gracefully', async () => {
       const { getCurrentCycleCounter, shardValuesByCycle } = await import('../../../../src/Data/Cycles')
-      
+
       ;(getCurrentCycleCounter as any).mockReturnValue(1)
       ;(shardValuesByCycle as any).get = jest.fn().mockImplementation(() => {
         throw new Error('Test error')
@@ -122,11 +122,11 @@ describe('Collector Module', () => {
 
       const mockReceipt = {
         cycle: 1,
-        tx: { txId: 'test-tx', timestamp: 1000000 }
+        tx: { txId: 'test-tx', timestamp: 1000000 },
       } as any
 
       const result = await Collector.verifyReceiptData(mockReceipt)
-      
+
       expect(result.success).toBe(false)
       expect(Logger.mainLogger.error).toHaveBeenCalledWith('Error in verifyReceiptData: Test error')
     })
@@ -137,7 +137,7 @@ describe('Collector Module', () => {
       ;(Receipt.queryReceiptByReceiptId as any).mockResolvedValue(null)
 
       const result = await Collector.checkIfValidOverwrite({}, 'test-tx-id')
-      
+
       expect(result).toBe(true)
     })
 
@@ -145,14 +145,14 @@ describe('Collector Module', () => {
       const existingReceipt = {
         appReceiptData: {
           data: {
-            readableReceipt: { status: 1 }
-          }
-        }
+            readableReceipt: { status: 1 },
+          },
+        },
       }
       ;(Receipt.queryReceiptByReceiptId as any).mockResolvedValue(existingReceipt)
 
       const result = await Collector.checkIfValidOverwrite({}, 'test-tx-id')
-      
+
       expect(result).toBe(false)
     })
 
@@ -160,14 +160,14 @@ describe('Collector Module', () => {
       const existingReceipt = {
         appReceiptData: {
           data: {
-            readableReceipt: { status: 0 }
-          }
-        }
+            readableReceipt: { status: 0 },
+          },
+        },
       }
       ;(Receipt.queryReceiptByReceiptId as any).mockResolvedValue(existingReceipt)
 
       const result = await Collector.checkIfValidOverwrite({}, 'test-tx-id')
-      
+
       expect(result).toBe(true)
     })
 
@@ -175,7 +175,7 @@ describe('Collector Module', () => {
       ;(Receipt.queryReceiptByReceiptId as any).mockRejectedValue(new Error('Database error'))
 
       const result = await Collector.checkIfValidOverwrite({}, 'test-tx-id')
-      
+
       expect(result).toBe(false)
       expect(Logger.mainLogger.error).toHaveBeenCalled()
     })
@@ -184,21 +184,27 @@ describe('Collector Module', () => {
   describe('storeReceiptData', () => {
     it('should return early when receipts array is empty', async () => {
       await Collector.storeReceiptData([])
-      
+
       expect(Receipt.bulkInsertReceipts).not.toHaveBeenCalled()
     })
 
     it('should return early when receipts is null', async () => {
       await Collector.storeReceiptData(null as any)
-      
+
       expect(Receipt.bulkInsertReceipts).not.toHaveBeenCalled()
     })
 
     it('should skip invalid receipts', async () => {
       await Collector.storeReceiptData([null as any, undefined as any])
-      
-      expect(Logger.mainLogger.error).toHaveBeenCalledWith('storeReceiptData : Invalid incoming receipt, Receipt is ', null)
-      expect(Logger.mainLogger.error).toHaveBeenCalledWith('storeReceiptData : Invalid incoming receipt, Receipt is ', undefined)
+
+      expect(Logger.mainLogger.error).toHaveBeenCalledWith(
+        'storeReceiptData : Invalid incoming receipt, Receipt is ',
+        null
+      )
+      expect(Logger.mainLogger.error).toHaveBeenCalledWith(
+        'storeReceiptData : Invalid incoming receipt, Receipt is ',
+        undefined
+      )
     })
   })
 
@@ -206,24 +212,26 @@ describe('Collector Module', () => {
     it('should store new cycle data', async () => {
       const cycleData = {
         counter: 1,
-        marker: 'test-marker'
+        marker: 'test-marker',
       } as any
 
       ;(cycles.queryCycleByMarker as any).mockResolvedValue(null)
       ;(cycles.bulkInsertCycles as any).mockResolvedValue(undefined)
 
       await Collector.storeCycleData([cycleData])
-      
-      expect(cycles.bulkInsertCycles).toHaveBeenCalledWith([{
-        counter: 1,
-        cycleMarker: 'test-marker',
-        cycleRecord: cycleData
-      }])
+
+      expect(cycles.bulkInsertCycles).toHaveBeenCalledWith([
+        {
+          counter: 1,
+          cycleMarker: 'test-marker',
+          cycleRecord: cycleData,
+        },
+      ])
     })
 
     it('should handle empty cycles array', async () => {
       await Collector.storeCycleData([])
-      
+
       expect(cycles.bulkInsertCycles).not.toHaveBeenCalled()
     })
   })
@@ -231,7 +239,7 @@ describe('Collector Module', () => {
   describe('storeAccountData', () => {
     it('should handle empty data', async () => {
       await Collector.storeAccountData({})
-      
+
       expect(Account.bulkInsertAccounts).not.toHaveBeenCalled()
       expect(Transaction.bulkInsertTransactions).not.toHaveBeenCalled()
     })
@@ -240,18 +248,18 @@ describe('Collector Module', () => {
   describe('validateOriginalTxDataSchema', () => {
     it('should validate valid original tx data', async () => {
       const { verifyPayload } = await import('../../../../src/types/ajv/Helpers')
-      
+
       const originalTxData = {
         txId: 'test-tx',
         timestamp: 1000000,
         cycle: 1,
-        originalTxData: { tx: { data: 'test' } }
+        originalTxData: { tx: { data: 'test' } },
       }
 
       ;(verifyPayload as any).mockReturnValue(false) // No errors
 
       const result = Collector.validateOriginalTxDataSchema(originalTxData)
-      
+
       expect(result).toBe(true)
     })
   })
@@ -259,62 +267,57 @@ describe('Collector Module', () => {
   describe('validateGossipData', () => {
     it('should validate valid gossip data', async () => {
       const { validateTypes } = await import('../../../../src/Utils')
-      
+
       const gossipData = {
         dataType: DataType.RECEIPT,
         data: [],
-        sign: { owner: 'test-key', sig: 'test-sig' }
+        sign: { owner: 'test-key', sig: 'test-sig' },
       }
 
       ;(validateTypes as any)
         .mockReturnValueOnce(null) // First call for main data
         .mockReturnValueOnce(null) // Second call for sign validation
-
       ;(State.activeArchivers as any) = [{ publicKey: 'test-key' }]
       ;(Crypto.verify as any).mockReturnValue(true)
 
       const result = Collector.validateGossipData(gossipData)
-      
+
       expect(result.success).toBe(true)
     })
 
     it('should fail validation for non-active archiver', async () => {
       const { validateTypes } = await import('../../../../src/Utils')
-      
+
       const gossipData = {
         dataType: DataType.RECEIPT,
         data: [],
-        sign: { owner: 'unknown-key', sig: 'test-sig' }
+        sign: { owner: 'unknown-key', sig: 'test-sig' },
       }
 
-      ;(validateTypes as any)
-        .mockReturnValueOnce(null)
-        .mockReturnValueOnce(null)
+      ;(validateTypes as any).mockReturnValueOnce(null).mockReturnValueOnce(null)
       ;(State.activeArchivers as any) = [{ publicKey: 'test-key' }]
 
       const result = Collector.validateGossipData(gossipData)
-      
+
       expect(result.success).toBe(false)
       expect(result.error).toBe('Data sender not the active archivers')
     })
 
     it('should fail validation for invalid signature', async () => {
       const { validateTypes } = await import('../../../../src/Utils')
-      
+
       const gossipData = {
         dataType: DataType.RECEIPT,
         data: [],
-        sign: { owner: 'test-key', sig: 'test-sig' }
+        sign: { owner: 'test-key', sig: 'test-sig' },
       }
 
-      ;(validateTypes as any)
-        .mockReturnValueOnce(null)
-        .mockReturnValueOnce(null)
+      ;(validateTypes as any).mockReturnValueOnce(null).mockReturnValueOnce(null)
       ;(State.activeArchivers as any) = [{ publicKey: 'test-key' }]
       ;(Crypto.verify as any).mockReturnValue(false)
 
       const result = Collector.validateGossipData(gossipData)
-      
+
       expect(result.success).toBe(false)
       expect(result.error).toBe('Invalid signature')
     })
@@ -325,7 +328,7 @@ describe('Collector Module', () => {
       const gossipData = {
         dataType: DataType.RECEIPT,
         data: [{ txId: 'test-tx', timestamp: 1000000 }],
-        sign: { owner: 'test-key' }
+        sign: { owner: 'test-key' },
       } as any
 
       ;(State.activeArchivers as any) = [{ publicKey: 'test-key', ip: '127.0.0.1', port: 4000 }]
@@ -358,13 +361,13 @@ describe('Collector Module', () => {
   describe('queryTxDataFromArchivers', () => {
     it('should return null when no data received', async () => {
       const { postJson } = await import('../../../../src/P2P')
-      
+
       ;(State.getNodeInfo as any).mockReturnValue({ publicKey: 'my-key' })
       ;(Crypto.sign as any).mockReturnValue({ signed: 'data' })
       ;(postJson as any).mockResolvedValue(null)
 
       const result = await Collector.queryTxDataFromArchivers({} as any, DataType.RECEIPT, [])
-      
+
       expect(result).toBeNull()
     })
   })
@@ -382,7 +385,7 @@ describe('Collector Module', () => {
       ;(postJson as any).mockResolvedValue({ receipts: [] })
 
       await Collector.collectMissingReceipts(senders, 'test-tx', 1000000)
-      
+
       expect(Logger.mainLogger.debug).toHaveBeenCalledWith(
         'Collecting missing receipt for txId test-tx with timestamp 1000000 from archivers',
         ['127.0.0.1:4000']
@@ -394,7 +397,7 @@ describe('Collector Module', () => {
       ;(State.activeArchivers as any) = []
 
       await Collector.collectMissingReceipts(senders, 'test-tx', 1000000)
-      
+
       expect(Logger.mainLogger.error).toHaveBeenCalledWith(
         'Failed to collect receipt for txId test-tx with timestamp 1000000 from archivers unknown-sender'
       )
@@ -414,15 +417,15 @@ describe('Collector Module', () => {
       const collectSpy = jest.spyOn(Collector, 'collectMissingTxDataFromArchivers').mockResolvedValue(undefined)
 
       Collector.scheduleMissingTxsDataQuery()
-      
+
       // Fast forward 1 second
       jest.advanceTimersByTime(1000)
-      
+
       expect(collectSpy).toHaveBeenCalled()
-      
+
       // Fast forward another second
       jest.advanceTimersByTime(1000)
-      
+
       expect(collectSpy).toHaveBeenCalledTimes(2)
     })
   })
@@ -430,13 +433,13 @@ describe('Collector Module', () => {
   describe('storeOriginalTxData', () => {
     it('should return early when originalTxsData array is empty', async () => {
       await Collector.storeOriginalTxData([])
-      
+
       expect(OriginalTxsData.bulkInsertOriginalTxsData).not.toHaveBeenCalled()
     })
 
     it('should return early when originalTxsData is null', async () => {
       await Collector.storeOriginalTxData(null as any)
-      
+
       expect(OriginalTxsData.bulkInsertOriginalTxsData).not.toHaveBeenCalled()
     })
   })
@@ -451,22 +454,22 @@ describe('Collector Module', () => {
   describe('Edge Cases', () => {
     it('should handle storeReceiptData with saveOnlyGossipData flag', async () => {
       const mockReceipt = {
-        tx: { txId: 'test-tx', timestamp: 1000000 }
+        tx: { txId: 'test-tx', timestamp: 1000000 },
       } as any
 
       await Collector.storeReceiptData([mockReceipt], 'sender', false, true)
-      
+
       expect(Receipt.bulkInsertReceipts).not.toHaveBeenCalled()
     })
 
     it('should handle storeOriginalTxData with saveOnlyGossipData flag', async () => {
       const originalTxData = {
         txId: 'test-tx',
-        timestamp: 1000000
+        timestamp: 1000000,
       } as any
 
       await Collector.storeOriginalTxData([originalTxData], 'sender', true)
-      
+
       expect(OriginalTxsData.bulkInsertOriginalTxsData).not.toHaveBeenCalled()
     })
 
@@ -474,30 +477,28 @@ describe('Collector Module', () => {
       const invalidReceipt = {
         tx: {},
         globalModification: false,
-        signedReceipt: { proposal: { txid: 'test' } }
+        signedReceipt: { proposal: { txid: 'test' } },
       } as any
 
       await Collector.storeReceiptData([invalidReceipt])
-      
+
       expect(Receipt.bulkInsertReceipts).not.toHaveBeenCalled()
     })
 
     it('should handle invalid dataType in validateGossipData', async () => {
       const { validateTypes } = await import('../../../../src/Utils')
-      
+
       const gossipData = {
         dataType: 'INVALID_TYPE',
         data: [],
-        sign: { owner: 'test-key', sig: 'test-sig' }
+        sign: { owner: 'test-key', sig: 'test-sig' },
       } as any
 
-      ;(validateTypes as any)
-        .mockReturnValueOnce(null)
-        .mockReturnValueOnce(null)
+      ;(validateTypes as any).mockReturnValueOnce(null).mockReturnValueOnce(null)
       ;(State.activeArchivers as any) = [{ publicKey: 'test-key' }]
 
       const result = Collector.validateGossipData(gossipData)
-      
+
       expect(result.success).toBe(false)
       expect(result.error).toBe('Invalid dataType')
     })
@@ -507,14 +508,16 @@ describe('Collector Module', () => {
     it('should return false when cycle marker does not match', async () => {
       const { validateTypes } = await import('../../../../src/Utils')
       const { computeCycleMarker } = await import('../../../../src/Data/Cycles')
-      
+
       ;(validateTypes as any).mockReturnValue(null)
       ;(computeCycleMarker as any).mockReturnValue('different-marker')
 
       const result = Collector.validateCycleData({ marker: 'test-marker' } as any)
-      
+
       expect(result).toBe(false)
-      expect(Logger.mainLogger.error).toHaveBeenCalledWith('Invalid Cycle Record: cycle marker does not match with the computed marker')
+      expect(Logger.mainLogger.error).toHaveBeenCalledWith(
+        'Invalid Cycle Record: cycle marker does not match with the computed marker'
+      )
     })
   })
 })

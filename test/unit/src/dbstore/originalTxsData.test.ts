@@ -467,15 +467,13 @@ describe('OriginalTxsData Module', () => {
       config.VERBOSE = true
 
       // Reset the mock to return correct data
-      jest
-        .mocked(db.get)
-        .mockResolvedValue({
-          'COUNT(*)': 42,
-          txId: 'tx1',
-          timestamp: 1000,
-          cycle: 5,
-          originalTxData: '{"data":"test1"}',
-        })
+      jest.mocked(db.get).mockResolvedValue({
+        'COUNT(*)': 42,
+        txId: 'tx1',
+        timestamp: 1000,
+        cycle: 5,
+        originalTxData: '{"data":"test1"}',
+      })
 
       // Mock Logger to spy on debug calls
       const debugSpy = jest.spyOn(Logger.mainLogger, 'debug')

@@ -227,10 +227,10 @@ async function start(): Promise<void> {
   } else {
     try {
       Logger.mainLogger.debug('We are not first archiver. Syncing and starting archive-server')
-      
+
       console.log('PASSIVE MODE:' + config.passiveMode)
       Logger.mainLogger.debug('PASSIVE MODE:' + config.passiveMode)
-      if(config.passiveMode){
+      if (config.passiveMode) {
         Logger.mainLogger.debug('Archiver is in passive mode. Skipping network join.')
         await startServer()
       } else {
@@ -319,12 +319,11 @@ function initProfiler(server: FastifyInstance): void {
 /** Asynchronous function to synchronize and start the server. */
 async function syncAndStartServer(): Promise<void> {
   try {
-    if(config.passiveMode){
+    if (config.passiveMode) {
       Logger.mainLogger.debug('Archiver is in passive mode. Skipping network join.')
       await startServer()
       return
     }
-
 
     // Set the syncing flag to true to know we are patching the data
     State.setSyncing(true)
@@ -349,7 +348,6 @@ async function syncAndStartServer(): Promise<void> {
       await validateAndSyncCycleData(lastStoredCycleCount, lastStoredCycleInfo)
     }
 
-    
     // Join the network
     await joinNetwork(cycleDuration)
 
@@ -438,12 +436,11 @@ async function validateAndSyncCycleData(lastStoredCycleCount: number, lastStored
 }
 
 async function joinNetwork(cycleDuration: number): Promise<void> {
-  if(config.passiveMode){
+  if (config.passiveMode) {
     Logger.mainLogger.debug('Archiver is in passive mode. Skipping network join.')
     return
   }
-  
-  
+
   let isJoined = false
   let firstTime = true
 
@@ -525,7 +522,7 @@ async function handleReceiptSyncWithCheckpoints(
             },
             30 // 30seconds
           )) as ArchiverCycleResponse
-          
+
           if (res && res.cycleInfo && res.cycleInfo.length > 0) {
             Logger.mainLogger.info(`[handleReceiptSyncWithCheckpoints] Successfully retrieved cycle ${i}, storing...`)
             await storeCycleData(res.cycleInfo)

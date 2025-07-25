@@ -15,7 +15,7 @@ describe('healthCheckRouter', () => {
     // Setup mock reply
     mockReply = {
       status: jest.fn().mockReturnThis(),
-      send: jest.fn().mockReturnThis()
+      send: jest.fn().mockReturnThis(),
     } as unknown as FastifyReply
 
     // Setup mock request
@@ -25,7 +25,7 @@ describe('healthCheckRouter', () => {
     mockFastify = {
       get: jest.fn((path: string, handler: Function) => {
         registeredRoutes.set(path, handler)
-      })
+      }),
     } as unknown as FastifyInstance
 
     // Setup mock done callback
@@ -52,11 +52,11 @@ describe('healthCheckRouter', () => {
 
     it('should register routes before calling done', () => {
       const callOrder: string[] = []
-      
+
       const trackingFastify = {
         get: jest.fn(() => {
           callOrder.push('get')
-        })
+        }),
       } as unknown as FastifyInstance
 
       const trackingDone = jest.fn(() => {
@@ -105,7 +105,7 @@ describe('healthCheckRouter', () => {
     it('should work with different reply objects', () => {
       const customReply = {
         status: jest.fn().mockReturnThis(),
-        send: jest.fn().mockReturnThis()
+        send: jest.fn().mockReturnThis(),
       } as unknown as FastifyReply
 
       isAliveHandler(mockRequest, customReply)
@@ -143,10 +143,12 @@ describe('healthCheckRouter', () => {
 
       // Currently just returns OK without any actual health checks
       expect(mockReply.send).toHaveBeenCalledWith('OK')
-      expect(mockReply.send).not.toHaveBeenCalledWith(expect.objectContaining({
-        status: expect.any(String),
-        checks: expect.any(Array)
-      }))
+      expect(mockReply.send).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: expect.any(String),
+          checks: expect.any(Array),
+        })
+      )
     })
   })
 
@@ -155,7 +157,7 @@ describe('healthCheckRouter', () => {
       const errorFastify = {
         get: jest.fn(() => {
           throw new Error('Registration error')
-        })
+        }),
       } as unknown as FastifyInstance
 
       expect(() => {
@@ -209,7 +211,7 @@ describe('healthCheckRouter', () => {
   describe('Response format', () => {
     it('should return plain text responses', () => {
       healthCheckRouter(mockFastify, {}, mockDone)
-      
+
       const isAliveHandler = registeredRoutes.get('/is-alive')!
       const isHealthyHandler = registeredRoutes.get('/is-healthy')!
 
@@ -226,7 +228,7 @@ describe('healthCheckRouter', () => {
 
     it('should use proper status codes', () => {
       healthCheckRouter(mockFastify, {}, mockDone)
-      
+
       const isAliveHandler = registeredRoutes.get('/is-alive')!
       const isHealthyHandler = registeredRoutes.get('/is-healthy')!
 

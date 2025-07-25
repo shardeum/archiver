@@ -3,7 +3,7 @@ import { P2P } from '@shardeum-foundation/lib-types'
 // Mock fs module first
 jest.mock('fs', () => ({
   readFileSync: jest.fn(() => '[]'),
-  existsSync: jest.fn(() => true)
+  existsSync: jest.fn(() => true),
 }))
 
 // Mock dependencies
@@ -11,11 +11,11 @@ jest.mock('../../../src/Logger', () => ({
   mainLogger: {
     error: jest.fn(),
     info: jest.fn(),
-    debug: jest.fn()
-  }
+    debug: jest.fn(),
+  },
 }))
 jest.mock('../../../src/State', () => ({
-  getNodeInfo: jest.fn()
+  getNodeInfo: jest.fn(),
 }))
 jest.mock('@shardeum-foundation/lib-crypto-utils', () => ({
   __esModule: true,
@@ -24,19 +24,19 @@ jest.mock('@shardeum-foundation/lib-crypto-utils', () => ({
     randomBytes: jest.fn(),
     hash: jest.fn(),
     sign: jest.fn(),
-    verify: jest.fn()
-  }
+    verify: jest.fn(),
+  },
 }))
 jest.mock('../../../src/Crypto', () => ({
-  hashObj: jest.fn()
+  hashObj: jest.fn(),
 }))
 jest.mock('../../../src/Config', () => ({
   config: {
-    restoreNGTsFromSnapshot: false
-  }
+    restoreNGTsFromSnapshot: false,
+  },
 }))
 jest.mock('../../../src/profiler/StringifyReduce', () => ({
-  stringifyReduce: jest.fn((obj) => JSON.stringify(obj))
+  stringifyReduce: jest.fn((obj) => JSON.stringify(obj)),
 }))
 
 // Import after mocks
@@ -58,7 +58,7 @@ describe('ServiceQueue', () => {
         type: 'type1' as any,
         txData: { sign: 'signature', data: 'test' } as any,
         cycle: 1,
-        priority: 1
+        priority: 1,
       }
 
       const result = addTxs([addTx])
@@ -72,8 +72,8 @@ describe('ServiceQueue', () => {
           txData: { data: 'test' },
           type: 'type1',
           cycle: 1,
-          priority: 1
-        }
+          priority: 1,
+        },
       })
     })
 
@@ -84,15 +84,15 @@ describe('ServiceQueue', () => {
           type: 'type1' as any,
           txData: { sign: 'sig1', data: 'test1' } as any,
           cycle: 1,
-          priority: 1
+          priority: 1,
         },
         {
           hash: 'hash2',
           type: 'type2' as any,
           txData: { sign: 'sig2', data: 'test2' } as any,
           cycle: 2,
-          priority: 2
-        }
+          priority: 2,
+        },
       ]
 
       const result = addTxs(addTxs1)
@@ -108,7 +108,7 @@ describe('ServiceQueue', () => {
         txData: { sign: 'signature', data: 'test' } as any,
         cycle: 1,
         priority: 1,
-        subQueueKey: 'subKey1'
+        subQueueKey: 'subKey1',
       }
 
       const result = addTxs([addTx])
@@ -124,22 +124,22 @@ describe('ServiceQueue', () => {
           type: 'type1' as any,
           txData: { sign: 'sig3' } as any,
           cycle: 3,
-          priority: 1
+          priority: 1,
         },
         {
           hash: 'hash1',
           type: 'type1' as any,
           txData: { sign: 'sig1' } as any,
           cycle: 1,
-          priority: 1
+          priority: 1,
         },
         {
           hash: 'hash2',
           type: 'type1' as any,
           txData: { sign: 'sig2' } as any,
           cycle: 2,
-          priority: 1
-        }
+          priority: 1,
+        },
       ]
 
       addTxs(addTxs1)
@@ -157,22 +157,22 @@ describe('ServiceQueue', () => {
           type: 'type1' as any,
           txData: { sign: 'sig2' } as any,
           cycle: 1,
-          priority: 2
+          priority: 2,
         },
         {
           hash: 'hash3',
           type: 'type1' as any,
           txData: { sign: 'sig3' } as any,
           cycle: 1,
-          priority: 3
+          priority: 3,
         },
         {
           hash: 'hash1',
           type: 'type1' as any,
           txData: { sign: 'sig1' } as any,
           cycle: 1,
-          priority: 1
-        }
+          priority: 1,
+        },
       ]
 
       addTxs(addTxs1)
@@ -190,22 +190,22 @@ describe('ServiceQueue', () => {
           type: 'type1' as any,
           txData: { sign: 'sig3' } as any,
           cycle: 1,
-          priority: 1
+          priority: 1,
         },
         {
           hash: 'hash1',
           type: 'type1' as any,
           txData: { sign: 'sig1' } as any,
           cycle: 1,
-          priority: 1
+          priority: 1,
         },
         {
           hash: 'hash2',
           type: 'type1' as any,
           txData: { sign: 'sig2' } as any,
           cycle: 1,
-          priority: 1
-        }
+          priority: 1,
+        },
       ]
 
       addTxs(addTxs1)
@@ -223,13 +223,15 @@ describe('ServiceQueue', () => {
         type: 'type1' as any,
         txData: null as any, // This will cause an error when destructuring
         cycle: 1,
-        priority: 1
+        priority: 1,
       }
 
       const result = addTxs([invalidTx])
 
       expect(result).toBe(false)
-      expect(Logger.mainLogger.error).toHaveBeenCalledWith(expect.stringContaining('ServiceQueue:addTxs: Error adding txs:'))
+      expect(Logger.mainLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('ServiceQueue:addTxs: Error adding txs:')
+      )
     })
 
     it('should log info for each transaction added', () => {
@@ -238,7 +240,7 @@ describe('ServiceQueue', () => {
         type: 'type1' as any,
         txData: { sign: 'signature', data: 'test' } as any,
         cycle: 1,
-        priority: 1
+        priority: 1,
       }
 
       addTxs([addTx])
@@ -258,8 +260,8 @@ describe('ServiceQueue', () => {
             txData: { data: 'test1' } as any,
             type: 'type1' as any,
             cycle: 1,
-            priority: 1
-          }
+            priority: 1,
+          },
         },
         {
           hash: 'hash2',
@@ -268,9 +270,9 @@ describe('ServiceQueue', () => {
             txData: { data: 'test2' } as any,
             type: 'type2' as any,
             cycle: 2,
-            priority: 2
-          }
-        }
+            priority: 2,
+          },
+        },
       ]
       setTxList(initialTxs)
     })
@@ -278,7 +280,7 @@ describe('ServiceQueue', () => {
     it('should remove a single transaction from the list', () => {
       const removeTx: P2P.ServiceQueueTypes.RemoveNetworkTx = {
         txHash: 'hash1',
-        cycle: 1
+        cycle: 1,
       }
 
       const result = removeTxs([removeTx])
@@ -291,7 +293,7 @@ describe('ServiceQueue', () => {
     it('should remove multiple transactions from the list', () => {
       const removeTxs1: P2P.ServiceQueueTypes.RemoveNetworkTx[] = [
         { txHash: 'hash1', cycle: 1 },
-        { txHash: 'hash2', cycle: 2 }
+        { txHash: 'hash2', cycle: 2 },
       ]
 
       const result = removeTxs(removeTxs1)
@@ -303,7 +305,7 @@ describe('ServiceQueue', () => {
     it('should log error when trying to remove non-existent transaction', () => {
       const removeTx: P2P.ServiceQueueTypes.RemoveNetworkTx = {
         txHash: 'nonexistent',
-        cycle: 1
+        cycle: 1,
       }
 
       const result = removeTxs([removeTx])
@@ -322,7 +324,9 @@ describe('ServiceQueue', () => {
       const result = removeTxs([{ txHash: 'hash1', cycle: 1 }])
 
       expect(result).toBe(false)
-      expect(Logger.mainLogger.error).toHaveBeenCalledWith(expect.stringContaining('ServiceQueue:removeTxs: Error removing txs:'))
+      expect(Logger.mainLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('ServiceQueue:removeTxs: Error removing txs:')
+      )
 
       // Restore original method
       Array.prototype.findIndex = originalFindIndex
@@ -339,9 +343,9 @@ describe('ServiceQueue', () => {
             txData: { data: 'newtest1' } as any,
             type: 'newtype1' as any,
             cycle: 1,
-            priority: 1
-          }
-        }
+            priority: 1,
+          },
+        },
       ]
 
       setTxList(newTxList)
@@ -353,14 +357,14 @@ describe('ServiceQueue', () => {
       const firstList: P2P.ServiceQueueTypes.NetworkTxEntry[] = [
         {
           hash: 'hash1',
-          tx: { hash: 'hash1', txData: {} as any, type: 'type1' as any, cycle: 1, priority: 1 }
-        }
+          tx: { hash: 'hash1', txData: {} as any, type: 'type1' as any, cycle: 1, priority: 1 },
+        },
       ]
       const secondList: P2P.ServiceQueueTypes.NetworkTxEntry[] = [
         {
           hash: 'hash2',
-          tx: { hash: 'hash2', txData: {} as any, type: 'type2' as any, cycle: 2, priority: 2 }
-        }
+          tx: { hash: 'hash2', txData: {} as any, type: 'type2' as any, cycle: 2, priority: 2 },
+        },
       ]
 
       setTxList(firstList)
@@ -385,9 +389,9 @@ describe('ServiceQueue', () => {
             txData: { data: 'test1' } as any,
             type: 'type1' as any,
             cycle: 1,
-            priority: 1
-          }
-        }
+            priority: 1,
+          },
+        },
       ]
 
       setTxList(txList)
@@ -416,9 +420,9 @@ describe('ServiceQueue', () => {
             txData: { data: 'test1' } as any,
             type: 'type1' as any,
             cycle: 1,
-            priority: 1
-          }
-        }
+            priority: 1,
+          },
+        },
       ]
       const mockHash = 'tx-list-hash'
       ;(crypto.hashObj as jest.Mock).mockReturnValue(mockHash)

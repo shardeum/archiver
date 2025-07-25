@@ -10,9 +10,8 @@ describe('security types', () => {
     })
 
     it('should have exactly 4 security levels', () => {
-      const numericValues = Object.values(DevSecurityLevel)
-        .filter(v => typeof v === 'number')
-      
+      const numericValues = Object.values(DevSecurityLevel).filter((v) => typeof v === 'number')
+
       expect(numericValues).toHaveLength(4)
     })
 
@@ -39,7 +38,7 @@ describe('security types', () => {
     it('should work in comparison operations', () => {
       const userLevel = DevSecurityLevel.LOW
       const requiredLevel = DevSecurityLevel.MEDIUM
-      
+
       expect(userLevel < requiredLevel).toBe(true)
       expect(userLevel >= requiredLevel).toBe(false)
       expect(DevSecurityLevel.HIGH >= requiredLevel).toBe(true)
@@ -60,7 +59,7 @@ describe('security types', () => {
             return 'Unknown'
         }
       }
-      
+
       expect(getSecurityDescription(DevSecurityLevel.NONE)).toBe('No security')
       expect(getSecurityDescription(DevSecurityLevel.LOW)).toBe('Low security')
       expect(getSecurityDescription(DevSecurityLevel.MEDIUM)).toBe('Medium security')
@@ -69,11 +68,9 @@ describe('security types', () => {
 
     it('should be usable in type guards', () => {
       const isValidSecurityLevel = (value: unknown): value is DevSecurityLevel => {
-        return typeof value === 'number' && 
-               value >= DevSecurityLevel.NONE && 
-               value <= DevSecurityLevel.HIGH
+        return typeof value === 'number' && value >= DevSecurityLevel.NONE && value <= DevSecurityLevel.HIGH
       }
-      
+
       expect(isValidSecurityLevel(0)).toBe(true)
       expect(isValidSecurityLevel(1)).toBe(true)
       expect(isValidSecurityLevel(2)).toBe(true)
@@ -86,18 +83,13 @@ describe('security types', () => {
     })
 
     it('should work with array operations', () => {
-      const allLevels = [
-        DevSecurityLevel.NONE,
-        DevSecurityLevel.LOW,
-        DevSecurityLevel.MEDIUM,
-        DevSecurityLevel.HIGH
-      ]
-      
+      const allLevels = [DevSecurityLevel.NONE, DevSecurityLevel.LOW, DevSecurityLevel.MEDIUM, DevSecurityLevel.HIGH]
+
       expect(allLevels).toHaveLength(4)
       expect(allLevels.includes(DevSecurityLevel.MEDIUM)).toBe(true)
       expect(allLevels.indexOf(DevSecurityLevel.HIGH)).toBe(3)
-      
-      const highSecurityLevels = allLevels.filter(level => level >= DevSecurityLevel.MEDIUM)
+
+      const highSecurityLevels = allLevels.filter((level) => level >= DevSecurityLevel.MEDIUM)
       expect(highSecurityLevels).toEqual([DevSecurityLevel.MEDIUM, DevSecurityLevel.HIGH])
     })
 
@@ -105,16 +97,16 @@ describe('security types', () => {
       const config = {
         minLevel: DevSecurityLevel.LOW,
         maxLevel: DevSecurityLevel.HIGH,
-        currentLevel: DevSecurityLevel.MEDIUM
+        currentLevel: DevSecurityLevel.MEDIUM,
       }
-      
+
       const json = JSON.stringify(config)
       const parsed = JSON.parse(json)
-      
+
       expect(parsed.minLevel).toBe(1)
       expect(parsed.maxLevel).toBe(3)
       expect(parsed.currentLevel).toBe(2)
-      
+
       // Can be used again as enum values
       expect(parsed.minLevel).toBe(DevSecurityLevel.LOW)
       expect(parsed.maxLevel).toBe(DevSecurityLevel.HIGH)
@@ -124,10 +116,10 @@ describe('security types', () => {
     it('should handle boundary values correctly', () => {
       const minLevel = DevSecurityLevel.NONE
       const maxLevel = DevSecurityLevel.HIGH
-      
+
       expect(minLevel).toBe(0)
       expect(maxLevel).toBe(3)
-      
+
       // Test that values outside the range don't exist
       expect(DevSecurityLevel[-1]).toBeUndefined()
       expect(DevSecurityLevel[4]).toBeUndefined()
@@ -137,16 +129,16 @@ describe('security types', () => {
       const checkAccess = (userLevel: DevSecurityLevel, requiredLevel: DevSecurityLevel): boolean => {
         return userLevel >= requiredLevel
       }
-      
+
       // NONE user can't access anything except NONE
       expect(checkAccess(DevSecurityLevel.NONE, DevSecurityLevel.NONE)).toBe(true)
       expect(checkAccess(DevSecurityLevel.NONE, DevSecurityLevel.LOW)).toBe(false)
-      
+
       // LOW user can access NONE and LOW
       expect(checkAccess(DevSecurityLevel.LOW, DevSecurityLevel.NONE)).toBe(true)
       expect(checkAccess(DevSecurityLevel.LOW, DevSecurityLevel.LOW)).toBe(true)
       expect(checkAccess(DevSecurityLevel.LOW, DevSecurityLevel.MEDIUM)).toBe(false)
-      
+
       // HIGH user can access everything
       expect(checkAccess(DevSecurityLevel.HIGH, DevSecurityLevel.NONE)).toBe(true)
       expect(checkAccess(DevSecurityLevel.HIGH, DevSecurityLevel.LOW)).toBe(true)
@@ -155,19 +147,17 @@ describe('security types', () => {
     })
 
     it('should work with Object methods', () => {
-      const entries = Object.entries(DevSecurityLevel)
-        .filter(([key]) => isNaN(Number(key)))
-      
+      const entries = Object.entries(DevSecurityLevel).filter(([key]) => isNaN(Number(key)))
+
       expect(entries).toEqual([
         ['NONE', 0],
         ['LOW', 1],
         ['MEDIUM', 2],
-        ['HIGH', 3]
+        ['HIGH', 3],
       ])
-      
-      const keys = Object.keys(DevSecurityLevel)
-        .filter(key => isNaN(Number(key)))
-      
+
+      const keys = Object.keys(DevSecurityLevel).filter((key) => isNaN(Number(key)))
+
       expect(keys).toEqual(['NONE', 'LOW', 'MEDIUM', 'HIGH'])
     })
 
@@ -177,10 +167,10 @@ describe('security types', () => {
       levelPermissions.set(DevSecurityLevel.LOW, ['read', 'write'])
       levelPermissions.set(DevSecurityLevel.MEDIUM, ['read', 'write', 'delete'])
       levelPermissions.set(DevSecurityLevel.HIGH, ['read', 'write', 'delete', 'admin'])
-      
+
       expect(levelPermissions.get(DevSecurityLevel.LOW)).toEqual(['read', 'write'])
       expect(levelPermissions.has(DevSecurityLevel.MEDIUM)).toBe(true)
-      
+
       const allowedLevels = new Set([DevSecurityLevel.MEDIUM, DevSecurityLevel.HIGH])
       expect(allowedLevels.has(DevSecurityLevel.MEDIUM)).toBe(true)
       expect(allowedLevels.has(DevSecurityLevel.LOW)).toBe(false)
@@ -189,7 +179,7 @@ describe('security types', () => {
     it('should handle type assertions correctly', () => {
       const level: number = 2
       const typedLevel = level as DevSecurityLevel
-      
+
       expect(typedLevel).toBe(DevSecurityLevel.MEDIUM)
       expect(DevSecurityLevel[typedLevel]).toBe('MEDIUM')
     })

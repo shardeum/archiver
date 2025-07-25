@@ -94,11 +94,14 @@ describe('checkpointStatus', () => {
 
       await upsertCheckpointStatus(status)
 
-      expect(mockedRun).toHaveBeenCalledWith(
-        checkpointStatusDatabase,
-        expect.anything(),
-        [status.cycle, false, status.cycleStatus, status.receiptStatus, status.originalTxStatus, status.created_at]
-      )
+      expect(mockedRun).toHaveBeenCalledWith(checkpointStatusDatabase, expect.anything(), [
+        status.cycle,
+        false,
+        status.cycleStatus,
+        status.receiptStatus,
+        status.originalTxStatus,
+        status.created_at,
+      ])
     })
 
     it('should log debug message when VERBOSE is true', async () => {
@@ -212,8 +215,22 @@ describe('checkpointStatus', () => {
   describe('bulkUpdateCheckpointStatusField', () => {
     it('should update status field for a range of cycles', async () => {
       const existingStatuses = [
-        { cycle: 100, unifiedStatus: false, cycleStatus: true, receiptStatus: false, originalTxStatus: false, created_at: Date.now() },
-        { cycle: 101, unifiedStatus: false, cycleStatus: false, receiptStatus: true, originalTxStatus: false, created_at: Date.now() },
+        {
+          cycle: 100,
+          unifiedStatus: false,
+          cycleStatus: true,
+          receiptStatus: false,
+          originalTxStatus: false,
+          created_at: Date.now(),
+        },
+        {
+          cycle: 101,
+          unifiedStatus: false,
+          cycleStatus: false,
+          receiptStatus: true,
+          originalTxStatus: false,
+          created_at: Date.now(),
+        },
       ]
 
       mockedAll.mockResolvedValueOnce(existingStatuses)
@@ -224,19 +241,48 @@ describe('checkpointStatus', () => {
         checkpointStatusDatabase,
         expect.stringContaining('INSERT INTO checkpoint_status'),
         expect.arrayContaining([
-          100, false, true, false, true, expect.any(Number),
-          101, false, false, true, true, expect.any(Number),
-          102, false, false, false, true, expect.any(Number),
+          100,
+          false,
+          true,
+          false,
+          true,
+          expect.any(Number),
+          101,
+          false,
+          false,
+          true,
+          true,
+          expect.any(Number),
+          102,
+          false,
+          false,
+          false,
+          true,
+          expect.any(Number),
         ])
       )
     })
 
     it('should update status field for specific cycles', async () => {
       const cycles = [100, 102, 105]
-      
-      mockedGet.mockResolvedValueOnce({ cycle: 100, unifiedStatus: false, cycleStatus: true, receiptStatus: false, originalTxStatus: false, created_at: Date.now() })
+
+      mockedGet.mockResolvedValueOnce({
+        cycle: 100,
+        unifiedStatus: false,
+        cycleStatus: true,
+        receiptStatus: false,
+        originalTxStatus: false,
+        created_at: Date.now(),
+      })
       mockedGet.mockResolvedValueOnce(null)
-      mockedGet.mockResolvedValueOnce({ cycle: 105, unifiedStatus: true, cycleStatus: true, receiptStatus: true, originalTxStatus: true, created_at: Date.now() })
+      mockedGet.mockResolvedValueOnce({
+        cycle: 105,
+        unifiedStatus: true,
+        cycleStatus: true,
+        receiptStatus: true,
+        originalTxStatus: true,
+        created_at: Date.now(),
+      })
 
       await bulkUpdateCheckpointStatusField(CheckpointStatusType.RECEIPT, true, undefined, undefined, cycles)
 
@@ -254,9 +300,9 @@ describe('checkpointStatus', () => {
     })
 
     it('should throw error when endCycle < startCycle', async () => {
-      await expect(
-        bulkUpdateCheckpointStatusField(CheckpointStatusType.CYCLE, true, 200, 100)
-      ).rejects.toThrow('Invalid range: endCycle (100) < startCycle (200)')
+      await expect(bulkUpdateCheckpointStatusField(CheckpointStatusType.CYCLE, true, 200, 100)).rejects.toThrow(
+        'Invalid range: endCycle (100) < startCycle (200)'
+      )
     })
 
     it('should log debug message when VERBOSE is true', async () => {
@@ -433,10 +479,7 @@ describe('checkpointStatus', () => {
       mockedGet.mockRejectedValueOnce(error)
 
       await expect(getOldestPendingOrFailedCheckpointStatus()).rejects.toThrow('Database error')
-      expect(mockedLoggerError).toHaveBeenCalledWith(
-        'Error getting oldest pending or failed checkpoint status:',
-        error
-      )
+      expect(mockedLoggerError).toHaveBeenCalledWith('Error getting oldest pending or failed checkpoint status:', error)
     })
   })
 
@@ -500,11 +543,9 @@ describe('checkpointStatus', () => {
       const result = await isBucketVerified(100)
 
       expect(result).toBe(true)
-      expect(mockedGet).toHaveBeenCalledWith(
-        checkpointStatusDatabase,
-        expect.stringContaining('WHERE cycle = ?'),
-        [100]
-      )
+      expect(mockedGet).toHaveBeenCalledWith(checkpointStatusDatabase, expect.stringContaining('WHERE cycle = ?'), [
+        100,
+      ])
     })
 
     it('should return false for a single unverified bucket', async () => {

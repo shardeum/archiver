@@ -81,20 +81,20 @@ describe('ReceiptUtils', () => {
 
     describe('Sorting by median time', () => {
       it('should select receipt with lowest median time', () => {
-        const receipt1 = createMockReceipt({ 
-          status: 1, 
+        const receipt1 = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [10, 20, 30] // median = 20, median time = 1000 + 20*1000 = 21000
+          voteOffsets: [10, 20, 30], // median = 20, median time = 1000 + 20*1000 = 21000
         })
-        const receipt2 = createMockReceipt({ 
-          status: 1, 
+        const receipt2 = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [5, 10, 15] // median = 10, median time = 1000 + 10*1000 = 11000
+          voteOffsets: [5, 10, 15], // median = 10, median time = 1000 + 10*1000 = 11000
         })
-        const receipt3 = createMockReceipt({ 
-          status: 1, 
+        const receipt3 = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [15, 25, 35] // median = 25, median time = 1000 + 25*1000 = 26000
+          voteOffsets: [15, 25, 35], // median = 25, median time = 1000 + 25*1000 = 26000
         })
 
         const result = selectBestSuccessReceipt([receipt1, receipt2, receipt3])
@@ -102,15 +102,15 @@ describe('ReceiptUtils', () => {
       })
 
       it('should handle receipts without voteOffsets', () => {
-        const receiptWithOffsets = createMockReceipt({ 
-          status: 1, 
+        const receiptWithOffsets = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [10, 20, 30]
+          voteOffsets: [10, 20, 30],
         })
-        const receiptWithoutOffsets = createMockReceipt({ 
-          status: 1, 
+        const receiptWithoutOffsets = createMockReceipt({
+          status: 1,
           timestamp: 500,
-          voteOffsets: undefined
+          voteOffsets: undefined,
         })
 
         const result = selectBestSuccessReceipt([receiptWithOffsets, receiptWithoutOffsets])
@@ -118,10 +118,10 @@ describe('ReceiptUtils', () => {
       })
 
       it('should handle empty voteOffsets array', () => {
-        const receipt = createMockReceipt({ 
-          status: 1, 
+        const receipt = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: []
+          voteOffsets: [],
         })
 
         const result = selectBestSuccessReceipt([receipt])
@@ -131,20 +131,20 @@ describe('ReceiptUtils', () => {
 
     describe('Sorting by sum of offsets (tie-breaker)', () => {
       it('should use sum of offsets when median times are equal', () => {
-        const receipt1 = createMockReceipt({ 
-          status: 1, 
+        const receipt1 = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [10, 20, 30] // median = 20, sum = 60
+          voteOffsets: [10, 20, 30], // median = 20, sum = 60
         })
-        const receipt2 = createMockReceipt({ 
-          status: 1, 
+        const receipt2 = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [15, 20, 25] // median = 20, sum = 60
+          voteOffsets: [15, 20, 25], // median = 20, sum = 60
         })
-        const receipt3 = createMockReceipt({ 
-          status: 1, 
+        const receipt3 = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [5, 20, 25] // median = 20, sum = 50
+          voteOffsets: [5, 20, 25], // median = 20, sum = 50
         })
 
         const result = selectBestSuccessReceipt([receipt1, receipt2, receipt3])
@@ -162,20 +162,20 @@ describe('ReceiptUtils', () => {
           .mockReturnValueOnce('hash_c')
           .mockReturnValueOnce('sig_c')
 
-        const receipt1 = createMockReceipt({ 
-          status: 1, 
+        const receipt1 = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [10, 20, 30]
+          voteOffsets: [10, 20, 30],
         })
-        const receipt2 = createMockReceipt({ 
-          status: 1, 
+        const receipt2 = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [10, 20, 30]
+          voteOffsets: [10, 20, 30],
         })
-        const receipt3 = createMockReceipt({ 
-          status: 1, 
+        const receipt3 = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [10, 20, 30]
+          voteOffsets: [10, 20, 30],
         })
 
         const result = selectBestSuccessReceipt([receipt1, receipt2, receipt3])
@@ -186,25 +186,24 @@ describe('ReceiptUtils', () => {
     describe('Sorting by signature pack hash (final tie-breaker)', () => {
       it('should use signature pack hash when all other criteria are equal', () => {
         // Mock to return same receipt hash but different sig pack hashes
-        mockCrypto.hash
-          .mockImplementation((input) => {
-            if (input.includes('signaturePack')) {
-              return input.includes('"id":"receipt1"') ? 'sig_b' : 'sig_a'
-            }
-            return 'same_hash'
-          })
-
-        const receipt1 = createMockReceipt({ 
-          status: 1, 
-          timestamp: 1000,
-          voteOffsets: [10, 20, 30],
-          id: 'receipt1'
+        mockCrypto.hash.mockImplementation((input) => {
+          if (input.includes('signaturePack')) {
+            return input.includes('"id":"receipt1"') ? 'sig_b' : 'sig_a'
+          }
+          return 'same_hash'
         })
-        const receipt2 = createMockReceipt({ 
-          status: 1, 
+
+        const receipt1 = createMockReceipt({
+          status: 1,
           timestamp: 1000,
           voteOffsets: [10, 20, 30],
-          id: 'receipt2'
+          id: 'receipt1',
+        })
+        const receipt2 = createMockReceipt({
+          status: 1,
+          timestamp: 1000,
+          voteOffsets: [10, 20, 30],
+          id: 'receipt2',
         })
 
         const result = selectBestSuccessReceipt([receipt1, receipt2])
@@ -220,10 +219,10 @@ describe('ReceiptUtils', () => {
       })
 
       it('should handle non-numeric voteOffsets', () => {
-        const receipt = createMockReceipt({ 
-          status: 1, 
+        const receipt = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: ['10', '20', '30'] as any
+          voteOffsets: ['10', '20', '30'] as any,
         })
 
         const result = selectBestSuccessReceipt([receipt])
@@ -231,9 +230,9 @@ describe('ReceiptUtils', () => {
       })
 
       it('should handle missing signedReceipt', () => {
-        const receipt = createMockReceipt({ 
+        const receipt = createMockReceipt({
           status: 1,
-          signedReceipt: undefined
+          signedReceipt: undefined,
         })
 
         const result = selectBestSuccessReceipt([receipt])
@@ -241,9 +240,9 @@ describe('ReceiptUtils', () => {
       })
 
       it('should handle signedReceipt without voteOffsets property', () => {
-        const receipt = createMockReceipt({ 
+        const receipt = createMockReceipt({
           status: 1,
-          signedReceipt: { someOtherProp: 'value' } as any
+          signedReceipt: { someOtherProp: 'value' } as any,
         })
 
         const result = selectBestSuccessReceipt([receipt])
@@ -251,10 +250,10 @@ describe('ReceiptUtils', () => {
       })
 
       it('should sort voteOffsets before calculating median', () => {
-        const receipt = createMockReceipt({ 
-          status: 1, 
+        const receipt = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [30, 10, 20] // Should be sorted to [10, 20, 30], median = 20
+          voteOffsets: [30, 10, 20], // Should be sorted to [10, 20, 30], median = 20
         })
 
         const result = selectBestSuccessReceipt([receipt])
@@ -262,10 +261,10 @@ describe('ReceiptUtils', () => {
       })
 
       it('should handle even number of voteOffsets', () => {
-        const receipt = createMockReceipt({ 
-          status: 1, 
+        const receipt = createMockReceipt({
+          status: 1,
           timestamp: 1000,
-          voteOffsets: [10, 20, 30, 40] // median = 30 (floor of length/2)
+          voteOffsets: [10, 20, 30, 40], // median = 30 (floor of length/2)
         })
 
         const result = selectBestSuccessReceipt([receipt])
@@ -277,21 +276,21 @@ describe('ReceiptUtils', () => {
       it('should handle complex realistic scenario', () => {
         const receipts: ReceiptType[] = [
           createMockReceipt({ status: 0 }), // Failed - should be filtered out
-          createMockReceipt({ 
-            status: 1, 
+          createMockReceipt({
+            status: 1,
             timestamp: 1000,
-            voteOffsets: [15, 25, 35] // median = 25, time = 26000
+            voteOffsets: [15, 25, 35], // median = 25, time = 26000
           }),
-          createMockReceipt({ 
-            status: 1, 
+          createMockReceipt({
+            status: 1,
             timestamp: 2000,
-            voteOffsets: [5, 10, 15] // median = 10, time = 12000
+            voteOffsets: [5, 10, 15], // median = 10, time = 12000
           }),
           createMockReceipt({ status: 2 }), // Other status - should be filtered out
-          createMockReceipt({ 
-            status: 1, 
+          createMockReceipt({
+            status: 1,
             timestamp: 500,
-            voteOffsets: [20, 30, 40] // median = 30, time = 30500
+            voteOffsets: [20, 30, 40], // median = 30, time = 30500
           }),
         ]
 
@@ -303,14 +302,16 @@ describe('ReceiptUtils', () => {
 })
 
 // Helper function to create mock receipts
-function createMockReceipt(options: {
-  status?: number
-  timestamp?: number
-  voteOffsets?: number[]
-  id?: string
-  signedReceipt?: any
-  appReceiptData?: any
-} = {}): ReceiptType {
+function createMockReceipt(
+  options: {
+    status?: number
+    timestamp?: number
+    voteOffsets?: number[]
+    id?: string
+    signedReceipt?: any
+    appReceiptData?: any
+  } = {}
+): ReceiptType {
   const {
     status = 1,
     timestamp = Date.now(),
@@ -324,27 +325,33 @@ function createMockReceipt(options: {
     receiptId: id,
     tx: {
       timestamp: timestamp.toString(),
-      originalTxData: {}
+      originalTxData: {},
     },
     cycle: 1,
     beforeStateAccounts: [],
     accounts: [],
     appliedReceipt: {},
-    appReceiptData: appReceiptData !== undefined ? appReceiptData : {
-      data: {
-        readableReceipt: {
-          status,
-        },
-      },
-    },
+    appReceiptData:
+      appReceiptData !== undefined
+        ? appReceiptData
+        : {
+            data: {
+              readableReceipt: {
+                status,
+              },
+            },
+          },
     executionShardKey: 'shard1',
     globalModification: false,
-    signedReceipt: signedReceipt !== undefined ? signedReceipt : {
-      voteOffsets,
-      signaturePack: {
-        id,
-        signatures: [],
-      },
-    },
+    signedReceipt:
+      signedReceipt !== undefined
+        ? signedReceipt
+        : {
+            voteOffsets,
+            signaturePack: {
+              id,
+              signatures: [],
+            },
+          },
   } as any as ReceiptType
 }

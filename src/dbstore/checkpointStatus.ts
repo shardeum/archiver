@@ -347,7 +347,10 @@ async function getCheckpointStatusForRange(startCycle: number, endCycle: number)
  * Gets all checkpoint statuses with a specific unified status
  * @param unified Whether to get checkpoints with unified status true or false
  */
-export async function getCheckpointStatusesByUnifiedStatus(unified: boolean, minCycle: number = 0): Promise<CheckpointStatus[]> {
+export async function getCheckpointStatusesByUnifiedStatus(
+  unified: boolean,
+  minCycle: number = 0
+): Promise<CheckpointStatus[]> {
   try {
     const sql = `
       SELECT * FROM checkpoint_status
@@ -448,7 +451,7 @@ export async function processCyclesNeedingSync(
     // Process in batches to avoid loading too many cycles in memory
     for (let startCycle = lastUpdatedCycle; startCycle <= currentCycle; startCycle += batchSize) {
       const endCycle = Math.min(startCycle + batchSize - 1, currentCycle)
-      
+
       // First, check which cycles in this range have status records
       const sql = `
         SELECT cycle, unifiedStatus 
@@ -457,13 +460,13 @@ export async function processCyclesNeedingSync(
         ORDER BY cycle ASC
       `
       const existingStatuses = await db.all(checkpointStatusDatabase, sql, [startCycle, endCycle])
-      
+
       // Create a map for quick lookup
       const statusMap = new Map<number, boolean>()
       existingStatuses.forEach((row: any) => {
         statusMap.set(row.cycle, row.unifiedStatus === 1)
       })
-      
+
       // Process each cycle in the range
       for (let cycle = startCycle; cycle <= endCycle; cycle++) {
         // If no status exists or unified status is false, this cycle needs syncing

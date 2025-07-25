@@ -52,7 +52,6 @@ interface ValidationBreadcrumb {
   cycle: P2PTypes.CycleCreatorTypes.CycleData
 }
 
-
 class ValidationTracker {
   private seen = new Set<string>()
   private breadcrumbs: ValidationBreadcrumb[] = []
@@ -831,7 +830,7 @@ export async function replaceDataSender(publicKey: NodeList.ConsensusNodeInfo['p
 }
 
 export async function subscribeNodeForDataTransfer(): Promise<void> {
-  if(config.passiveMode) {
+  if (config.passiveMode) {
     Logger.mainLogger.debug('Archiver is in passive mode. Skipping data transfer subscription.')
     return
   }
@@ -1170,10 +1169,9 @@ export function calcIncomingTimes(record: P2PTypes.CycleCreatorTypes.CycleRecord
 export async function joinNetwork(nodeList: NodeList.ConsensusNodeInfo[], isFirstTime: boolean): Promise<boolean> {
   if (config.passiveMode) {
     Logger.mainLogger.debug('joinNetwork-skipped  passive mode')
-    return true 
+    return true
   }
 
-  
   Logger.mainLogger.debug('Is firstTime', isFirstTime)
   if (!isFirstTime) {
     const isJoined: boolean = await checkJoinStatus(nodeList)
@@ -1215,7 +1213,7 @@ export async function submitJoin(
 ): Promise<void> {
   if (config.passiveMode) {
     Logger.mainLogger.debug('submitJoin-skipped  passive mode')
-    return 
+    return
   }
   // Send the join request to a handful of the active node all at once:w
   const selectedNodes = Utils.getRandom(nodes, Math.min(nodes.length, 5))
@@ -1229,9 +1227,9 @@ export async function submitJoin(
 export async function sendLeaveRequest(nodes: NodeList.ConsensusNodeInfo[]): Promise<void> {
   if (config.passiveMode) {
     Logger.mainLogger.debug('sendLeaveRequest-skipped  passive mode')
-    return 
+    return
   }
-  
+
   const leaveRequest = P2P.createArchiverLeaveRequest()
   Logger.mainLogger.debug(`Sending leave request to ${nodes.map((n) => `${n.ip}:${n.port}`)}`)
 
@@ -1269,7 +1267,7 @@ export async function sendLeaveRequest(nodes: NodeList.ConsensusNodeInfo[]): Pro
 export async function sendActiveRequest(): Promise<void> {
   if (config.passiveMode) {
     Logger.mainLogger.debug('sendActiveRequest-skipped  passive mode')
-    return 
+    return
   }
 
   Logger.mainLogger.debug('Sending Active Request to the network!')
@@ -1341,7 +1339,7 @@ export async function checkJoinStatus(activeNodes: NodeList.ConsensusNodeInfo[])
     Logger.mainLogger.debug('checkJoinStatus-skipped  passive mode')
     return false
   }
-  
+
   Logger.mainLogger.debug('checkJoinStatus: Checking join status')
   const ourNodeInfo = State.getNodeInfo()
 
@@ -1371,7 +1369,7 @@ export async function checkActiveStatus(): Promise<boolean> {
     console.log('checkJoinStatus-skipped  passive mode')
     return false
   }
-  
+
   Logger.mainLogger.debug('Checking active status')
   const ourNodeInfo = State.getNodeInfo()
   try {

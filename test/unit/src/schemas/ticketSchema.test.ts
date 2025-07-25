@@ -14,17 +14,15 @@ describe('ticketSchema', () => {
     it('should validate a valid single ticket array', () => {
       const validTickets = [
         {
-          data: [
-            { address: '0x1234567890123456789012345678901234567890' }
-          ],
+          data: [{ address: '0x1234567890123456789012345678901234567890' }],
           sign: [
             {
               owner: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-              sig: '0x' + 'a'.repeat(130)
-            }
+              sig: '0x' + 'a'.repeat(130),
+            },
           ],
-          type: 'silver'
-        }
+          type: 'silver',
+        },
       ]
 
       const valid = validate(validTickets)
@@ -37,32 +35,30 @@ describe('ticketSchema', () => {
         {
           data: [
             { address: '0x1111111111111111111111111111111111111111' },
-            { address: '0x2222222222222222222222222222222222222222' }
+            { address: '0x2222222222222222222222222222222222222222' },
           ],
           sign: [
             {
               owner: '0x3333333333333333333333333333333333333333',
-              sig: '0x' + 'b'.repeat(130)
-            }
+              sig: '0x' + 'b'.repeat(130),
+            },
           ],
-          type: 'silver'
+          type: 'silver',
         },
         {
-          data: [
-            { address: '0x4444444444444444444444444444444444444444' }
-          ],
+          data: [{ address: '0x4444444444444444444444444444444444444444' }],
           sign: [
             {
               owner: '0x5555555555555555555555555555555555555555',
-              sig: '0x' + 'c'.repeat(130)
+              sig: '0x' + 'c'.repeat(130),
             },
             {
               owner: '0x6666666666666666666666666666666666666666',
-              sig: '0x' + 'd'.repeat(130)
-            }
+              sig: '0x' + 'd'.repeat(130),
+            },
           ],
-          type: 'silver'
-        }
+          type: 'silver',
+        },
       ]
 
       const valid = validate(validTickets)
@@ -79,7 +75,7 @@ describe('ticketSchema', () => {
       const invalidInput = {
         data: [],
         sign: [],
-        type: 'silver'
+        type: 'silver',
       }
 
       const valid = validate(invalidInput)
@@ -87,7 +83,7 @@ describe('ticketSchema', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'type',
-          params: { type: 'array' }
+          params: { type: 'array' },
         })
       )
     })
@@ -98,11 +94,11 @@ describe('ticketSchema', () => {
           sign: [
             {
               owner: '0x1234567890123456789012345678901234567890',
-              sig: '0x' + 'a'.repeat(130)
-            }
+              sig: '0x' + 'a'.repeat(130),
+            },
           ],
-          type: 'silver'
-        }
+          type: 'silver',
+        },
       ]
 
       const valid = validate(invalidTickets)
@@ -110,7 +106,7 @@ describe('ticketSchema', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'data' }
+          params: { missingProperty: 'data' },
         })
       )
     })
@@ -118,11 +114,9 @@ describe('ticketSchema', () => {
     it('should reject missing required field: sign', () => {
       const invalidTickets = [
         {
-          data: [
-            { address: '0x1234567890123456789012345678901234567890' }
-          ],
-          type: 'silver'
-        }
+          data: [{ address: '0x1234567890123456789012345678901234567890' }],
+          type: 'silver',
+        },
       ]
 
       const valid = validate(invalidTickets)
@@ -130,7 +124,7 @@ describe('ticketSchema', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'sign' }
+          params: { missingProperty: 'sign' },
         })
       )
     })
@@ -138,16 +132,14 @@ describe('ticketSchema', () => {
     it('should reject missing required field: type', () => {
       const invalidTickets = [
         {
-          data: [
-            { address: '0x1234567890123456789012345678901234567890' }
-          ],
+          data: [{ address: '0x1234567890123456789012345678901234567890' }],
           sign: [
             {
               owner: '0x1234567890123456789012345678901234567890',
-              sig: '0x' + 'a'.repeat(130)
-            }
-          ]
-        }
+              sig: '0x' + 'a'.repeat(130),
+            },
+          ],
+        },
       ]
 
       const valid = validate(invalidTickets)
@@ -155,7 +147,7 @@ describe('ticketSchema', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'type' }
+          params: { missingProperty: 'type' },
         })
       )
     })
@@ -167,11 +159,11 @@ describe('ticketSchema', () => {
           sign: [
             {
               owner: '0x1234567890123456789012345678901234567890',
-              sig: '0x' + 'a'.repeat(130)
-            }
+              sig: '0x' + 'a'.repeat(130),
+            },
           ],
-          type: 'silver'
-        }
+          type: 'silver',
+        },
       ]
 
       const valid = validate(invalidTickets)
@@ -179,7 +171,7 @@ describe('ticketSchema', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'minItems',
-          dataPath: expect.stringContaining('data')
+          dataPath: expect.stringContaining('data'),
         })
       )
     })
@@ -187,12 +179,10 @@ describe('ticketSchema', () => {
     it('should reject empty sign array', () => {
       const invalidTickets = [
         {
-          data: [
-            { address: '0x1234567890123456789012345678901234567890' }
-          ],
+          data: [{ address: '0x1234567890123456789012345678901234567890' }],
           sign: [],
-          type: 'silver'
-        }
+          type: 'silver',
+        },
       ]
 
       const valid = validate(invalidTickets)
@@ -200,7 +190,7 @@ describe('ticketSchema', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'minItems',
-          dataPath: expect.stringContaining('sign')
+          dataPath: expect.stringContaining('sign'),
         })
       )
     })
@@ -212,21 +202,21 @@ describe('ticketSchema', () => {
         '0x12345678901234567890123456789012345678901', // Too long
         '0xGHIJKL7890123456789012345678901234567890', // Invalid hex chars
         '0x123456789012345678901234567890123456789g', // Invalid char at end
-        'not-an-address'
+        'not-an-address',
       ]
 
-      invalidAddresses.forEach(invalidAddress => {
+      invalidAddresses.forEach((invalidAddress) => {
         const tickets = [
           {
             data: [{ address: invalidAddress }],
             sign: [
               {
                 owner: '0x1234567890123456789012345678901234567890',
-                sig: '0x' + 'a'.repeat(130)
-              }
+                sig: '0x' + 'a'.repeat(130),
+              },
             ],
-            type: 'silver'
-          }
+            type: 'silver',
+          },
         ]
 
         const valid = validate(tickets)
@@ -234,7 +224,7 @@ describe('ticketSchema', () => {
         expect(validate.errors).toContainEqual(
           expect.objectContaining({
             keyword: 'pattern',
-            dataPath: expect.stringContaining('address')
+            dataPath: expect.stringContaining('address'),
           })
         )
       })
@@ -247,20 +237,18 @@ describe('ticketSchema', () => {
         '0xZZZZ567890123456789012345678901234567890', // Invalid hex
       ]
 
-      invalidOwners.forEach(invalidOwner => {
+      invalidOwners.forEach((invalidOwner) => {
         const tickets = [
           {
-            data: [
-              { address: '0x1234567890123456789012345678901234567890' }
-            ],
+            data: [{ address: '0x1234567890123456789012345678901234567890' }],
             sign: [
               {
                 owner: invalidOwner,
-                sig: '0x' + 'a'.repeat(130)
-              }
+                sig: '0x' + 'a'.repeat(130),
+              },
             ],
-            type: 'silver'
-          }
+            type: 'silver',
+          },
         ]
 
         const valid = validate(tickets)
@@ -268,7 +256,7 @@ describe('ticketSchema', () => {
         expect(validate.errors).toContainEqual(
           expect.objectContaining({
             keyword: 'pattern',
-            dataPath: expect.stringContaining('owner')
+            dataPath: expect.stringContaining('owner'),
           })
         )
       })
@@ -282,20 +270,18 @@ describe('ticketSchema', () => {
         '0x' + 'g'.repeat(130), // Invalid hex
       ]
 
-      invalidSigs.forEach(invalidSig => {
+      invalidSigs.forEach((invalidSig) => {
         const tickets = [
           {
-            data: [
-              { address: '0x1234567890123456789012345678901234567890' }
-            ],
+            data: [{ address: '0x1234567890123456789012345678901234567890' }],
             sign: [
               {
                 owner: '0x1234567890123456789012345678901234567890',
-                sig: invalidSig
-              }
+                sig: invalidSig,
+              },
             ],
-            type: 'silver'
-          }
+            type: 'silver',
+          },
         ]
 
         const valid = validate(tickets)
@@ -303,7 +289,7 @@ describe('ticketSchema', () => {
         expect(validate.errors).toContainEqual(
           expect.objectContaining({
             keyword: 'pattern',
-            dataPath: expect.stringContaining('sig')
+            dataPath: expect.stringContaining('sig'),
           })
         )
       })
@@ -312,20 +298,18 @@ describe('ticketSchema', () => {
     it('should reject invalid ticket type', () => {
       const invalidTypes = ['gold', 'bronze', 'platinum', '', 'SILVER', 'Silver']
 
-      invalidTypes.forEach(invalidType => {
+      invalidTypes.forEach((invalidType) => {
         const tickets = [
           {
-            data: [
-              { address: '0x1234567890123456789012345678901234567890' }
-            ],
+            data: [{ address: '0x1234567890123456789012345678901234567890' }],
             sign: [
               {
                 owner: '0x1234567890123456789012345678901234567890',
-                sig: '0x' + 'a'.repeat(130)
-              }
+                sig: '0x' + 'a'.repeat(130),
+              },
             ],
-            type: invalidType
-          }
+            type: invalidType,
+          },
         ]
 
         const valid = validate(tickets)
@@ -333,7 +317,7 @@ describe('ticketSchema', () => {
         expect(validate.errors).toContainEqual(
           expect.objectContaining({
             keyword: 'enum',
-            dataPath: expect.stringContaining('type')
+            dataPath: expect.stringContaining('type'),
           })
         )
       })
@@ -342,18 +326,16 @@ describe('ticketSchema', () => {
     it('should reject additional properties on ticket', () => {
       const tickets = [
         {
-          data: [
-            { address: '0x1234567890123456789012345678901234567890' }
-          ],
+          data: [{ address: '0x1234567890123456789012345678901234567890' }],
           sign: [
             {
               owner: '0x1234567890123456789012345678901234567890',
-              sig: '0x' + 'a'.repeat(130)
-            }
+              sig: '0x' + 'a'.repeat(130),
+            },
           ],
           type: 'silver',
-          extraField: 'not allowed'
-        }
+          extraField: 'not allowed',
+        },
       ]
 
       const valid = validate(tickets)
@@ -361,7 +343,7 @@ describe('ticketSchema', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'additionalProperties',
-          params: { additionalProperty: 'extraField' }
+          params: { additionalProperty: 'extraField' },
         })
       )
     })
@@ -370,19 +352,19 @@ describe('ticketSchema', () => {
       const tickets = [
         {
           data: [
-            { 
+            {
               address: '0x1234567890123456789012345678901234567890',
-              extraField: 'not allowed'
-            }
+              extraField: 'not allowed',
+            },
           ],
           sign: [
             {
               owner: '0x1234567890123456789012345678901234567890',
-              sig: '0x' + 'a'.repeat(130)
-            }
+              sig: '0x' + 'a'.repeat(130),
+            },
           ],
-          type: 'silver'
-        }
+          type: 'silver',
+        },
       ]
 
       const valid = validate(tickets)
@@ -390,7 +372,7 @@ describe('ticketSchema', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'additionalProperties',
-          dataPath: expect.stringContaining('data')
+          dataPath: expect.stringContaining('data'),
         })
       )
     })
@@ -398,18 +380,16 @@ describe('ticketSchema', () => {
     it('should reject additional properties on sign items', () => {
       const tickets = [
         {
-          data: [
-            { address: '0x1234567890123456789012345678901234567890' }
-          ],
+          data: [{ address: '0x1234567890123456789012345678901234567890' }],
           sign: [
             {
               owner: '0x1234567890123456789012345678901234567890',
               sig: '0x' + 'a'.repeat(130),
-              timestamp: 123456 // extra field
-            }
+              timestamp: 123456, // extra field
+            },
           ],
-          type: 'silver'
-        }
+          type: 'silver',
+        },
       ]
 
       const valid = validate(tickets)
@@ -417,7 +397,7 @@ describe('ticketSchema', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'additionalProperties',
-          dataPath: expect.stringContaining('sign')
+          dataPath: expect.stringContaining('sign'),
         })
       )
     })
@@ -425,17 +405,15 @@ describe('ticketSchema', () => {
     it('should validate with mixed case hex in addresses and signatures', () => {
       const tickets = [
         {
-          data: [
-            { address: '0xAbCdEf1234567890123456789012345678901234' }
-          ],
+          data: [{ address: '0xAbCdEf1234567890123456789012345678901234' }],
           sign: [
             {
               owner: '0xFeDcBa9876543210987654321098765432109876',
-              sig: '0x' + 'aAbBcCdDeEfF'.repeat(10) + 'aAbBcCdDeE' // Exactly 130 hex chars
-            }
+              sig: '0x' + 'aAbBcCdDeEfF'.repeat(10) + 'aAbBcCdDeE', // Exactly 130 hex chars
+            },
           ],
-          type: 'silver'
-        }
+          type: 'silver',
+        },
       ]
 
       const valid = validate(tickets)
@@ -449,11 +427,11 @@ describe('ticketSchema', () => {
           sign: [
             {
               owner: 'invalid', // Invalid format
-              sig: 'invalid' // Invalid format
-            }
+              sig: 'invalid', // Invalid format
+            },
           ],
-          type: 'gold' // Invalid enum
-        }
+          type: 'gold', // Invalid enum
+        },
       ]
 
       const valid = validate(tickets)
@@ -466,7 +444,7 @@ describe('ticketSchema', () => {
     it('should create valid Sign type', () => {
       const sign: Sign = {
         owner: 'test-owner',
-        sig: 'test-signature'
+        sig: 'test-signature',
       }
 
       expect(sign.owner).toBe('test-owner')
@@ -477,7 +455,7 @@ describe('ticketSchema', () => {
       const ticket: Ticket = {
         data: [{ address: 'test-address' }],
         sign: [{ owner: 'test-owner', sig: 'test-sig' }],
-        type: 'silver'
+        type: 'silver',
       }
 
       expect(ticket.data).toHaveLength(1)
@@ -489,7 +467,7 @@ describe('ticketSchema', () => {
       const ticket: Ticket = {
         data: [],
         sign: [],
-        type: 'silver'
+        type: 'silver',
       }
 
       // TypeScript ensures these are arrays
@@ -508,7 +486,7 @@ describe('ticketSchema', () => {
     it('should have correct pattern for Ethereum addresses', () => {
       const addressPattern = ticketSchema.items.properties.data.items.properties.address.pattern
       expect(addressPattern).toBe('^0x[a-fA-F0-9]{40}$')
-      
+
       // Test the pattern
       const regex = new RegExp(addressPattern)
       expect(regex.test('0x1234567890123456789012345678901234567890')).toBe(true)
@@ -519,7 +497,7 @@ describe('ticketSchema', () => {
     it('should have correct pattern for signatures', () => {
       const sigPattern = ticketSchema.items.properties.sign.items.properties.sig.pattern
       expect(sigPattern).toBe('^0x[a-fA-F0-9]{130}$')
-      
+
       // Test the pattern
       const regex = new RegExp(sigPattern)
       expect(regex.test('0x' + 'a'.repeat(130))).toBe(true)

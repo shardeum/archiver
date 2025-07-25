@@ -9,7 +9,7 @@ import {
   CycleCheckpointRadixEntry,
   CycleCheckpointRadixDigest,
   CycleCheckpointBucket,
-  CycleRadixDigestTally
+  CycleRadixDigestTally,
 } from '../../../../src/checkpoint/CycleData'
 
 // Mock dependencies
@@ -18,22 +18,22 @@ jest.mock('../../../../src/Logger', () => ({
   mainLogger: {
     error: jest.fn(),
     info: jest.fn(),
-    debug: jest.fn()
-  }
+    debug: jest.fn(),
+  },
 }))
 jest.mock('../../../../src/dbstore/cycles')
 jest.mock('@shardeum-foundation/lib-types', () => ({
   Utils: {
-    safeStringify: jest.fn((obj) => JSON.stringify(obj))
-  }
+    safeStringify: jest.fn((obj) => JSON.stringify(obj)),
+  },
 }))
 jest.mock('../../../../src/State', () => ({
   getNodeInfo: jest.fn(),
   activeArchivers: [],
-  otherArchivers: []
+  otherArchivers: [],
 }))
 jest.mock('../../../../src/P2P', () => ({
-  postJson: jest.fn()
+  postJson: jest.fn(),
 }))
 jest.mock('../../../../src/Config', () => ({
   config: {
@@ -43,22 +43,22 @@ jest.mock('../../../../src/Config', () => ({
         cycleAge: 300,
         lastFailedBucketDuration: 300000,
         GiveUpAge: 1200,
-        BucketMatureAge: 600
+        BucketMatureAge: 600,
       },
-      statusArraySize: 100
+      statusArraySize: 100,
     },
     ARCHIVER_IP: '127.0.0.1',
     ARCHIVER_PORT: 4000,
-    VERBOSE: false
-  }
+    VERBOSE: false,
+  },
 }))
 jest.mock('../../../../src/dbstore/checkpointStatus', () => ({
   CheckpointStatusType: {
     CYCLE: 'cycle',
     RECEIPT: 'receipt',
-    ORIGINAL_TX: 'originalTx'
+    ORIGINAL_TX: 'originalTx',
   },
-  updateCheckpointStatusField: jest.fn()
+  updateCheckpointStatusField: jest.fn(),
 }))
 
 describe('CycleData', () => {
@@ -83,7 +83,7 @@ describe('CycleData', () => {
       returned: [],
       networkDataHash: [],
       networkReceiptHash: [],
-      networkSummaryHash: []
+      networkSummaryHash: [],
     } as any,
   }
 
@@ -145,9 +145,9 @@ describe('CycleData', () => {
     it('should create a CycleCheckpointRadixEntry instance', () => {
       // Mock the hash function for empty data
       ;(Crypto.hash as jest.Mock).mockReturnValue('empty-hash')
-      
+
       const radixEntry = new CycleCheckpointRadixEntry('ab')
-      
+
       expect(radixEntry).toBeDefined()
       expect(radixEntry.digest).toBeDefined()
       expect(radixEntry.digest.radix).toBe('ab')
@@ -160,7 +160,7 @@ describe('CycleData', () => {
   describe('CycleCheckpointRadixDigest', () => {
     it('should create a CycleCheckpointRadixDigest instance', () => {
       const radixDigest = new CycleCheckpointRadixDigest('ab', 'hash123', 5)
-      
+
       expect(radixDigest).toBeDefined()
       expect(radixDigest.radix).toBe('ab')
       expect(radixDigest.hash).toBe('hash123')
@@ -171,7 +171,7 @@ describe('CycleData', () => {
   describe('CycleRadixDigestTally', () => {
     it('should create a CycleRadixDigestTally instance', () => {
       const tally = new CycleRadixDigestTally('ab')
-      
+
       expect(tally).toBeDefined()
       expect(tally.radix).toBe('ab')
       expect(tally.hashTally).toBeDefined()
@@ -186,14 +186,8 @@ describe('CycleData', () => {
     const mockUpdateData = jest.fn()
 
     it('should create a CycleCheckpointBucket instance', () => {
-      const bucket = new CycleCheckpointBucket(
-        1000,
-        2000,
-        'bucket-1',
-        mockValidateData,
-        mockUpdateData
-      )
-      
+      const bucket = new CycleCheckpointBucket(1000, 2000, 'bucket-1', mockValidateData, mockUpdateData)
+
       expect(bucket).toBeDefined()
       expect(bucket.startTime).toBe(1000)
       expect(bucket.endTime).toBe(2000)
@@ -202,19 +196,13 @@ describe('CycleData', () => {
     })
 
     it('should call parent update method', async () => {
-      const bucket = new CycleCheckpointBucket(
-        1000,
-        2000,
-        'bucket-1',
-        mockValidateData,
-        mockUpdateData
-      )
-      
+      const bucket = new CycleCheckpointBucket(1000, 2000, 'bucket-1', mockValidateData, mockUpdateData)
+
       // Spy on parent's update method
       const parentUpdateSpy = jest.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(bucket)), 'update')
-      
+
       await bucket.update(1500)
-      
+
       expect(parentUpdateSpy).toHaveBeenCalledWith(1500)
     })
   })
@@ -245,7 +233,7 @@ describe('CycleData', () => {
     it('should always return the same instance', () => {
       const module1 = require('../../../../src/checkpoint/CycleData')
       const module2 = require('../../../../src/checkpoint/CycleData')
-      
+
       expect(module1.cycleCheckpointManager).toBe(module2.cycleCheckpointManager)
     })
   })

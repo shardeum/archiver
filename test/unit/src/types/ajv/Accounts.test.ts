@@ -8,7 +8,7 @@ const mockSchemaMap = new Map<string, object>()
 jest.mock('../../../../../src/utils/serialization/SchemaHelpers', () => ({
   addSchema: jest.fn((name: string, schema: object) => {
     mockSchemaMap.set(name, schema)
-  })
+  }),
 }))
 
 // Helper to get schema from our mock
@@ -51,11 +51,11 @@ describe('ajv/Accounts schemas', () => {
     it('should be idempotent', () => {
       initAccounts()
       const schema1 = getSchema(AJVSchemaEnum.AccountsCopy)
-      
+
       // Call init again
       initAccounts()
       const schema2 = getSchema(AJVSchemaEnum.AccountsCopy)
-      
+
       expect(schema1).toBe(schema2)
     })
   })
@@ -78,7 +78,7 @@ describe('ajv/Accounts schemas', () => {
         data: { balance: 100, name: 'Test Account' },
         timestamp: 1234567890,
         hash: 'hash-abc-123',
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(validAccount)
@@ -93,7 +93,7 @@ describe('ajv/Accounts schemas', () => {
         timestamp: 9876543210,
         hash: 'hash-def-456',
         cycleNumber: 42,
-        isGlobal: false
+        isGlobal: false,
       }
 
       const valid = validate(accountWithCycle)
@@ -106,7 +106,7 @@ describe('ajv/Accounts schemas', () => {
         data: {},
         timestamp: 0,
         hash: 'hash-ghi-789',
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(accountWithoutCycle)
@@ -122,7 +122,7 @@ describe('ajv/Accounts schemas', () => {
         timestamp: 0,
         hash: 'hash-ghi-789',
         cycleNumber: null,
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(accountWithNullCycle)
@@ -132,7 +132,7 @@ describe('ajv/Accounts schemas', () => {
         expect(validate.errors).toContainEqual(
           expect.objectContaining({
             keyword: 'type',
-            dataPath: expect.stringContaining('cycleNumber')
+            dataPath: expect.stringContaining('cycleNumber'),
           })
         )
       }
@@ -148,16 +148,16 @@ describe('ajv/Accounts schemas', () => {
                 array: [1, 2, 3],
                 string: 'nested',
                 boolean: true,
-                number: 3.14159
-              }
-            }
+                number: 3.14159,
+              },
+            },
           },
           dynamicKey: 'dynamicValue',
-          'special-key': 'special-value'
+          'special-key': 'special-value',
         },
         timestamp: 1000000,
         hash: 'complex-hash',
-        isGlobal: false
+        isGlobal: false,
       }
 
       const valid = validate(complexAccount)
@@ -169,7 +169,7 @@ describe('ajv/Accounts schemas', () => {
         data: { test: 'data' },
         timestamp: 123,
         hash: 'hash',
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(invalidAccount)
@@ -177,7 +177,7 @@ describe('ajv/Accounts schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'accountId' }
+          params: { missingProperty: 'accountId' },
         })
       )
     })
@@ -187,7 +187,7 @@ describe('ajv/Accounts schemas', () => {
         accountId: 'acc-123',
         timestamp: 123,
         hash: 'hash',
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(invalidAccount)
@@ -195,7 +195,7 @@ describe('ajv/Accounts schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'data' }
+          params: { missingProperty: 'data' },
         })
       )
     })
@@ -205,7 +205,7 @@ describe('ajv/Accounts schemas', () => {
         accountId: 'acc-123',
         data: {},
         hash: 'hash',
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(invalidAccount)
@@ -213,7 +213,7 @@ describe('ajv/Accounts schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'timestamp' }
+          params: { missingProperty: 'timestamp' },
         })
       )
     })
@@ -223,7 +223,7 @@ describe('ajv/Accounts schemas', () => {
         accountId: 'acc-123',
         data: {},
         timestamp: 123,
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(invalidAccount)
@@ -231,7 +231,7 @@ describe('ajv/Accounts schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'hash' }
+          params: { missingProperty: 'hash' },
         })
       )
     })
@@ -241,7 +241,7 @@ describe('ajv/Accounts schemas', () => {
         accountId: 'acc-123',
         data: {},
         timestamp: 123,
-        hash: 'hash'
+        hash: 'hash',
       }
 
       const valid = validate(invalidAccount)
@@ -249,7 +249,7 @@ describe('ajv/Accounts schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'required',
-          params: { missingProperty: 'isGlobal' }
+          params: { missingProperty: 'isGlobal' },
         })
       )
     })
@@ -260,7 +260,7 @@ describe('ajv/Accounts schemas', () => {
         data: {},
         timestamp: 123,
         hash: 'hash',
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(invalidAccount)
@@ -269,7 +269,7 @@ describe('ajv/Accounts schemas', () => {
         expect.objectContaining({
           keyword: 'type',
           dataPath: expect.stringContaining('accountId'),
-          params: { type: 'string' }
+          params: { type: 'string' },
         })
       )
     })
@@ -280,7 +280,7 @@ describe('ajv/Accounts schemas', () => {
         data: 'not-an-object', // Should be object
         timestamp: 123,
         hash: 'hash',
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(invalidAccount)
@@ -289,7 +289,7 @@ describe('ajv/Accounts schemas', () => {
         expect.objectContaining({
           keyword: 'type',
           dataPath: expect.stringContaining('data'),
-          params: { type: 'object' }
+          params: { type: 'object' },
         })
       )
     })
@@ -300,7 +300,7 @@ describe('ajv/Accounts schemas', () => {
         data: {},
         timestamp: '123', // Should be integer
         hash: 'hash',
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(invalidAccount)
@@ -309,7 +309,7 @@ describe('ajv/Accounts schemas', () => {
         expect.objectContaining({
           keyword: 'type',
           dataPath: expect.stringContaining('timestamp'),
-          params: { type: 'integer' }
+          params: { type: 'integer' },
         })
       )
     })
@@ -320,7 +320,7 @@ describe('ajv/Accounts schemas', () => {
         data: {},
         timestamp: -1, // Should be >= 0
         hash: 'hash',
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(invalidAccount)
@@ -328,7 +328,7 @@ describe('ajv/Accounts schemas', () => {
       expect(validate.errors).toContainEqual(
         expect.objectContaining({
           keyword: 'minimum',
-          dataPath: expect.stringContaining('timestamp')
+          dataPath: expect.stringContaining('timestamp'),
         })
       )
     })
@@ -339,7 +339,7 @@ describe('ajv/Accounts schemas', () => {
         data: {},
         timestamp: 123,
         hash: 'hash',
-        isGlobal: 'true' // Should be boolean
+        isGlobal: 'true', // Should be boolean
       }
 
       const valid = validate(invalidAccount)
@@ -348,7 +348,7 @@ describe('ajv/Accounts schemas', () => {
         expect.objectContaining({
           keyword: 'type',
           dataPath: expect.stringContaining('isGlobal'),
-          params: { type: 'boolean' }
+          params: { type: 'boolean' },
         })
       )
     })
@@ -360,7 +360,7 @@ describe('ajv/Accounts schemas', () => {
         timestamp: 123,
         hash: 'hash',
         isGlobal: true,
-        cycleNumber: '42' // Should be integer or null
+        cycleNumber: '42', // Should be integer or null
       }
 
       const valid = validate(invalidAccount)
@@ -369,7 +369,7 @@ describe('ajv/Accounts schemas', () => {
         expect.objectContaining({
           keyword: 'type',
           dataPath: expect.stringContaining('cycleNumber'),
-          params: { type: 'integer' }
+          params: { type: 'integer' },
         })
       )
     })
@@ -380,7 +380,7 @@ describe('ajv/Accounts schemas', () => {
         data: {},
         timestamp: 0,
         hash: '',
-        isGlobal: false
+        isGlobal: false,
       }
 
       const valid = validate(account)
@@ -393,7 +393,7 @@ describe('ajv/Accounts schemas', () => {
         data: {},
         timestamp: Number.MAX_SAFE_INTEGER,
         hash: 'hash',
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(account)
@@ -408,7 +408,7 @@ describe('ajv/Accounts schemas', () => {
         hash: 'hash',
         isGlobal: true,
         extraField: 'should be allowed',
-        anotherExtra: 123
+        anotherExtra: 123,
       }
 
       const valid = validate(accountWithExtra)
@@ -422,12 +422,12 @@ describe('ajv/Accounts schemas', () => {
           nullValue: null,
           undefinedValue: undefined,
           nested: {
-            alsoNull: null
-          }
+            alsoNull: null,
+          },
         },
         timestamp: 123,
         hash: 'hash',
-        isGlobal: true
+        isGlobal: true,
       }
 
       const valid = validate(account)
@@ -439,7 +439,7 @@ describe('ajv/Accounts schemas', () => {
     it('should have correct structure for AccountsCopy schema', () => {
       initAccounts()
       const schema = getSchema(AJVSchemaEnum.AccountsCopy)
-      
+
       expect(schema).toEqual({
         type: 'object',
         properties: {
@@ -450,7 +450,7 @@ describe('ajv/Accounts schemas', () => {
           cycleNumber: { type: 'integer', nullable: true },
           isGlobal: { type: 'boolean' },
         },
-        required: ['accountId', 'data', 'timestamp', 'hash', 'isGlobal']
+        required: ['accountId', 'data', 'timestamp', 'hash', 'isGlobal'],
       })
     })
 
@@ -458,13 +458,13 @@ describe('ajv/Accounts schemas', () => {
       // The addSchemaDependencies function is empty, indicating no dependencies
       // This test verifies that behavior doesn't change
       initAccounts()
-      
+
       // If there were dependencies, they would be registered before the main schema
       // Since there are none, only AccountsCopy should be registered
-      const registeredSchemas = Object.values(AJVSchemaEnum).filter(enumValue => {
+      const registeredSchemas = Object.values(AJVSchemaEnum).filter((enumValue) => {
         return getSchema(enumValue) !== undefined
       })
-      
+
       expect(registeredSchemas).toEqual([AJVSchemaEnum.AccountsCopy])
     })
   })

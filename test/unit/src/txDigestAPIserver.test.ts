@@ -101,7 +101,7 @@ describe('txDigestAPIserver', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    
+
     // Save original console.log and process.exit
     originalConsoleLog = console.log
     originalProcessExit = process.exit
@@ -111,10 +111,12 @@ describe('txDigestAPIserver', () => {
     // Setup default mocks
     mockedJoin.mockImplementation((...args: string[]) => args.join('/'))
     mockedResolve.mockImplementation((...args: string[]) => args.join('/'))
-    mockedReadFileSync.mockReturnValue(JSON.stringify({
-      dir: '/logs',
-      saveConsoleOutput: true,
-    }))
+    mockedReadFileSync.mockReturnValue(
+      JSON.stringify({
+        dir: '/logs',
+        saveConsoleOutput: true,
+      })
+    )
   })
 
   afterEach(() => {
@@ -141,7 +143,7 @@ describe('txDigestAPIserver', () => {
       })
 
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise((resolve) => setTimeout(resolve, 10))
 
       // Assert
       expect(mockedOverrideDefaultConfig).toHaveBeenCalledWith(expect.stringContaining('archiver-config.json'))
@@ -186,7 +188,7 @@ describe('txDigestAPIserver', () => {
       })
 
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise((resolve) => setTimeout(resolve, 10))
 
       // Assert
       expect(mockFastifyInstance.log.error).toHaveBeenCalledWith(mockError)
@@ -210,7 +212,7 @@ describe('txDigestAPIserver', () => {
       })
 
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise((resolve) => setTimeout(resolve, 10))
 
       // Assert
       expect(mockedStartSaving).not.toHaveBeenCalled()
@@ -232,7 +234,7 @@ describe('txDigestAPIserver', () => {
       })
 
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise((resolve) => setTimeout(resolve, 10))
 
       // Test valid JSON
       const validJson = '{"test": "data"}'
@@ -244,10 +246,7 @@ describe('txDigestAPIserver', () => {
       const invalidJson = 'invalid json'
       const doneFn2 = jest.fn()
       contentParserCallback({}, invalidJson, doneFn2)
-      expect(doneFn2).toHaveBeenCalledWith(
-        expect.objectContaining({ statusCode: 400 }),
-        undefined
-      )
+      expect(doneFn2).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }), undefined)
     })
 
     it('should handle reply serializer correctly', async () => {
@@ -266,7 +265,7 @@ describe('txDigestAPIserver', () => {
       })
 
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise((resolve) => setTimeout(resolve, 10))
 
       // Test serializer
       const testPayload = { data: 'test', number: 123 }
@@ -286,14 +285,12 @@ describe('txDigestAPIserver', () => {
       })
 
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise((resolve) => setTimeout(resolve, 10))
 
       // Assert rate limit configuration
       // Check that register was called with rate limit plugin
       const registerCalls = mockFastifyInstance.register.mock.calls
-      const rateLimitCall = registerCalls.find(call => 
-        call[1] && call[1].global === true && call[1].max === 100
-      )
+      const rateLimitCall = registerCalls.find((call) => call[1] && call[1].global === true && call[1].max === 100)
       expect(rateLimitCall).toBeDefined()
       expect(rateLimitCall[1]).toMatchObject({
         global: true,
@@ -319,13 +316,13 @@ describe('txDigestAPIserver', () => {
       })
 
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise((resolve) => setTimeout(resolve, 10))
 
       // Test with Buffer input
       const jsonData = { test: 'buffer' }
       const buffer = Buffer.from(JSON.stringify(jsonData))
       const doneFn = jest.fn()
-      
+
       contentParserCallback({}, buffer, doneFn)
       expect(doneFn).toHaveBeenCalledWith(null, jsonData)
     })

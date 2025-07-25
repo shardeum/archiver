@@ -9,7 +9,7 @@ import {
   calculateBucketID,
   OriginalTxCheckpointRadixEntry,
   OriginalTxCheckpointRadixDigest,
-  OriginalTxCheckpointBucket
+  OriginalTxCheckpointBucket,
 } from '../../../../src/checkpoint/OriginalTxsData'
 
 // Mock dependencies
@@ -18,24 +18,24 @@ jest.mock('../../../../src/Logger', () => ({
   mainLogger: {
     error: jest.fn(),
     info: jest.fn(),
-    debug: jest.fn()
-  }
+    debug: jest.fn(),
+  },
 }))
 jest.mock('../../../../src/dbstore/originalTxsData')
 jest.mock('../../../../src/dbstore/sqlite3storage')
 jest.mock('../../../../src/Data/Collector')
 jest.mock('@shardeum-foundation/lib-types', () => ({
   Utils: {
-    safeStringify: jest.fn((obj) => JSON.stringify(obj))
-  }
+    safeStringify: jest.fn((obj) => JSON.stringify(obj)),
+  },
 }))
 jest.mock('../../../../src/State', () => ({
   getNodeInfo: jest.fn(),
   activeArchivers: [],
-  otherArchivers: []
+  otherArchivers: [],
 }))
 jest.mock('../../../../src/P2P', () => ({
-  postJson: jest.fn()
+  postJson: jest.fn(),
 }))
 jest.mock('../../../../src/Config', () => ({
   config: {
@@ -45,9 +45,9 @@ jest.mock('../../../../src/Config', () => ({
         cycleAge: 300,
         lastFailedBucketDuration: 300000,
         GiveUpAge: 1200,
-        BucketMatureAge: 600
+        BucketMatureAge: 600,
       },
-      statusArraySize: 100
+      statusArraySize: 100,
     },
     ARCHIVER_IP: '127.0.0.1',
     ARCHIVER_PORT: 4000,
@@ -55,24 +55,24 @@ jest.mock('../../../../src/Config', () => ({
     tickets: {
       allowedTicketSigners: [],
       minSigRequired: 1,
-      requiredSecurityLevel: 'low'
+      requiredSecurityLevel: 'low',
     },
     REQUEST_LIMIT: {
       MAX_CYCLES_PER_REQUEST: 100,
       MAX_ORIGINAL_TXS_PER_REQUEST: 1000,
       MAX_RECEIPTS_PER_REQUEST: 1000,
       MAX_ACCOUNTS_PER_REQUEST: 1000,
-      MAX_BETWEEN_CYCLES_PER_REQUEST: 100
-    }
-  }
+      MAX_BETWEEN_CYCLES_PER_REQUEST: 100,
+    },
+  },
 }))
 jest.mock('../../../../src/dbstore/checkpointStatus', () => ({
   CheckpointStatusType: {
     CYCLE: 'cycle',
     RECEIPT: 'receipt',
-    ORIGINAL_TX: 'originalTx'
+    ORIGINAL_TX: 'originalTx',
   },
-  updateCheckpointStatusField: jest.fn()
+  updateCheckpointStatusField: jest.fn(),
 }))
 
 describe('OriginalTxsData', () => {
@@ -85,12 +85,12 @@ describe('OriginalTxsData', () => {
         to: '0x123',
         from: '0x456',
         value: '1000',
-        data: '0x'
-      }
+        data: '0x',
+      },
     },
     submitterAppData: {
-      networkId: 'testnet'
-    }
+      networkId: 'testnet',
+    },
   } as any
 
   beforeEach(() => {
@@ -181,9 +181,9 @@ describe('OriginalTxsData', () => {
     it('should create an OriginalTxCheckpointRadixEntry instance', () => {
       // Mock the hash function for empty data
       ;(Crypto.hash as jest.Mock).mockReturnValue('empty-hash')
-      
+
       const radixEntry = new OriginalTxCheckpointRadixEntry('ab')
-      
+
       expect(radixEntry).toBeDefined()
       expect(radixEntry.digest).toBeDefined()
       expect(radixEntry.digest.radix).toBe('ab')
@@ -194,9 +194,9 @@ describe('OriginalTxsData', () => {
 
     it('should create with different radix values', () => {
       ;(Crypto.hash as jest.Mock).mockReturnValue('hash-ff')
-      
+
       const radixEntry = new OriginalTxCheckpointRadixEntry('ff')
-      
+
       expect(radixEntry.digest.radix).toBe('ff')
     })
   })
@@ -204,7 +204,7 @@ describe('OriginalTxsData', () => {
   describe('OriginalTxCheckpointRadixDigest', () => {
     it('should create an OriginalTxCheckpointRadixDigest instance', () => {
       const radixDigest = new OriginalTxCheckpointRadixDigest('ab', 'hash123', 5)
-      
+
       expect(radixDigest).toBeDefined()
       expect(radixDigest.radix).toBe('ab')
       expect(radixDigest.hash).toBe('hash123')
@@ -213,13 +213,13 @@ describe('OriginalTxsData', () => {
 
     it('should handle zero item count', () => {
       const radixDigest = new OriginalTxCheckpointRadixDigest('cd', 'hash456', 0)
-      
+
       expect(radixDigest.itemCount).toBe(0)
     })
 
     it('should handle large item counts', () => {
       const radixDigest = new OriginalTxCheckpointRadixDigest('ef', 'hash789', 1000000)
-      
+
       expect(radixDigest.itemCount).toBe(1000000)
     })
   })
@@ -229,14 +229,8 @@ describe('OriginalTxsData', () => {
     const mockUpdateData = jest.fn()
 
     it('should create an OriginalTxCheckpointBucket instance', () => {
-      const bucket = new OriginalTxCheckpointBucket(
-        1000,
-        2000,
-        'bucket-1',
-        mockValidateData,
-        mockUpdateData
-      )
-      
+      const bucket = new OriginalTxCheckpointBucket(1000, 2000, 'bucket-1', mockValidateData, mockUpdateData)
+
       expect(bucket).toBeDefined()
       expect(bucket.startTime).toBe(1000)
       expect(bucket.endTime).toBe(2000)
@@ -245,31 +239,19 @@ describe('OriginalTxsData', () => {
     })
 
     it('should call parent update method', async () => {
-      const bucket = new OriginalTxCheckpointBucket(
-        1000,
-        2000,
-        'bucket-1',
-        mockValidateData,
-        mockUpdateData
-      )
-      
+      const bucket = new OriginalTxCheckpointBucket(1000, 2000, 'bucket-1', mockValidateData, mockUpdateData)
+
       // Spy on parent's update method
       const parentUpdateSpy = jest.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(bucket)), 'update')
-      
+
       await bucket.update(1500)
-      
+
       expect(parentUpdateSpy).toHaveBeenCalledWith(1500)
     })
 
     it('should handle different time ranges', () => {
-      const bucket = new OriginalTxCheckpointBucket(
-        5000,
-        10000,
-        'bucket-2',
-        mockValidateData,
-        mockUpdateData
-      )
-      
+      const bucket = new OriginalTxCheckpointBucket(5000, 10000, 'bucket-2', mockValidateData, mockUpdateData)
+
       expect(bucket.startTime).toBe(5000)
       expect(bucket.endTime).toBe(10000)
     })
@@ -282,7 +264,7 @@ describe('OriginalTxsData', () => {
         t: 1234567890,
         h: 'validhash',
         c: CheckpointType.OriginalTx,
-        d: mockOriginalTx
+        d: mockOriginalTx,
       }
 
       ;(validateOriginalTxDataSchema as jest.Mock).mockReturnValue(true)
@@ -304,7 +286,7 @@ describe('OriginalTxsData', () => {
         t: 1234567890,
         h: 'validhash',
         c: CheckpointType.OriginalTx,
-        d: mockOriginalTx
+        d: mockOriginalTx,
       }
 
       ;(validateOriginalTxDataSchema as jest.Mock).mockReturnValue(false)
@@ -325,7 +307,7 @@ describe('OriginalTxsData', () => {
         t: 1234567890,
         h: 'validhash',
         c: CheckpointType.OriginalTx,
-        d: mockOriginalTx
+        d: mockOriginalTx,
       }
 
       ;(validateOriginalTxDataSchema as jest.Mock).mockImplementation(() => {
@@ -348,7 +330,7 @@ describe('OriginalTxsData', () => {
         t: 1234567890,
         h: 'validhash',
         c: CheckpointType.OriginalTx,
-        d: mockOriginalTx
+        d: mockOriginalTx,
       }
 
       ;(insertOriginalTxData as jest.Mock).mockResolvedValue(undefined)
@@ -368,7 +350,7 @@ describe('OriginalTxsData', () => {
         t: 1234567890,
         h: 'validhash',
         c: CheckpointType.OriginalTx,
-        d: mockOriginalTx
+        d: mockOriginalTx,
       }
 
       const error = new Error('Database error')
@@ -389,7 +371,7 @@ describe('OriginalTxsData', () => {
         t: 1234567890,
         h: 'validhash',
         c: CheckpointType.OriginalTx,
-        d: mockOriginalTx
+        d: mockOriginalTx,
       }
 
       const error = new Error('Network timeout')
@@ -414,7 +396,7 @@ describe('OriginalTxsData', () => {
     it('should always return the same instance', () => {
       const module1 = require('../../../../src/checkpoint/OriginalTxsData')
       const module2 = require('../../../../src/checkpoint/OriginalTxsData')
-      
+
       expect(module1.originalTxCheckpointManager).toBe(module2.originalTxCheckpointManager)
     })
 

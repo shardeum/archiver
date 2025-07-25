@@ -49,7 +49,9 @@ describe('NodeList', () => {
   // Cast mocked functions
   const mockedGetJson = P2P.getJson as jest.MockedFunction<typeof P2P.getJson>
   const mockedInsertSorted = Utils.insertSorted as jest.MockedFunction<typeof Utils.insertSorted>
-  const mockedGetRandomItemFromArr = Utils.getRandomItemFromArr as jest.MockedFunction<typeof Utils.getRandomItemFromArr>
+  const mockedGetRandomItemFromArr = Utils.getRandomItemFromArr as jest.MockedFunction<
+    typeof Utils.getRandomItemFromArr
+  >
   const mockedSign = Crypto.sign as jest.MockedFunction<typeof Crypto.sign>
   const mockedVerify = Crypto.verify as jest.MockedFunction<typeof Crypto.verify>
 
@@ -63,7 +65,7 @@ describe('NodeList', () => {
     // Clear standby nodes manually as clearNodeLists doesn't clear them
     const standbyNodes = NodeList.getStandbyList()
     if (standbyNodes.length > 0) {
-      NodeList.removeStandbyNodes(standbyNodes.map(n => n.publicKey))
+      NodeList.removeStandbyNodes(standbyNodes.map((n) => n.publicKey))
     }
     consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
   })
@@ -173,7 +175,7 @@ describe('NodeList', () => {
       }
 
       NodeList.addNodes(NodeList.NodeStatus.ACTIVE, [node])
-      
+
       const nodeWithId = { ...node, id: 'node1' }
       NodeList.addNodes(NodeList.NodeStatus.ACTIVE, [nodeWithId])
 
@@ -208,7 +210,7 @@ describe('NodeList', () => {
       }
 
       NodeList.addNodes(NodeList.NodeStatus.ACTIVE, [node])
-      
+
       const updatedNode = { ...node, id: 'updated-id' }
       NodeList.refreshNodes(NodeList.NodeStatus.ACTIVE, [updatedNode])
 
@@ -332,9 +334,7 @@ describe('NodeList', () => {
     it('should handle empty status update list', () => {
       NodeList.setStatus(NodeList.NodeStatus.ACTIVE, [])
 
-      expect(Logger.mainLogger.debug).not.toHaveBeenCalledWith(
-        expect.stringContaining('Updating status')
-      )
+      expect(Logger.mainLogger.debug).not.toHaveBeenCalledWith(expect.stringContaining('Updating status'))
     })
   })
 
@@ -427,9 +427,7 @@ describe('NodeList', () => {
     })
 
     it('should return cached list when hot', () => {
-      const nodes: NodeList.ConsensusNodeInfo[] = [
-        { ip: '10.0.0.1', port: 9001, publicKey: 'pk1', id: 'node1' },
-      ]
+      const nodes: NodeList.ConsensusNodeInfo[] = [{ ip: '10.0.0.1', port: 9001, publicKey: 'pk1', id: 'node1' }]
 
       NodeList.addNodes(NodeList.NodeStatus.ACTIVE, nodes)
 
@@ -455,12 +453,8 @@ describe('NodeList', () => {
     })
 
     it('should get cached full node list', () => {
-      const activeNodes: NodeList.ConsensusNodeInfo[] = [
-        { ip: '10.0.0.1', port: 9001, publicKey: 'pk1', id: 'node1' },
-      ]
-      const syncingNodes: NodeList.ConsensusNodeInfo[] = [
-        { ip: '10.0.0.2', port: 9002, publicKey: 'pk2', id: 'node2' },
-      ]
+      const activeNodes: NodeList.ConsensusNodeInfo[] = [{ ip: '10.0.0.1', port: 9001, publicKey: 'pk1', id: 'node1' }]
+      const syncingNodes: NodeList.ConsensusNodeInfo[] = [{ ip: '10.0.0.2', port: 9002, publicKey: 'pk2', id: 'node2' }]
 
       NodeList.addNodes(NodeList.NodeStatus.ACTIVE, activeNodes)
       NodeList.addNodes(NodeList.NodeStatus.SYNCING, syncingNodes)
@@ -472,12 +466,8 @@ describe('NodeList', () => {
     })
 
     it('should get cached active only node list', () => {
-      const activeNodes: NodeList.ConsensusNodeInfo[] = [
-        { ip: '10.0.0.1', port: 9001, publicKey: 'pk1', id: 'node1' },
-      ]
-      const syncingNodes: NodeList.ConsensusNodeInfo[] = [
-        { ip: '10.0.0.2', port: 9002, publicKey: 'pk2', id: 'node2' },
-      ]
+      const activeNodes: NodeList.ConsensusNodeInfo[] = [{ ip: '10.0.0.1', port: 9001, publicKey: 'pk1', id: 'node1' }]
+      const syncingNodes: NodeList.ConsensusNodeInfo[] = [{ ip: '10.0.0.2', port: 9002, publicKey: 'pk2', id: 'node2' }]
 
       NodeList.addNodes(NodeList.NodeStatus.ACTIVE, activeNodes)
       NodeList.addNodes(NodeList.NodeStatus.SYNCING, syncingNodes)
@@ -500,9 +490,7 @@ describe('NodeList', () => {
       }
 
       const mockResponse = {
-        nodeList: [
-          { ip: '10.0.0.2', port: 9001, publicKey: 'pk1' },
-        ],
+        nodeList: [{ ip: '10.0.0.2', port: 9001, publicKey: 'pk1' }],
         sign: { owner: 'archiver1', sig: 'sig1' },
       }
 
@@ -524,9 +512,7 @@ describe('NodeList', () => {
       }
 
       const mockResponse = {
-        nodeList: [
-          { ip: '10.0.0.2', port: 9001, publicKey: 'pk1' },
-        ],
+        nodeList: [{ ip: '10.0.0.2', port: 9001, publicKey: 'pk1' }],
         sign: { owner: 'archiver1', sig: 'sig1' },
       }
 
@@ -562,9 +548,7 @@ describe('NodeList', () => {
       }
 
       const mockResponse = {
-        nodeList: [
-          { ip: '10.0.0.2', port: 9001, publicKey: 'pk1' },
-        ],
+        nodeList: [{ ip: '10.0.0.2', port: 9001, publicKey: 'pk1' }],
         sign: { owner: 'different-archiver', sig: 'sig1' },
       }
 
@@ -594,9 +578,7 @@ describe('NodeList', () => {
     })
 
     it('should return all nodes when requested count exceeds available', () => {
-      const nodes: NodeList.ConsensusNodeInfo[] = [
-        { ip: '10.0.0.1', port: 9001, publicKey: 'pk1', id: 'node1' },
-      ]
+      const nodes: NodeList.ConsensusNodeInfo[] = [{ ip: '10.0.0.1', port: 9001, publicKey: 'pk1', id: 'node1' }]
 
       NodeList.addNodes(NodeList.NodeStatus.ACTIVE, nodes)
 
@@ -636,9 +618,7 @@ describe('NodeList', () => {
     it('should do nothing when no active nodes', () => {
       NodeList.changeNodeListInRestore()
 
-      expect(Logger.mainLogger.debug).not.toHaveBeenCalledWith(
-        expect.stringContaining('changeNodeListInRestore')
-      )
+      expect(Logger.mainLogger.debug).not.toHaveBeenCalledWith(expect.stringContaining('changeNodeListInRestore'))
     })
   })
 
@@ -670,10 +650,7 @@ describe('NodeList', () => {
 
       NodeList.clearNodeLists()
 
-      expect(Logger.mainLogger.error).toHaveBeenCalledWith(
-        'Error thrown in clearNodeListCache',
-        expect.any(Error)
-      )
+      expect(Logger.mainLogger.error).toHaveBeenCalledWith('Error thrown in clearNodeListCache', expect.any(Error))
     })
   })
 

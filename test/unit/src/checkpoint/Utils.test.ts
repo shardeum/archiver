@@ -1,20 +1,20 @@
 // Mock all dependencies first
 jest.mock('../../../../src/Logger', () => ({
   mainLogger: {
-    error: jest.fn()
-  }
+    error: jest.fn(),
+  },
 }))
 
 jest.mock('../../../../src/checkpoint/CycleData', () => ({
-  cycleCheckpointManager: { type: 'cycle' }
+  cycleCheckpointManager: { type: 'cycle' },
 }))
 
 jest.mock('../../../../src/checkpoint/OriginalTxsData', () => ({
-  originalTxCheckpointManager: { type: 'originalTx' }
+  originalTxCheckpointManager: { type: 'originalTx' },
 }))
 
 jest.mock('../../../../src/checkpoint/ReceiptData', () => ({
-  receiptCheckpointManager: { type: 'receipt' }
+  receiptCheckpointManager: { type: 'receipt' },
 }))
 
 // Mock entire dependency chain to prevent circular dependencies
@@ -79,13 +79,11 @@ describe('checkpoint/Utils', () => {
     it('should handle numeric checkpoint types', () => {
       // CheckpointType might be an enum with numeric values
       const numericTypes = [0, 1, 2, 3, 4, 5]
-      
-      numericTypes.forEach(type => {
+
+      numericTypes.forEach((type) => {
         const manager = getCheckpointManager(type as CheckpointType)
         // Should return manager for valid enum values, undefined for invalid ones
-        if (type === CheckpointType.Cycle || 
-            type === CheckpointType.OriginalTx || 
-            type === CheckpointType.Receipt) {
+        if (type === CheckpointType.Cycle || type === CheckpointType.OriginalTx || type === CheckpointType.Receipt) {
           expect(manager).toBeDefined()
         } else {
           expect(manager).toBeUndefined()
@@ -96,8 +94,8 @@ describe('checkpoint/Utils', () => {
     it('should be case-sensitive for string checkpoint types', () => {
       // Test various string cases that might not match enum values
       const invalidCases = ['CYCLE', 'cycle', 'Cycle', 'ORIGINALTX', 'originaltx', 'RECEIPT', 'receipt']
-      
-      invalidCases.forEach(invalidCase => {
+
+      invalidCases.forEach((invalidCase) => {
         const manager = getCheckpointManager(invalidCase as any)
         // These should all return undefined as they don't match the enum exactly
         expect(manager).toBeUndefined()
@@ -106,19 +104,19 @@ describe('checkpoint/Utils', () => {
 
     it('should handle errors gracefully', () => {
       // Create a proxy that throws on property access
-      const throwingCheckpointType = new Proxy({}, {
-        get() {
-          throw new Error('Test error')
+      const throwingCheckpointType = new Proxy(
+        {},
+        {
+          get() {
+            throw new Error('Test error')
+          },
         }
-      }) as CheckpointType
+      ) as CheckpointType
 
       const manager = getCheckpointManager(throwingCheckpointType)
-      
+
       expect(manager).toBeUndefined()
-      expect(Logger.mainLogger.error).toHaveBeenCalledWith(
-        'Error getting checkpoint manager:',
-        expect.any(Error)
-      )
+      expect(Logger.mainLogger.error).toHaveBeenCalledWith('Error getting checkpoint manager:', expect.any(Error))
       expect(Logger.mainLogger.error).toHaveBeenCalledWith(
         'Error getting checkpoint manager:',
         expect.objectContaining({ message: 'Test error' })
@@ -130,7 +128,7 @@ describe('checkpoint/Utils', () => {
       const manager1 = getCheckpointManager(CheckpointType.Cycle)
       const manager2 = getCheckpointManager(CheckpointType.Cycle)
       const manager3 = getCheckpointManager(CheckpointType.Cycle)
-      
+
       expect(manager1).toBe(manager2)
       expect(manager2).toBe(manager3)
       expect(manager1).toBe(mockCycleManager)
@@ -138,17 +136,9 @@ describe('checkpoint/Utils', () => {
 
     it('should work with all valid CheckpointType values', () => {
       // Test all valid checkpoint types
-      const validTypes = [
-        CheckpointType.Cycle,
-        CheckpointType.OriginalTx,
-        CheckpointType.Receipt
-      ]
+      const validTypes = [CheckpointType.Cycle, CheckpointType.OriginalTx, CheckpointType.Receipt]
 
-      const expectedManagers = [
-        mockCycleManager,
-        mockOriginalTxManager,
-        mockReceiptManager
-      ]
+      const expectedManagers = [mockCycleManager, mockOriginalTxManager, mockReceiptManager]
 
       validTypes.forEach((type, index) => {
         const manager = getCheckpointManager(type)
@@ -159,16 +149,16 @@ describe('checkpoint/Utils', () => {
     it('should not modify the checkpoint type parameter', () => {
       const originalType = CheckpointType.Cycle
       const typeCopy = originalType
-      
+
       getCheckpointManager(originalType)
-      
+
       expect(originalType).toBe(typeCopy)
     })
 
     it('should handle Symbol checkpoint types', () => {
       const symbolType = Symbol('checkpoint') as any
       const manager = getCheckpointManager(symbolType)
-      
+
       expect(manager).toBeUndefined()
       expect(Logger.mainLogger.error).not.toHaveBeenCalled()
     })
@@ -176,7 +166,7 @@ describe('checkpoint/Utils', () => {
     it('should handle object checkpoint types', () => {
       const objectType = { toString: () => 'Cycle' } as any
       const manager = getCheckpointManager(objectType)
-      
+
       expect(manager).toBeUndefined()
       expect(Logger.mainLogger.error).not.toHaveBeenCalled()
     })
@@ -185,13 +175,9 @@ describe('checkpoint/Utils', () => {
   describe('checkpointManagers mapping', () => {
     it('should have all checkpoint types mapped', () => {
       // Verify that all checkpoint types have managers
-      const allTypes = [
-        CheckpointType.Cycle,
-        CheckpointType.OriginalTx,
-        CheckpointType.Receipt
-      ]
+      const allTypes = [CheckpointType.Cycle, CheckpointType.OriginalTx, CheckpointType.Receipt]
 
-      allTypes.forEach(type => {
+      allTypes.forEach((type) => {
         const manager = getCheckpointManager(type)
         expect(manager).toBeDefined()
         expect(manager).not.toBeNull()
@@ -213,30 +199,33 @@ describe('checkpoint/Utils', () => {
   describe('Error handling', () => {
     it('should log error with correct format', () => {
       const testError = new Error('Custom test error')
-      
+
       // Create a scenario that throws
-      const throwingType = new Proxy({}, {
-        get() {
-          throw testError
+      const throwingType = new Proxy(
+        {},
+        {
+          get() {
+            throw testError
+          },
         }
-      }) as CheckpointType
+      ) as CheckpointType
 
       getCheckpointManager(throwingType)
-      
+
       expect(Logger.mainLogger.error).toHaveBeenCalledTimes(1)
-      expect(Logger.mainLogger.error).toHaveBeenCalledWith(
-        'Error getting checkpoint manager:',
-        testError
-      )
+      expect(Logger.mainLogger.error).toHaveBeenCalledWith('Error getting checkpoint manager:', testError)
     })
 
     it('should continue to work after an error', () => {
       // First call with error
-      const throwingType = new Proxy({}, {
-        get() {
-          throw new Error('Error')
+      const throwingType = new Proxy(
+        {},
+        {
+          get() {
+            throw new Error('Error')
+          },
         }
-      }) as CheckpointType
+      ) as CheckpointType
 
       const errorResult = getCheckpointManager(throwingType)
       expect(errorResult).toBeUndefined()

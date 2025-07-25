@@ -615,4 +615,3 @@ describe('sync-v2/index', () => {
     })
   })
 })
-

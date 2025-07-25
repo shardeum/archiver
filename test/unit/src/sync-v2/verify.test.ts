@@ -68,7 +68,7 @@ describe('sync-v2/verify', () => {
     it('should return ok(true) when hash matches', () => {
       const expectedHash = hashObj(mockValidatorList)
       const result = verifyValidatorList(mockValidatorList, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -76,7 +76,7 @@ describe('sync-v2/verify', () => {
     it('should return error when hash does not match', () => {
       const wrongHash = 'wronghash123'
       const result = verifyValidatorList(mockValidatorList, wrongHash)
-      
+
       expect(result.isErr()).toBe(true)
       expect(result._unsafeUnwrapErr().message).toContain('hash mismatch for validator list')
       expect(result._unsafeUnwrapErr().message).toContain(`expected ${wrongHash}`)
@@ -86,7 +86,7 @@ describe('sync-v2/verify', () => {
       const emptyList: P2P.NodeListTypes.Node[] = []
       const expectedHash = hashObj(emptyList)
       const result = verifyValidatorList(emptyList, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -96,7 +96,7 @@ describe('sync-v2/verify', () => {
       listWithSign.sign = { owner: 'owner', sig: 'signature' }
       const expectedHash = hashObj(listWithSign)
       const result = verifyValidatorList(listWithSign, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -137,7 +137,7 @@ describe('sync-v2/verify', () => {
     it('should return ok(true) when hash matches', () => {
       const expectedHash = hashObj(mockStandbyList)
       const result = verifyStandbyList(mockStandbyList, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -145,7 +145,7 @@ describe('sync-v2/verify', () => {
     it('should return error when hash does not match', () => {
       const wrongHash = 'wronghash456'
       const result = verifyStandbyList(mockStandbyList, wrongHash)
-      
+
       expect(result.isErr()).toBe(true)
       expect(result._unsafeUnwrapErr().message).toContain('hash mismatch for standby list')
       expect(result._unsafeUnwrapErr().message).toContain(`expected ${wrongHash}`)
@@ -155,7 +155,7 @@ describe('sync-v2/verify', () => {
       const emptyList: P2P.JoinTypes.JoinRequest[] = []
       const expectedHash = hashObj(emptyList)
       const result = verifyStandbyList(emptyList, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -180,7 +180,7 @@ describe('sync-v2/verify', () => {
     it('should return ok(true) when hash matches', () => {
       const expectedHash = hashObj(mockArchiverList)
       const result = verifyArchiverList(mockArchiverList, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -188,7 +188,7 @@ describe('sync-v2/verify', () => {
     it('should return error when hash does not match', () => {
       const wrongHash = 'wronghash789'
       const result = verifyArchiverList(mockArchiverList, wrongHash)
-      
+
       expect(result.isErr()).toBe(true)
       expect(result._unsafeUnwrapErr().message).toContain('hash mismatch for archiver list')
       expect(result._unsafeUnwrapErr().message).toContain(`expected ${wrongHash}`)
@@ -198,7 +198,7 @@ describe('sync-v2/verify', () => {
       const emptyList: P2P.ArchiversTypes.JoinedArchiver[] = []
       const expectedHash = hashObj(emptyList)
       const result = verifyArchiverList(emptyList, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -207,7 +207,7 @@ describe('sync-v2/verify', () => {
       const singleArchiver: P2P.ArchiversTypes.JoinedArchiver[] = [mockArchiverList[0]]
       const expectedHash = hashObj(singleArchiver)
       const result = verifyArchiverList(singleArchiver, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -232,7 +232,7 @@ describe('sync-v2/verify', () => {
     it('should return ok(true) when hash matches', () => {
       const expectedHash = hashObj(mockTxList)
       const result = verifyTxList(mockTxList, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -240,7 +240,7 @@ describe('sync-v2/verify', () => {
     it('should return error when hash does not match', () => {
       const wrongHash = 'wrongtxhash'
       const result = verifyTxList(mockTxList, wrongHash)
-      
+
       expect(result.isErr()).toBe(true)
       expect(result._unsafeUnwrapErr().message).toContain('hash mismatch for txList')
       expect(result._unsafeUnwrapErr().message).toContain(`expected ${wrongHash}`)
@@ -250,7 +250,7 @@ describe('sync-v2/verify', () => {
       const emptyList: P2P.ServiceQueueTypes.NetworkTxEntry[] = []
       const expectedHash = hashObj(emptyList)
       const result = verifyTxList(emptyList, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -267,7 +267,7 @@ describe('sync-v2/verify', () => {
       }
       const expectedHash = hashObj(largeTxList)
       const result = verifyTxList(largeTxList, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -315,9 +315,9 @@ describe('sync-v2/verify', () => {
     it('should return ok(true) when hash matches', () => {
       const expectedHash = 'correcthash'
       mockedComputeCycleMarker.mockReturnValue(expectedHash)
-      
+
       const result = verifyCycleRecord(mockCycleRecord, expectedHash)
-      
+
       expect(mockedComputeCycleMarker).toHaveBeenCalledWith(mockCycleRecord)
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
@@ -327,9 +327,9 @@ describe('sync-v2/verify', () => {
       const expectedHash = 'expectedhash'
       const actualHash = 'actualhash'
       mockedComputeCycleMarker.mockReturnValue(actualHash)
-      
+
       const result = verifyCycleRecord(mockCycleRecord, expectedHash)
-      
+
       expect(mockedComputeCycleMarker).toHaveBeenCalledWith(mockCycleRecord)
       expect(result.isErr()).toBe(true)
       expect(result._unsafeUnwrapErr().message).toContain('hash mismatch for cycle')
@@ -342,12 +342,12 @@ describe('sync-v2/verify', () => {
         cycleMarker: '',
         mode: 'forming',
       } as P2P.CycleCreatorTypes.CycleRecord
-      
+
       const expectedHash = 'minimalhash'
       mockedComputeCycleMarker.mockReturnValue(expectedHash)
-      
+
       const result = verifyCycleRecord(minimalCycleRecord, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -355,9 +355,9 @@ describe('sync-v2/verify', () => {
     it('should handle empty hash strings', () => {
       const expectedHash = ''
       mockedComputeCycleMarker.mockReturnValue('')
-      
+
       const result = verifyCycleRecord(mockCycleRecord, expectedHash)
-      
+
       expect(result.isOk()).toBe(true)
       expect(result._unsafeUnwrap()).toBe(true)
     })
@@ -366,9 +366,9 @@ describe('sync-v2/verify', () => {
       const expectedHash = 'ABC123'
       const actualHash = 'abc123'
       mockedComputeCycleMarker.mockReturnValue(actualHash)
-      
+
       const result = verifyCycleRecord(mockCycleRecord, expectedHash)
-      
+
       expect(result.isErr()).toBe(true)
       expect(result._unsafeUnwrapErr().message).toContain(`expected ${expectedHash}, got ${actualHash}`)
     })
@@ -380,7 +380,7 @@ describe('sync-v2/verify', () => {
       // but we're testing runtime behavior
       const invalidList = [null, undefined] as any
       const hash = hashObj(invalidList)
-      
+
       const result = verifyValidatorList(invalidList, hash)
       expect(result.isOk()).toBe(true)
     })
@@ -390,9 +390,9 @@ describe('sync-v2/verify', () => {
       const obj1: any = { id: 'node1' }
       const obj2: any = { id: 'node2', ref: obj1 }
       obj1.ref = obj2 // Create circular reference
-      
+
       const list = [obj1, obj2] as any
-      
+
       // Our mock hashObj won't have issues with circular refs
       // Test that the verify function handles it gracefully
       const result = verifyValidatorList(list, 'some_hash')
@@ -403,7 +403,7 @@ describe('sync-v2/verify', () => {
     it('should handle very long hash strings', () => {
       const longHash = 'a'.repeat(1000)
       const result = verifyValidatorList([], longHash)
-      
+
       expect(result.isErr()).toBe(true)
       expect(result._unsafeUnwrapErr().message).toContain('hash mismatch')
     })
@@ -411,7 +411,7 @@ describe('sync-v2/verify', () => {
     it('should handle special characters in hash', () => {
       const specialHash = '!@#$%^&*()_+-=[]{}|;:\'",.<>?/\\`~'
       const result = verifyValidatorList([], specialHash)
-      
+
       expect(result.isErr()).toBe(true)
       expect(result._unsafeUnwrapErr().message).toContain('hash mismatch')
     })

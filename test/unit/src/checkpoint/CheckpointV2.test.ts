@@ -91,29 +91,22 @@ describe('CheckpointV2', () => {
       expect(mockCycles.getNewestCycleFromArchivers).toHaveBeenCalled()
       expect(mockLogger.debug).toHaveBeenCalledWith('[syncMissingCheckpoints] Last updated cycle from tracker: 100')
       expect(mockLogger.info).toHaveBeenCalledWith('[syncMissingCheckpoints] Processing cycles from 100 to 150')
-      
+
       // Verify processCyclesNeedingSync was called with correct parameters
-      expect(mockCheckpointStatus.processCyclesNeedingSync).toHaveBeenCalledWith(
-        100,
-        150,
-        100,
-        expect.any(Function)
-      )
+      expect(mockCheckpointStatus.processCyclesNeedingSync).toHaveBeenCalledWith(100, 150, 100, expect.any(Function))
 
       // Verify sync operations for each cycle
       expect(mockData.syncCycleData).toHaveBeenCalledTimes(5)
       expect(mockData.syncReceiptsByCycle).toHaveBeenCalledTimes(5)
       expect(mockCycleTracker.updateLastUpdatedCycle).toHaveBeenCalledTimes(5)
-      
+
       // Verify specific cycle calls
       expect(mockData.syncCycleData).toHaveBeenCalledWith(101)
       expect(mockData.syncCycleData).toHaveBeenCalledWith(105)
       expect(mockData.syncReceiptsByCycle).toHaveBeenCalledWith(101, 101)
       expect(mockData.syncReceiptsByCycle).toHaveBeenCalledWith(105, 105)
-      
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        '[syncMissingCheckpoints] Processed 5 cycles, successfully synced 5'
-      )
+
+      expect(mockLogger.info).toHaveBeenCalledWith('[syncMissingCheckpoints] Processed 5 cycles, successfully synced 5')
     })
 
     it('should handle when no checkpoints need syncing', async () => {
@@ -197,15 +190,13 @@ describe('CheckpointV2', () => {
       expect(mockData.syncCycleData).toHaveBeenCalledTimes(3)
       expect(mockData.syncReceiptsByCycle).toHaveBeenCalledTimes(2) // Should not be called for failed cycle
       expect(mockCycleTracker.updateLastUpdatedCycle).toHaveBeenCalledTimes(2) // Should not update for failed cycle
-      
+
       expect(mockLogger.error).toHaveBeenCalledWith(
         '[syncMissingCheckpoints] Error syncing cycle 102:',
         expect.any(Error)
       )
-      
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        '[syncMissingCheckpoints] Processed 3 cycles, successfully synced 2'
-      )
+
+      expect(mockLogger.info).toHaveBeenCalledWith('[syncMissingCheckpoints] Processed 3 cycles, successfully synced 2')
     })
 
     it('should respect maxCyclesToSync parameter', async () => {
@@ -256,16 +247,16 @@ describe('CheckpointV2', () => {
       // Verify first sync
       expect(mockCycles.getCurrentCycleCounter).toHaveBeenCalled()
       expect(mockCycles.getNewestCycleFromArchivers).toHaveBeenCalled()
-      
+
       // Since stored < network, sync should continue
       expect(mockCycleTracker.getLastUpdatedCycle).toHaveBeenCalled()
 
       // Clear previous mock calls
       const previousCalls = mockCycles.getCurrentCycleCounter.mock.calls.length
-      
+
       // Advance time and verify next sync
       await jest.advanceTimersByTimeAsync(60000)
-      
+
       // Should have been called again
       expect(mockCycles.getCurrentCycleCounter).toHaveBeenCalledTimes(previousCalls + 1)
     })
@@ -291,7 +282,7 @@ describe('CheckpointV2', () => {
 
       // Advance time - no more syncs should happen
       await jest.advanceTimersByTimeAsync(60000)
-      
+
       // Should not have been called again
       expect(mockCycles.getCurrentCycleCounter).not.toHaveBeenCalled()
     })
@@ -329,7 +320,7 @@ describe('CheckpointV2', () => {
         '[syncCheckpoints] Failed to get network cycle count, will continue syncing:',
         expect.any(Error)
       )
-      
+
       // Should still call syncMissingCheckpoints
       expect(mockCycleTracker.getLastUpdatedCycle).toHaveBeenCalled()
 
@@ -338,7 +329,7 @@ describe('CheckpointV2', () => {
 
       // Advance time - sync should continue
       await jest.advanceTimersByTimeAsync(60000)
-      
+
       // Should have been called again
       expect(mockCycles.getCurrentCycleCounter).toHaveBeenCalled()
     })
@@ -366,7 +357,7 @@ describe('CheckpointV2', () => {
 
       // Advance time - sync should continue despite error
       await jest.advanceTimersByTimeAsync(60000)
-      
+
       // Should have been called again
       expect(mockCycles.getCurrentCycleCounter).toHaveBeenCalled()
     })
@@ -382,13 +373,13 @@ describe('CheckpointV2', () => {
 
       // First sync
       await jest.runOnlyPendingTimersAsync()
-      
+
       // Clear mocks
       jest.clearAllMocks()
 
       // Advance by 30 seconds
       await jest.advanceTimersByTimeAsync(30000)
-      
+
       // Should have been called with custom interval
       expect(mockCycles.getCurrentCycleCounter).toHaveBeenCalled()
     })
@@ -406,11 +397,9 @@ describe('CheckpointV2', () => {
 
       // Should continue syncing since stored cycle is invalid
       expect(mockCycleTracker.getLastUpdatedCycle).toHaveBeenCalled()
-      
+
       // Verify it didn't stop
-      expect(mockLogger.info).not.toHaveBeenCalledWith(
-        expect.stringContaining('Stopping checkpoint sync')
-      )
+      expect(mockLogger.info).not.toHaveBeenCalledWith(expect.stringContaining('Stopping checkpoint sync'))
     })
 
     it('should continue scheduling until cycles match then stop', async () => {
@@ -418,7 +407,7 @@ describe('CheckpointV2', () => {
       let storedCycle = 100
       mockCycles.getCurrentCycleCounter.mockImplementation(() => storedCycle)
       mockCycles.getNewestCycleFromArchivers.mockResolvedValue({ counter: 150 })
-      
+
       // Mock processCyclesNeedingSync to increment stored cycle
       mockCheckpointStatus.processCyclesNeedingSync.mockImplementation(
         async (start: number, end: number, max: number, callback: (cycle: number) => Promise<void>) => {
@@ -433,20 +422,20 @@ describe('CheckpointV2', () => {
       // Run multiple sync cycles until stored matches network
       let syncCount = 0
       let syncStopped = false
-      
+
       while (!syncStopped && syncCount < 10) {
         await jest.runOnlyPendingTimersAsync()
-        
+
         // Check if stop message was logged
-        const stopLogged = mockLogger.info.mock.calls.some(call => 
-          call[0] && call[0].includes('Stopping checkpoint sync')
+        const stopLogged = mockLogger.info.mock.calls.some(
+          (call) => call[0] && call[0].includes('Stopping checkpoint sync')
         )
-        
+
         if (stopLogged) {
           syncStopped = true
           // Verify the message content
-          const stopCall = mockLogger.info.mock.calls.find(call => 
-            call[0] && call[0].includes('Stopping checkpoint sync')
+          const stopCall = mockLogger.info.mock.calls.find(
+            (call) => call[0] && call[0].includes('Stopping checkpoint sync')
           )
           expect(stopCall[0]).toContain('stored cycle count (150)')
           expect(stopCall[0]).toContain('network cycle count (150)')
@@ -454,17 +443,17 @@ describe('CheckpointV2', () => {
           // Advance to next sync
           await jest.advanceTimersByTimeAsync(60000)
         }
-        
+
         syncCount++
       }
-      
+
       // Ensure sync eventually stopped
       expect(syncStopped).toBe(true)
-      
+
       // Clear mocks and verify no more syncs happen
       const currentCallCount = mockCycles.getCurrentCycleCounter.mock.calls.length
       await jest.advanceTimersByTimeAsync(60000)
-      
+
       // Should not have been called again after stopping
       expect(mockCycles.getCurrentCycleCounter).toHaveBeenCalledTimes(currentCallCount)
     })

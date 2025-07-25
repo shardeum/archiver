@@ -1,6 +1,11 @@
 import { expect, describe, it, beforeAll, beforeEach, jest } from '@jest/globals'
 import * as crypto from '../../../src/Crypto'
-import { AccountType, accountSpecificHash, verifyAccountHash, verifyNonGlobalTxAccountChange } from '../../../src/shardeum/calculateAccountHash'
+import {
+  AccountType,
+  accountSpecificHash,
+  verifyAccountHash,
+  verifyNonGlobalTxAccountChange,
+} from '../../../src/shardeum/calculateAccountHash'
 import { ArchiverReceipt, Receipt, SignedReceipt } from '../../../src/dbstore/receipts'
 import { AccountsCopy } from '../../../src/dbstore/accounts'
 import * as helpers from '../../../src/types/ajv/Helpers'
@@ -175,7 +180,7 @@ describe('calculateAccountHash', () => {
 
       // Test that the error is caught and a new error is thrown
       expect(() => accountSpecificHash(account)).toThrow('Failed to calculate account-specific hash')
-      
+
       // Restore the mock
       jest.restoreAllMocks()
     })
@@ -401,7 +406,7 @@ describe('calculateAccountHash', () => {
         // This will pass the globalReceiptValidationErrors check
         return null
       })
-      
+
       // Mock verifyGlobalTxAccountChange to throw an error
       ;(verifyGlobalTxReceiptModule.verifyGlobalTxAccountChange as jest.Mock).mockImplementation(() => {
         throw new Error('Unexpected error in global verification')
@@ -583,7 +588,7 @@ describe('calculateAccountHash', () => {
     it('should process multiple accounts and validate all hashes', async () => {
       // Clear any previous mocks
       jest.clearAllMocks()
-      
+
       // GIVEN receipt with 4 accounts
       mockReceipt.signedReceipt = {
         proposal: {
@@ -608,7 +613,8 @@ describe('calculateAccountHash', () => {
       ]
 
       // Mock hash calculation to return expected hashes
-      jest.spyOn(crypto, 'hashObj')
+      jest
+        .spyOn(crypto, 'hashObj')
         .mockReturnValueOnce('a1')
         .mockReturnValueOnce('a2')
         .mockReturnValueOnce('a3')

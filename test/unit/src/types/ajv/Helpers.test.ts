@@ -1,24 +1,24 @@
 // Mock dependencies first
 jest.mock('../../../../../src/utils/serialization/SchemaHelpers', () => ({
-  getVerifyFunction: jest.fn()
+  getVerifyFunction: jest.fn(),
 }))
 
 jest.mock('../../../../../src/types/ajv/Accounts', () => ({
-  initAccounts: jest.fn()
+  initAccounts: jest.fn(),
 }))
 
 jest.mock('../../../../../src/types/ajv/Receipts', () => ({
-  initReceipts: jest.fn()
+  initReceipts: jest.fn(),
 }))
 
 jest.mock('../../../../../src/types/ajv/OriginalTxData', () => ({
-  initOriginalTxData: jest.fn()
+  initOriginalTxData: jest.fn(),
 }))
 
 jest.mock('@shardeum-foundation/lib-types', () => ({
   Utils: {
-    safeStringify: jest.fn((obj) => JSON.stringify(obj))
-  }
+    safeStringify: jest.fn((obj) => JSON.stringify(obj)),
+  },
 }))
 
 import { initAjvSchemas, verifyPayload } from '../../../../../src/types/ajv/Helpers'
@@ -26,7 +26,8 @@ import { ErrorObject } from 'ajv'
 import { AJVSchemaEnum } from '../../../../../src/types/enum/AJVSchemaEnum'
 
 // Get mocked functions
-const mockGetVerifyFunction = require('../../../../../src/utils/serialization/SchemaHelpers').getVerifyFunction as jest.Mock
+const mockGetVerifyFunction = require('../../../../../src/utils/serialization/SchemaHelpers')
+  .getVerifyFunction as jest.Mock
 const mockInitAccounts = require('../../../../../src/types/ajv/Accounts').initAccounts as jest.Mock
 const mockInitReceipts = require('../../../../../src/types/ajv/Receipts').initReceipts as jest.Mock
 const mockInitOriginalTxData = require('../../../../../src/types/ajv/OriginalTxData').initOriginalTxData as jest.Mock
@@ -48,7 +49,7 @@ describe('ajv/Helpers', () => {
       const callOrder = [
         mockInitAccounts.mock.invocationCallOrder[0],
         mockInitReceipts.mock.invocationCallOrder[0],
-        mockInitOriginalTxData.mock.invocationCallOrder[0]
+        mockInitOriginalTxData.mock.invocationCallOrder[0],
       ]
       expect(callOrder).toEqual([1, 2, 3])
     })
@@ -101,10 +102,10 @@ describe('ajv/Helpers', () => {
           dataPath: '.field',
           schemaPath: '#/properties/field/type',
           params: { type: 'string' },
-          message: 'should be string'
-        }
+          message: 'should be string',
+        },
       ]
-      
+
       mockVerifyFn.mockReturnValue(false)
       mockVerifyFn.errors = errors
 
@@ -120,17 +121,17 @@ describe('ajv/Helpers', () => {
           dataPath: '',
           schemaPath: '#/required',
           params: { missingProperty: 'name' },
-          message: 'should have required property \'name\''
+          message: "should have required property 'name'",
         },
         {
           keyword: 'minimum',
           dataPath: '.age',
           schemaPath: '#/properties/age/minimum',
           params: { limit: 0, exclusive: false, comparison: '>=' },
-          message: 'should be >= 0'
-        }
+          message: 'should be >= 0',
+        },
       ]
-      
+
       mockVerifyFn.mockReturnValue(false)
       mockVerifyFn.errors = errors
 
@@ -139,7 +140,7 @@ describe('ajv/Helpers', () => {
       expect(result).toHaveLength(2)
       expect(result).toEqual([
         'should have required property \'name\': {"missingProperty":"name"}',
-        'should be >= 0: {"limit":0,"exclusive":false,"comparison":">="}'
+        'should be >= 0: {"limit":0,"exclusive":false,"comparison":">="}',
       ])
     })
 
@@ -150,10 +151,10 @@ describe('ajv/Helpers', () => {
           dataPath: '.field',
           schemaPath: '#/custom',
           params: {},
-          message: 'custom validation failed'
-        }
+          message: 'custom validation failed',
+        },
       ]
-      
+
       mockVerifyFn.mockReturnValue(false)
       mockVerifyFn.errors = errors
 
@@ -170,10 +171,10 @@ describe('ajv/Helpers', () => {
           dataPath: '.field',
           schemaPath: '#/custom',
           params: { customParam: 'value' },
-          message: 'custom validation failed'
-        }
+          message: 'custom validation failed',
+        },
       ]
-      
+
       mockVerifyFn.mockReturnValue(false)
       mockVerifyFn.errors = errors
 
@@ -236,21 +237,21 @@ describe('ajv/Helpers', () => {
           keyword: 'additionalProperties',
           dataPath: '',
           schemaPath: '#/additionalProperties',
-          params: { 
+          params: {
             additionalProperty: 'extraField',
-            allowedProperties: ['field1', 'field2', 'field3']
+            allowedProperties: ['field1', 'field2', 'field3'],
           },
-          message: 'should NOT have additional properties'
-        }
+          message: 'should NOT have additional properties',
+        },
       ]
-      
+
       mockVerifyFn.mockReturnValue(false)
       mockVerifyFn.errors = errors
 
       const result = verifyPayload('StrictSchema', { field1: 1, extraField: 'not allowed' })
 
       expect(result).toEqual([
-        'should NOT have additional properties: {"additionalProperty":"extraField","allowedProperties":["field1","field2","field3"]}'
+        'should NOT have additional properties: {"additionalProperty":"extraField","allowedProperties":["field1","field2","field3"]}',
       ])
     })
 
@@ -261,19 +262,19 @@ describe('ajv/Helpers', () => {
           dataPath: '.user.profile.age',
           schemaPath: '#/properties/user/properties/profile/properties/age/type',
           params: { type: 'number' },
-          message: 'should be number'
-        }
+          message: 'should be number',
+        },
       ]
-      
+
       mockVerifyFn.mockReturnValue(false)
       mockVerifyFn.errors = errors
 
-      const result = verifyPayload('NestedSchema', { 
-        user: { 
-          profile: { 
-            age: 'not a number' 
-          } 
-        } 
+      const result = verifyPayload('NestedSchema', {
+        user: {
+          profile: {
+            age: 'not a number',
+          },
+        },
       })
 
       expect(result).toEqual(['should be number: {"type":"number"}'])
@@ -294,10 +295,10 @@ describe('ajv/Helpers', () => {
           dataPath: '',
           schemaPath: '#/test',
           params: { test: true },
-          message: undefined as any
-        }
+          message: undefined as any,
+        },
       ]
-      
+
       mockVerifyFn.mockReturnValue(false)
       mockVerifyFn.errors = errors
 
@@ -325,14 +326,14 @@ describe('ajv/Helpers', () => {
           dataPath: '',
           schemaPath: '#/custom',
           params: circularObj,
-          message: 'circular reference error'
-        }
+          message: 'circular reference error',
+        },
       ]
-      
+
       // Mock safeStringify to handle circular refs
       const { Utils } = require('@shardeum-foundation/lib-types')
       Utils.safeStringify.mockImplementationOnce(() => '{"a":1,"circular":"[Circular]"}')
-      
+
       mockVerifyFn.mockReturnValue(false)
       mockVerifyFn.errors = errors
 
@@ -349,10 +350,10 @@ describe('ajv/Helpers', () => {
           dataPath: '.field',
           schemaPath: '#/properties/field/pattern',
           params: { pattern: '^[a-z]+$' },
-          message: longMessage
-        }
+          message: longMessage,
+        },
       ]
-      
+
       mockVerifyFn.mockReturnValue(false)
       mockVerifyFn.errors = errors
 

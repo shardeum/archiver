@@ -5,9 +5,9 @@ describe('internalTxType', () => {
     it('should create a valid Sign object with owner and sig properties', () => {
       const sign: Sign = {
         owner: '0x1234567890abcdef',
-        sig: '0xabcdef1234567890'
+        sig: '0xabcdef1234567890',
       }
-      
+
       expect(sign).toBeDefined()
       expect(sign.owner).toBe('0x1234567890abcdef')
       expect(sign.sig).toBe('0xabcdef1234567890')
@@ -16,9 +16,9 @@ describe('internalTxType', () => {
     it('should accept empty strings for owner and sig', () => {
       const sign: Sign = {
         owner: '',
-        sig: ''
+        sig: '',
       }
-      
+
       expect(sign.owner).toBe('')
       expect(sign.sig).toBe('')
     })
@@ -27,9 +27,9 @@ describe('internalTxType', () => {
       const longString = 'a'.repeat(1000)
       const sign: Sign = {
         owner: longString,
-        sig: longString
+        sig: longString,
       }
-      
+
       expect(sign.owner).toHaveLength(1000)
       expect(sign.sig).toHaveLength(1000)
     })
@@ -38,7 +38,7 @@ describe('internalTxType', () => {
       const sign = {} as Sign
       sign.owner = 'test-owner'
       sign.sig = 'test-signature'
-      
+
       expect(sign.owner).toBe('test-owner')
       expect(sign.sig).toBe('test-signature')
     })
@@ -75,7 +75,7 @@ describe('internalTxType', () => {
             return 'other'
         }
       }
-      
+
       expect(testSwitch(InternalTXType.Stake)).toBe('stake')
       expect(testSwitch(InternalTXType.Unstake)).toBe('unstake')
       expect(testSwitch(InternalTXType.InitNetwork)).toBe('init')
@@ -85,14 +85,14 @@ describe('internalTxType', () => {
     it('should be able to get string keys from enum values', () => {
       const stakeName = InternalTXType[InternalTXType.Stake]
       expect(stakeName).toBe('Stake')
-      
+
       const initNetworkName = InternalTXType[InternalTXType.InitNetwork]
       expect(initNetworkName).toBe('InitNetwork')
     })
 
     it('should be able to check if a value is a valid InternalTXType', () => {
-      const validValues = Object.values(InternalTXType).filter(v => typeof v === 'number')
-      
+      const validValues = Object.values(InternalTXType).filter((v) => typeof v === 'number')
+
       expect(validValues).toContain(0)
       expect(validValues).toContain(13)
       expect(validValues).not.toContain(14)
@@ -103,21 +103,20 @@ describe('internalTxType', () => {
       // Deprecated types should still have their values
       expect(InternalTXType.SetGlobalCodeBytes).toBe(0)
       expect(InternalTXType.NodeReward).toBe(2)
-      
+
       // They should still be part of the enum
       expect(InternalTXType[0]).toBe('SetGlobalCodeBytes')
       expect(InternalTXType[2]).toBe('NodeReward')
     })
 
     it('should maintain correct ordering of enum values', () => {
-      const numericValues = Object.values(InternalTXType)
-        .filter(v => typeof v === 'number') as number[]
-      
+      const numericValues = Object.values(InternalTXType).filter((v) => typeof v === 'number') as number[]
+
       // Should be sequential from 0 to 13
       expect(numericValues).toHaveLength(14)
       expect(Math.min(...numericValues)).toBe(0)
       expect(Math.max(...numericValues)).toBe(13)
-      
+
       // Check they are sequential
       numericValues.sort((a, b) => a - b)
       for (let i = 0; i < numericValues.length; i++) {
@@ -141,7 +140,7 @@ describe('internalTxType', () => {
       const isDebugTXType = (value: unknown): value is DebugTXType => {
         return value === DebugTXType.Create || value === DebugTXType.Transfer
       }
-      
+
       expect(isDebugTXType(0)).toBe(true)
       expect(isDebugTXType(1)).toBe(true)
       expect(isDebugTXType(2)).toBe(false)
@@ -150,7 +149,7 @@ describe('internalTxType', () => {
 
     it('should work with array includes', () => {
       const validDebugTypes = [DebugTXType.Create, DebugTXType.Transfer]
-      
+
       expect(validDebugTypes.includes(DebugTXType.Create)).toBe(true)
       expect(validDebugTypes.includes(DebugTXType.Transfer)).toBe(true)
       expect(validDebugTypes.includes(2 as DebugTXType)).toBe(false)
@@ -161,7 +160,7 @@ describe('internalTxType', () => {
     it('should not allow InternalTXType and DebugTXType to be used interchangeably', () => {
       const internalType: InternalTXType = InternalTXType.InitNetwork
       const debugType: DebugTXType = DebugTXType.Create
-      
+
       // TypeScript should prevent this at compile time, but values are still numbers
       expect(typeof internalType).toBe('number')
       expect(typeof debugType).toBe('number')
@@ -172,10 +171,10 @@ describe('internalTxType', () => {
       // Test maximum values
       const maxInternal = InternalTXType.TransferFromSecureAccount
       const maxDebug = DebugTXType.Transfer
-      
+
       expect(maxInternal).toBe(13)
       expect(maxDebug).toBe(1)
-      
+
       // Test that next values don't exist
       expect(InternalTXType[14]).toBeUndefined()
       expect(DebugTXType[2]).toBeUndefined()
@@ -185,15 +184,15 @@ describe('internalTxType', () => {
       const data = {
         sign: {
           owner: 'test',
-          sig: 'signature'
+          sig: 'signature',
         } as Sign,
         internalType: InternalTXType.Stake,
-        debugType: DebugTXType.Transfer
+        debugType: DebugTXType.Transfer,
       }
-      
+
       const json = JSON.stringify(data)
       const parsed = JSON.parse(json)
-      
+
       expect(parsed.sign.owner).toBe('test')
       expect(parsed.sign.sig).toBe('signature')
       expect(parsed.internalType).toBe(6)

@@ -16,7 +16,7 @@ describe('Ordering', () => {
     })
 
     it('should have exactly 3 values', () => {
-      const values = Object.values(Ordering).filter(v => typeof v === 'number')
+      const values = Object.values(Ordering).filter((v) => typeof v === 'number')
       expect(values).toHaveLength(3)
     })
 
@@ -73,7 +73,7 @@ describe('Ordering', () => {
     it('should not accept other numeric values at runtime', () => {
       // This test verifies runtime behavior
       const invalidValue = 2
-      const validValues = Object.values(Ordering).filter(v => typeof v === 'number')
+      const validValues = Object.values(Ordering).filter((v) => typeof v === 'number')
       expect(validValues).not.toContain(invalidValue)
     })
   })

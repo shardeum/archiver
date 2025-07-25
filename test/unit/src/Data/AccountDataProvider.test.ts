@@ -137,7 +137,7 @@ describe('Data/AccountDataProvider', () => {
       jest.doMock('../../../../src/Data/Cycles', () => ({
         currentNetworkMode: 'processing',
       }))
-      
+
       const AccountDataProviderFresh = require('../../../../src/Data/AccountDataProvider')
       const result = AccountDataProviderFresh.validateAccountDataRequest(validPayload)
 
@@ -335,7 +335,7 @@ describe('Data/AccountDataProvider', () => {
       jest.doMock('../../../../src/Data/Cycles', () => ({
         currentNetworkMode: 'processing',
       }))
-      
+
       const AccountDataProviderFresh = require('../../../../src/Data/AccountDataProvider')
       const result = AccountDataProviderFresh.validateAccountDataByListRequest(validPayload)
 
@@ -503,11 +503,14 @@ describe('Data/AccountDataProvider', () => {
       await AccountDataProvider.provideAccountDataRequest(validPayload)
 
       const expectedSql = `SELECT * FROM accounts WHERE accountId >= ? AND accountId BETWEEN ? AND ? AND timestamp BETWEEN ? AND ? ORDER BY timestamp ASC, accountId ASC LIMIT 100`
-      
-      expect(mockAccount.fetchAccountsBySqlQuery).toHaveBeenCalledWith(
-        expectedSql,
-        [validPayload.accountOffset, validPayload.accountStart, validPayload.accountEnd, validPayload.tsStart, expect.any(Number)]
-      )
+
+      expect(mockAccount.fetchAccountsBySqlQuery).toHaveBeenCalledWith(expectedSql, [
+        validPayload.accountOffset,
+        validPayload.accountStart,
+        validPayload.accountEnd,
+        validPayload.tsStart,
+        expect.any(Number),
+      ])
     })
 
     it('should handle offset when no accountOffset', async () => {
@@ -517,11 +520,13 @@ describe('Data/AccountDataProvider', () => {
       await AccountDataProvider.provideAccountDataRequest(validPayload)
 
       const expectedSql = `SELECT * FROM accounts WHERE accountId BETWEEN ? AND ? AND timestamp BETWEEN ? AND ? ORDER BY timestamp ASC, accountId ASC LIMIT 100 OFFSET 50`
-      
-      expect(mockAccount.fetchAccountsBySqlQuery).toHaveBeenCalledWith(
-        expectedSql,
-        [validPayload.accountStart, validPayload.accountEnd, validPayload.tsStart, expect.any(Number)]
-      )
+
+      expect(mockAccount.fetchAccountsBySqlQuery).toHaveBeenCalledWith(expectedSql, [
+        validPayload.accountStart,
+        validPayload.accountEnd,
+        validPayload.tsStart,
+        expect.any(Number),
+      ])
     })
 
     it('should set lastUpdateNeeded when delta is small', async () => {
@@ -634,10 +639,12 @@ describe('Data/AccountDataProvider', () => {
       expect(result.accounts[0].id).toBe('acc1') // Should be sorted
       expect(result.accounts[1].id).toBe('acc2')
       expect(result.accounts[2].id).toBe('acc3')
-      expect(mockCrypto.hashObj).toHaveBeenCalledWith(expect.objectContaining({
-        ready: true,
-        accounts: expect.any(Array),
-      }))
+      expect(mockCrypto.hashObj).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ready: true,
+          accounts: expect.any(Array),
+        })
+      )
     })
   })
 
@@ -646,7 +653,7 @@ describe('Data/AccountDataProvider', () => {
       AccountDataProvider.initServingValidatorsInterval()
 
       expect(mockLogger.debug).toHaveBeenCalledWith('initServingValidatorsInterval')
-      
+
       // Note: Testing the interval execution is flaky due to timing issues
       // The important part is that the interval is set up, which is tested above
     })
@@ -656,11 +663,11 @@ describe('Data/AccountDataProvider', () => {
       AccountDataProvider.clearServingValidatorsInterval()
 
       expect(mockLogger.debug).toHaveBeenCalledWith('clearServingValidatorsInterval')
-      
+
       // Advance timers - should not trigger any more logs
       jest.clearAllMocks()
       jest.advanceTimersByTime(10000)
-      
+
       expect(mockLogger.debug).not.toHaveBeenCalled()
     })
 
@@ -678,11 +685,7 @@ describe('Data/AccountDataProvider', () => {
       AccountDataProvider.initServingValidatorsInterval()
       jest.advanceTimersByTime(10000)
 
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Serving validators',
-        1,
-        expect.any(Map)
-      )
+      expect(mockLogger.debug).toHaveBeenCalledWith('Serving validators', 1, expect.any(Map))
     })
 
     it('should handle multiple interval initializations', () => {

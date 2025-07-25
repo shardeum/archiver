@@ -111,7 +111,7 @@ describe('types/errors', () => {
     it('should be assignable from ErrorCodes values', () => {
       const codes: ErrorCode[] = Object.values(ErrorCodes)
       expect(codes).toHaveLength(7)
-      codes.forEach(code => {
+      codes.forEach((code) => {
         expect(typeof code).toBe('string')
       })
     })
