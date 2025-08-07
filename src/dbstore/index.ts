@@ -115,11 +115,7 @@ export const initializeDB = async (config: Config): Promise<void> => {
     'CREATE INDEX if not exists `checkpoint_status_unified_status` ON `checkpoint_status` (`cycle`)'
   )
 
-  try {
-    await runCreate(cycleDatabase, 'ALTER TABLE `cycles` ADD COLUMN `certificates` JSON')
-  } catch (e: any) {
-    if (!/duplicate column name/i.test(e.message)) throw e
-  }
+  await runCreate(cycleDatabase, 'ALTER TABLE cycles ADD COLUMN IF NOT EXISTS certificates JSON')
 }
 
 export const closeDatabase = async (): Promise<void> => {
