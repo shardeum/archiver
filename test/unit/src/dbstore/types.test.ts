@@ -12,16 +12,14 @@ describe('dbstore types', () => {
       duration: 60,
       networkConfigHash: 'config-hash-123',
       marker: 'cycle-marker-123',
-      certificates: [
-        {
-          marker: 'cycle-marker-123',
-          score: 100,
-          sign: {
-            owner: '0xowner123',
-            sig: '0xsignature123',
-          },
+      certificate: {
+        marker: 'cycle-marker-123',
+        score: 100,
+        sign: {
+          owner: '0xowner123',
+          sig: '0xsignature123',
         },
-      ],
+      },
       mode: 'forming',
       safetyMode: false,
       joined: [],

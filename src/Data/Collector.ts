@@ -5,7 +5,7 @@ import * as Receipt from '../dbstore/receipts'
 import * as OriginalTxsData from '../dbstore/originalTxsData'
 import * as ProcessedTransaction from '../dbstore/processedTxs'
 import * as Crypto from '../Crypto'
-import { clearCombinedAccountsData, combineAccountsData, collectCycleData } from './Data'
+import { clearCombinedAccountsData, combineAccountsData, collectCycleData, subscriptionCycleData } from './Data'
 import { config } from '../Config'
 import * as Logger from '../Logger'
 import { nestedCountersInstance } from '../profiler/nestedCounters'
@@ -1200,7 +1200,7 @@ export const storeCycleData = async (cycles: P2PTypes.CycleCreatorTypes.CycleDat
       counter: cycleRecord.counter,
       cycleMarker: cycleRecord.marker,
       cycleRecord,
-      certificates: cycleRecord.certificates,
+      certificates: (cycleRecord as unknown as subscriptionCycleData).certificates,
     }
     if (config.dataLogWrite && CycleLogWriter) CycleLogWriter.writeToLog(`${StringUtils.safeStringify(cycleObj)}\n`)
     const cycleExist = await queryCycleByMarker(cycleObj.cycleMarker)

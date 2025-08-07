@@ -232,16 +232,14 @@ describe('sync-v2/index', () => {
     lostArchivers: [],
     refutedArchivers: [],
     removedArchivers: [],
-    certificates: [
-      {
-        marker: 'cycle-marker-100',
-        score: 100,
-        sign: {
-          owner: 'node-public-key',
-          sig: 'signature',
-        },
+    certificate: {
+      marker: 'cycle-marker-100',
+      score: 100,
+      sign: {
+        owner: 'node-public-key',
+        sig: 'signature',
       },
-    ],
+    },
   }
 
   const mockOperationId = 'test-operation-id'
