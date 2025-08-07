@@ -11,7 +11,7 @@ import { bulkUpdateCheckpointStatusField, CheckpointStatusType } from './checkpo
 export async function insertCycle(cycle: Cycle, storeCheckpoints: boolean = true): Promise<void> {
   try {
     // Define the table columns based on schema
-    const columns = ['cycleMarker', 'counter', 'cycleRecord']
+    const columns = ['cycleMarker', 'counter', 'cycleRecord', 'certificates']
 
     // Construct the SQL query with placeholders
     const placeholders = `(${columns.map(() => '?').join(', ')})`
@@ -59,7 +59,7 @@ export async function bulkInsertCycles(cycles: Cycle[], storeCheckpoints: boolea
       }
     }
     // Then do the database operation
-    const columns = ['cycleMarker', 'counter', 'cycleRecord']
+    const columns = ['cycleMarker', 'counter', 'cycleRecord', 'certificates']
 
     // Construct the SQL query for bulk insertion with all placeholders
     const placeholders = cycles.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ')
@@ -107,10 +107,11 @@ export async function updateCycle(marker: string, cycle: Cycle, storeCheckpoints
       const bucketID = calculateBucketID(cycle)
       cycleCheckpointManager.addData(checkpointData, bucketID)
     }
-    const sql = `UPDATE cycles SET counter = $counter, cycleRecord = $cycleRecord WHERE cycleMarker = $marker `
+    const sql = `UPDATE cycles SET counter = $counter, cycleRecord = $cycleRecord, certificates = $certificates WHERE cycleMarker = $marker `
     await db.run(cycleDatabase, sql, {
       $counter: cycle.counter,
       $cycleRecord: cycle.cycleRecord && SerializeToJsonString(cycle.cycleRecord),
+      $certificates: cycle.certificates && SerializeToJsonString(cycle.certificates),
       $marker: marker,
     })
     if (config.VERBOSE) {

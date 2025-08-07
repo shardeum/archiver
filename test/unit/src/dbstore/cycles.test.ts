@@ -225,6 +225,60 @@ describe('Cycles Module', () => {
       // Verify that error was logged
       expect(require('../../../../src/Logger').mainLogger.error).toHaveBeenCalled()
     })
+
+    it('should insert cycle with certificates', async () => {
+      // Setup
+      const mockCertificates = [
+        {
+          marker: 'sample-marker-123',
+          score: 100,
+          sign: {
+            owner: 'node-pk-1',
+            sig: 'signature-1',
+          },
+        },
+      ]
+      const cycleWithCerts = {
+        ...sampleCycle,
+        certificates: mockCertificates,
+      }
+
+      // Execute
+      await cyclesModule.insertCycle(cycleWithCerts)
+
+      // Verify
+      expect(db.run).toHaveBeenCalledWith(
+        cycleDatabase,
+        expect.stringContaining('INSERT OR REPLACE INTO cycles (cycleMarker, counter, cycleRecord, certificates)'),
+        expect.arrayContaining([
+          'sample-marker-123',
+          123,
+          expect.any(String), // serialized cycleRecord
+          expect.any(String), // serialized certificates
+        ])
+      )
+    })
+
+    it('should insert cycle without certificates', async () => {
+      // Setup
+      const cycleWithoutCerts = { ...sampleCycle }
+      delete cycleWithoutCerts.certificates
+
+      // Execute
+      await cyclesModule.insertCycle(cycleWithoutCerts)
+
+      // Verify
+      expect(db.run).toHaveBeenCalledWith(
+        cycleDatabase,
+        expect.stringContaining('INSERT OR REPLACE INTO cycles (cycleMarker, counter, cycleRecord, certificates)'),
+        expect.arrayContaining([
+          'sample-marker-123',
+          123,
+          expect.any(String), // serialized cycleRecord
+          undefined, // certificates is undefined when not present
+        ])
+      )
+    })
   })
 
   // Tests for bulkInsertCycles

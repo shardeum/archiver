@@ -234,6 +234,59 @@ describe('Collector Module', () => {
 
       expect(cycles.bulkInsertCycles).not.toHaveBeenCalled()
     })
+
+    it('should store cycle data with certificates', async () => {
+      const mockCertificates = [
+        {
+          marker: 'test-marker',
+          score: 100,
+          sign: {
+            owner: 'node-pk-1',
+            sig: 'signature-1',
+          },
+        },
+      ]
+      const cycleData = {
+        counter: 1,
+        marker: 'test-marker',
+        certificates: mockCertificates,
+      } as any
+
+      ;(cycles.queryCycleByMarker as any).mockResolvedValue(null)
+      ;(cycles.bulkInsertCycles as any).mockResolvedValue(undefined)
+
+      await Collector.storeCycleData([cycleData])
+
+      expect(cycles.bulkInsertCycles).toHaveBeenCalledWith([
+        {
+          counter: 1,
+          cycleMarker: 'test-marker',
+          cycleRecord: cycleData,
+          certificates: mockCertificates,
+        },
+      ])
+    })
+
+    it('should store cycle data without certificates', async () => {
+      const cycleData = {
+        counter: 1,
+        marker: 'test-marker',
+      } as any
+
+      ;(cycles.queryCycleByMarker as any).mockResolvedValue(null)
+      ;(cycles.bulkInsertCycles as any).mockResolvedValue(undefined)
+
+      await Collector.storeCycleData([cycleData])
+
+      expect(cycles.bulkInsertCycles).toHaveBeenCalledWith([
+        {
+          counter: 1,
+          cycleMarker: 'test-marker',
+          cycleRecord: cycleData,
+          certificates: undefined,
+        },
+      ])
+    })
   })
 
   describe('storeAccountData', () => {

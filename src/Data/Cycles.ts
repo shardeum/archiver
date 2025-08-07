@@ -188,7 +188,11 @@ export const validateCycleData = (
 ): boolean => {
   Logger.mainLogger.debug('validateCycleData: Validating cycle record', UtilsTypes.safeStringify(cycleRecord))
 
-  const err = Utils.validateTypes(cycleRecord, {
+  const cycleRecordCopy = { ...cycleRecord }
+  // remove certificates from the cycle record
+  delete (cycleRecordCopy as subscriptionCycleData).certificates
+
+  const err = Utils.validateTypes(cycleRecordCopy, {
     activated: 'a',
     activatedPublicKeys: 'a',
     active: 'n',
@@ -232,10 +236,10 @@ export const validateCycleData = (
     return false
   }
 
-  const cycleRecordWithoutMarker = { ...cycleRecord }
-  delete cycleRecordWithoutMarker.marker
+  // remove marker from the cycle record
+  delete cycleRecordCopy.marker
 
-  const computedMarker = computeCycleMarker(cycleRecordWithoutMarker)
+  const computedMarker = computeCycleMarker(cycleRecordCopy)
   Logger.mainLogger.debug(
     'validateCycleData: Computed marker: ',
     computedMarker,

@@ -1200,6 +1200,7 @@ export const storeCycleData = async (cycles: P2PTypes.CycleCreatorTypes.CycleDat
       counter: cycleRecord.counter,
       cycleMarker: cycleRecord.marker,
       cycleRecord,
+      certificates: cycleRecord.certificates,
     }
     if (config.dataLogWrite && CycleLogWriter) CycleLogWriter.writeToLog(`${StringUtils.safeStringify(cycleObj)}\n`)
     const cycleExist = await queryCycleByMarker(cycleObj.cycleMarker)
