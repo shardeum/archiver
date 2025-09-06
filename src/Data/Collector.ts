@@ -946,9 +946,11 @@ export const storeReceiptData = async (
 
               //check global network account updates
               if (accObj.accountId === config.globalNetworkAccount) {
+                Logger.mainLogger.debug('[storeReceiptData] Updating globalNetworkAccount ', accObj.accountId)
                 setGlobalNetworkAccount(accObj)
               }
               if (accObj.isGlobal) {
+                Logger.mainLogger.debug('[storeReceiptData] Updating globalAccountMap: ', StringUtils.safeStringify(accObj))
                 globalAccountsMap.set(accObj.accountId, {
                   hash: accObj.hash,
                   timestamp: accObj.timestamp,
