@@ -7,6 +7,7 @@ import * as Utils from '../Utils'
 import { globalAccountsMap } from '../GlobalAccount'
 import * as NodeList from '../NodeList'
 import { currentNetworkMode } from './Cycles'
+import { Utils as SafeUtils } from '@shardeum-foundation/lib-types'
 
 interface WrappedData {
   /** Account ID */
@@ -279,8 +280,27 @@ export const provideAccountDataByListRequest = async (
 
 export const provideGlobalAccountReportRequest = async (): Promise<GlobalAccountReportResp> => {
   const result = { ready: true, combinedHash: '', accounts: [] }
+  
+  // Fix: Ensure hash consistency between endpoints
   for (const [key, value] of globalAccountsMap.entries()) {
-    result.accounts.push({ id: key, hash: value.hash, timestamp: value.timestamp })
+    try {
+      // Get the latest hash from database to ensure consistency
+      const accountFromDB = await Account.queryAccountByAccountId(key)
+      const actualHash = accountFromDB ? accountFromDB.hash : value.hash
+      const actualTimestamp = accountFromDB ? accountFromDB.timestamp : value.timestamp
+      
+      // Update the in-memory map if there's a mismatch to prevent future inconsistencies
+      if (accountFromDB && (actualHash !== value.hash || actualTimestamp !== value.timestamp)) {
+        globalAccountsMap.set(key, { hash: actualHash, timestamp: actualTimestamp })
+      }
+      result.accounts.push({ id: key, hash: actualHash, timestamp: actualTimestamp })
+    } catch (error) {
+      // Fallback to cached value if database query fails
+      if (Logger.mainLogger && Logger.mainLogger.error) {
+        Logger.mainLogger.error(`Failed to query account ${SafeUtils.safeStringify(key)} from database, using cached value:`, error)
+      }
+      result.accounts.push({ id: key, hash: value.hash, timestamp: value.timestamp })
+    }
   }
   result.accounts.sort(Utils.byIdAsc)
   result.combinedHash = Crypto.hashObj(result)

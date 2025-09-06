@@ -108,6 +108,7 @@ export const updateGlobalNetworkAccount = async (cycleNumber: number): Promise<v
 
     if (appData) {
       updateNetworkChangeQueue(networkAccount.data, appData)
+      console.log('[updateGlobalNetworkAccount] updateNetworkChangeQueue called')
       console.dir(networkAccount.data, { depth: null })
       // https://github.com/shardeum/shardeum/blob/c449ecd21391747c5b7173da3a74415da2acb0be/src/index.ts#L6889
       // Increase the timestamp by 1 second
