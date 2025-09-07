@@ -212,7 +212,9 @@ export const provideAccountDataRequest = async (
   values.push(accountStart, accountEnd, tsStart, tsEnd)
   if (!accountOffset) sql += offsetCondition
 
+  Logger.mainLogger.debug('[provideAccountDataRequest] Account Data query: ', SafeUtils.safeStringify(sql), SafeUtils.safeStringify(values))
   let accounts = await Account.fetchAccountsBySqlQuery(sql, values)
+  Logger.mainLogger.debug('[provideAccountDataRequest] Account Data query result: ', SafeUtils.safeStringify(accounts.length))
   for (const account of accounts) {
     wrappedAccounts.push({
       accountId: account.accountId,
