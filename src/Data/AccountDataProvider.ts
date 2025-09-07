@@ -199,6 +199,8 @@ export const provideAccountDataRequest = async (
 
   const safeSkip = Number.isInteger(offset) ? offset : 0
   const safeLimit = Number.isInteger(maxRecords) ? maxRecords : 100
+
+  /* Old endpoint logic - kept for reference
   const sqlPrefix = `SELECT * FROM accounts WHERE `
   const queryString = `accountId BETWEEN ? AND ? AND timestamp BETWEEN ? AND ? ORDER BY timestamp ASC, accountId ASC LIMIT ${safeLimit}`
   const offsetCondition = ` OFFSET ${safeSkip}`
@@ -211,6 +213,36 @@ export const provideAccountDataRequest = async (
   sql += queryString
   values.push(accountStart, accountEnd, tsStart, tsEnd)
   if (!accountOffset) sql += offsetCondition
+  */
+
+  /*
+  This is cut and pasted from the validator-validator sync endpoint.
+  As a bonus this avoid the bad combination of LIMIT + OFFSET which causes performance problems on large tables
+      const query = `SELECT * FROM accountsEntry WHERE (timestamp, accountId) >= (?, ?) 
+                     AND timestamp < ? 
+                     AND accountId <= ? AND accountId >= ? 
+                     ORDER BY timestamp, accountId  LIMIT ?`
+    const params = [tsStart, accountOffset, tsEnd, accountEnd, accountStart, limit]
+  */
+
+  // If accountOffset is not supplied, we start from accountStart (the lower bound of the account range).
+  // NOTE: safeSkip (old offset based paging) is intentionally ignored in this new approach.
+  const startAccountForTuple =
+    accountOffset && accountOffset.length === 64 ? accountOffset : accountStart //LLM suggested this...
+
+  // Primary page query
+  let sql = `
+    SELECT *
+    FROM accounts
+    WHERE (timestamp, accountId) >= (?, ?)
+      AND timestamp < ?
+      AND accountId <= ?
+      AND accountId >= ?
+    ORDER BY timestamp ASC, accountId ASC
+    LIMIT ?
+  `
+  let values: any[] = [tsStart, startAccountForTuple, tsEnd, accountEnd, accountStart, safeLimit]
+
 
   Logger.mainLogger.debug('[provideAccountDataRequest] Account Data query: ', SafeUtils.safeStringify(sql), SafeUtils.safeStringify(values))
   let accounts = await Account.fetchAccountsBySqlQuery(sql, values)
@@ -244,8 +276,22 @@ export const provideAccountDataRequest = async (
     if (delta < QUEUE_SIT_TIME * 2) {
       const tsStart2 = highestTs
       const tsEnd2 = Date.now()
-      sql = sqlPrefix + queryString + offsetCondition
-      values = [accountStart, accountEnd, tsStart2, tsEnd2]
+      // sql = sqlPrefix + queryString + offsetCondition
+      // values = [accountStart, accountEnd, tsStart2, tsEnd2]
+
+      let sql = `
+        SELECT *
+        FROM accounts
+        WHERE (timestamp, accountId) >= (?, ?)
+          AND timestamp < ?
+          AND accountId <= ?
+          AND accountId >= ?
+        ORDER BY timestamp ASC, accountId ASC
+        LIMIT ?
+      `
+      let values: any[] = [tsStart2, startAccountForTuple, tsEnd2, accountEnd, accountStart, safeLimit]
+
+
       accounts = await Account.fetchAccountsBySqlQuery(sql, values)
       for (const account of accounts) {
         wrappedAccounts2.push({
