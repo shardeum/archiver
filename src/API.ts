@@ -1161,7 +1161,7 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     profilerInstance.profileSectionStart('POST_get_account_data')
     try {
       const payload = _request.body as AccountDataProvider.AccountDataRequestSchema
-      if (config.VERBOSE) Logger.mainLogger.debug('Account Data received', StringUtils.safeStringify(payload))
+      Logger.mainLogger.debug('POST_METHOD_get_account_data_archiver] Account Data received', StringUtils.safeStringify(payload))
       const result = AccountDataProvider.validateAccountDataRequest(payload)
       // Logger.mainLogger.debug('Account Data validation result', result)
       if (!result.success) {
