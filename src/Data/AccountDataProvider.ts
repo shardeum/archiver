@@ -62,6 +62,14 @@ export interface GlobalAccountReportRequestSchema {
   sign: Signature
 }
 
+export interface RestoreAccountDataRequestSchema {
+  accountStart: string
+  accountEnd: string
+  offset: number
+  maxRecords: number
+  sign: Signature
+}
+
 // This has to align with the queue sit time in the validator
 const QUEUE_SIT_TIME = 6 * 1000 // 6 seconds
 
@@ -172,6 +180,50 @@ export const validateGlobalAccountReportRequest = (
   if (!Crypto.verify(payload)) {
     return { success: false, error: 'Invalid signature' }
   }
+  return { success: true }
+}
+
+export const validateRestoreAccountDataRequest = (
+  payload: RestoreAccountDataRequestSchema
+): { success: boolean; error?: string } => {
+  let err = Utils.validateTypes(payload, {
+    accountStart: 's',
+    accountEnd: 's',
+    offset: 'n',
+    maxRecords: 'n',
+    sign: 'o',
+  })
+  if (err) {
+    return { success: false, error: err }
+  }
+  const { accountStart, accountEnd, maxRecords, offset, sign } = payload
+  err = Utils.validateTypes(sign, { owner: 's', sig: 's' })
+  if (err) {
+    return { success: false, error: 'Invalid sign object attached' }
+  }
+  const nodePublicKey = sign.owner
+  if (!NodeList.byPublicKey.has(nodePublicKey)) {
+    return { success: false, error: 'This node is not found in the nodelist!' }
+  }
+  if (!servingValidators.has(nodePublicKey) && servingValidators.size >= config.maxValidatorsToServe) {
+    return {
+      success: false,
+      error: 'Archiver is busy serving other validators at the moment!',
+    }
+  }
+  if (accountStart.length !== 64 || accountEnd.length !== 64 || accountStart > accountEnd) {
+    return { success: false, error: 'Invalid account range' }
+  }
+  if (Number.isNaN(maxRecords) || maxRecords < 1) {
+    return { success: false, error: 'Invalid max records' }
+  }
+  if (Number.isNaN(offset) || offset < 0) {
+    return { success: false, error: 'Invalid offset' }
+  }
+  if (!Crypto.verify(payload)) {
+    return { success: false, error: 'Invalid signature' }
+  }
+  servingValidators.set(nodePublicKey, Date.now())
   return { success: true }
 }
 /**
@@ -307,6 +359,22 @@ export const provideGlobalAccountReportRequest = async (): Promise<GlobalAccount
   result.accounts.sort(Utils.byIdAsc)
   result.combinedHash = Crypto.hashObj(result)
   return result
+}
+
+export const provideRestoreAccountDataRequest = async (
+  payload: RestoreAccountDataRequestSchema
+): Promise<{ wrappedAccounts: WrappedStateArray }> => {
+  const { accountStart, accountEnd, offset, maxRecords } = payload
+  const sql = `SELECT * FROM accounts WHERE accountId BETWEEN ? AND ? ORDER BY accountId ASC LIMIT ${maxRecords} OFFSET ${offset}`
+  const values = [accountStart, accountEnd]  
+  const accounts = await Account.fetchAccountsBySqlQuery(sql, values)
+  const wrappedAccounts: WrappedStateArray = accounts.map(account => ({
+    accountId: account.accountId,
+    stateId: account.hash,
+    data: account.data,
+    timestamp: account.timestamp,
+  }))
+  return { wrappedAccounts }
 }
 
 // Remove validators from the list that have not requested data over 10 seconds, that way we can serve new validators

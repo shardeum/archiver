@@ -1209,6 +1209,43 @@ export function registerRoutes(server: FastifyInstance<Server, IncomingMessage, 
     }
   })
 
+  type RestoreAccountRequest = FastifyRequest<{
+    Body: AccountDataProvider.RestoreAccountDataRequestSchema
+  }>
+
+  server.post('/restore_account_data', async (_request: RestoreAccountRequest, reply) => {
+    profilerInstance.profileSectionStart('POST_restore_account_data')
+    try {
+      const payload = _request.body
+      Logger.mainLogger.debug('Account Data received', StringUtils.safeStringify(payload))
+      
+      const result = AccountDataProvider.validateRestoreAccountDataRequest(payload)
+      if (!result.success) {
+        reply.send({ success: false, error: result.error })
+        return
+      }
+
+      if (payload.maxRecords > config.maxRecordsPerRequest || payload.maxRecords <= 0) {
+        reply.send({
+          success: false,
+          error: `Invalid maxRecords. Must be > 0 and <= ${config.maxRecordsPerRequest}`,
+        })
+        return
+      }
+
+      const data = await AccountDataProvider.provideRestoreAccountDataRequest(payload)
+
+      const res = Crypto.sign({
+        success: true,
+        data
+      })
+      
+      reply.send(res)
+    } finally {
+      profilerInstance.profileSectionEnd('POST_restore_account_data')
+    }
+  })
+
   /**
    * This endpoint is used to update the archiver config.
    * @script A test script to hit this endpoint is available at `scripts/update_config.ts`
