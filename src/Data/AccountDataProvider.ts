@@ -365,10 +365,10 @@ export const provideRestoreAccountDataRequest = async (
   payload: RestoreAccountDataRequestSchema
 ): Promise<{ wrappedAccounts: WrappedStateArray }> => {
   const { accountStart, accountEnd, offset, maxRecords } = payload
-  const sql = `SELECT * FROM accounts WHERE accountId BETWEEN ? AND ? ORDER BY accountId ASC LIMIT ${maxRecords} OFFSET ${offset}`
-  const values = [accountStart, accountEnd]  
+  const sql = `SELECT * FROM accounts WHERE accountId BETWEEN ? AND ? ORDER BY timestamp ASC, accountId ASC LIMIT ${maxRecords} OFFSET ${offset}`
+  const values = [accountStart, accountEnd]
   const accounts = await Account.fetchAccountsBySqlQuery(sql, values)
-  const wrappedAccounts: WrappedStateArray = accounts.map(account => ({
+  const wrappedAccounts: WrappedStateArray = accounts.map((account) => ({
     accountId: account.accountId,
     stateId: account.hash,
     data: account.data,
