@@ -18,9 +18,9 @@ jest.mock('../../../../src/Config', () => ({
     dataLogWriter: {
       dirName: 'test-logs',
       maxLogFiles: 10,
-      maxCycleEntries: 100,
-      maxReceiptEntries: 100,
-      maxOriginalTxEntries: 100,
+      maxCycleBytes: 1000,
+      maxReceiptBytes: 1000,
+      maxOriginalTxBytes: 1000,
     },
   },
 }))
@@ -39,6 +39,7 @@ describe('DataLogWriter', () => {
   // Cast mocked functions
   const mockedMkdir = fs.mkdir as jest.MockedFunction<typeof fs.mkdir>
   const mockedReadFile = fs.readFile as jest.MockedFunction<typeof fs.readFile>
+  const mockedStat = fs.stat as jest.MockedFunction<typeof fs.stat>
   const mockedWriteFile = fs.writeFile as jest.MockedFunction<typeof fs.writeFile>
   const mockedAppendFile = fs.appendFile as jest.MockedFunction<typeof fs.appendFile>
   const mockedReaddir = fs.readdir as jest.MockedFunction<typeof fs.readdir>
@@ -75,6 +76,7 @@ describe('DataLogWriter', () => {
     mockedWriteFile.mockResolvedValue()
     mockedAppendFile.mockResolvedValue()
     mockedReaddir.mockResolvedValue([] as any)
+    mockedStat.mockResolvedValue({ size: 0 } as any)
 
     // Spy on console
     consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
@@ -115,16 +117,17 @@ describe('DataLogWriter', () => {
       // Mock readFile calls only for CycleLogWriter
       mockedReadFile
         .mockResolvedValueOnce('cycle-log2.txt') // CycleLogWriter active log
-        .mockResolvedValueOnce('line1\nline2\nline3\n') // CycleLogWriter data
+      mockedStat
+        .mockResolvedValueOnce({ size: 50 } as any) // CycleLogWriter file size
 
       await initDataLogWriter()
 
       expect(mockedReadFile).toHaveBeenCalledWith(expect.stringContaining('active-cycle-log.txt'), 'utf8')
       expect(CycleLogWriter.logCounter).toBe(2)
-      expect(CycleLogWriter.totalNumberOfEntries).toBe(3)
+      expect(CycleLogWriter.totalNumberOfBytes).toBe(50)
     })
 
-    it('should rotate log when entries exceed max', async () => {
+    it('should rotate log when bytes exceed max', async () => {
       // Only mock exists for CycleLogWriter's active log
       mockedExistsSync
         .mockReturnValueOnce(true) // CycleLogWriter
@@ -135,11 +138,12 @@ describe('DataLogWriter', () => {
       // Mock readFile calls only for CycleLogWriter
       mockedReadFile
         .mockResolvedValueOnce('cycle-log1.txt') // CycleLogWriter active log
-        .mockResolvedValueOnce(Array(100).fill('entry').join('\n') + '\n') // 100 entries with trailing newline
+      mockedStat
+        .mockResolvedValueOnce({ size: 1000 } as any) // File size that exceeds max
 
       await initDataLogWriter()
 
-      expect(CycleLogWriter.totalNumberOfEntries).toBe(0) // Reset after rotation
+      expect(CycleLogWriter.totalNumberOfBytes).toBe(0) // Reset after rotation
       expect(CycleLogWriter.logCounter).toBe(2) // Incremented
     })
 
@@ -170,7 +174,7 @@ describe('DataLogWriter', () => {
       await CycleLogWriter.writeToLog(testData)
 
       expect(mockWriteStream.write).toHaveBeenCalledWith(testData)
-      expect(CycleLogWriter.totalNumberOfEntries).toBe(1)
+      expect(CycleLogWriter.totalNumberOfBytes).toBe(15)
     })
 
     it('should queue multiple writes', async () => {
@@ -187,7 +191,7 @@ describe('DataLogWriter', () => {
       expect(mockWriteStream.write).toHaveBeenCalledWith(data1)
       expect(mockWriteStream.write).toHaveBeenCalledWith(data2)
       expect(mockWriteStream.write).toHaveBeenCalledWith(data3)
-      expect(CycleLogWriter.totalNumberOfEntries).toBe(3)
+      expect(CycleLogWriter.totalNumberOfBytes).toBe(21)
     })
 
     it('should handle write errors', async () => {
@@ -324,12 +328,12 @@ describe('DataLogWriter', () => {
     })
 
     it('should end stream successfully', async () => {
-      CycleLogWriter.totalNumberOfEntries = 50
+      CycleLogWriter.totalNumberOfBytes = 50
 
       await CycleLogWriter.endStream()
 
       expect(mockWriteStream.end).toHaveBeenCalled()
-      expect(consoleLogSpy).toHaveBeenCalledWith('✅ Finished writing 50.')
+      expect(consoleLogSpy).toHaveBeenCalledWith('✅ Finished writing 50 bytes.')
     })
 
     it('should handle errors when ending stream', async () => {
@@ -349,14 +353,14 @@ describe('DataLogWriter', () => {
     })
 
     it('should rotate log when reaching max entries during write', async () => {
-      CycleLogWriter.totalNumberOfEntries = 100
-      CycleLogWriter.maxNumberEntriesPerLog = 100
+      CycleLogWriter.totalNumberOfBytes = 100
+      CycleLogWriter.maxNumberBytesPerLog = 100
 
       await CycleLogWriter.writeToLog('final entry\n')
 
-      expect(mockWriteStream.write).toHaveBeenCalledWith('End: Number of entries: 100\n')
+      expect(mockWriteStream.write).toHaveBeenCalledWith('End: Number of bytes: 100\n')
       expect(mockWriteStream.end).toHaveBeenCalled()
-      expect(CycleLogWriter.totalNumberOfEntries).toBe(1) // Reset and new entry
+      expect(CycleLogWriter.totalNumberOfBytes).toBe(12) // Reset and new entry ('final entry\n')
       expect(CycleLogWriter.logCounter).toBe(2) // Incremented
     })
   })
@@ -374,7 +378,7 @@ describe('DataLogWriter', () => {
       await Promise.all(writes.map((data) => CycleLogWriter.writeToLog(data)))
 
       expect(mockWriteStream.write).toHaveBeenCalledTimes(10)
-      expect(CycleLogWriter.totalNumberOfEntries).toBe(10)
+      expect(CycleLogWriter.totalNumberOfBytes).toBe(70)
     })
 
     it('should maintain write order in queue', async () => {
