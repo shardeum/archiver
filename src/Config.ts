@@ -173,10 +173,10 @@ let config: Config = {
   dataLogWrite: true,
   dataLogWriter: {
     dirName: 'data-logs',
-    maxLogFiles: 10,
-    maxReceiptBytes: 1024 * 1024, // 1MB - Should be >= max TPS * avg receipt size
-    maxCycleBytes: 50 * 1024, // 50KB - cycles are smaller
-    maxOriginalTxBytes: 1024 * 1024, // 1MB - Should be >= max TPS * avg tx size
+    maxLogFiles: 20,
+    maxReceiptBytes: 10 * 1024 * 1024, // 1MB - Should be >= max TPS * avg receipt size
+    maxCycleBytes: 10 * 1024 * 1024, // 50KB - cycles are smaller
+    maxOriginalTxBytes: 10 * 1024 * 1024, // 1MB - Should be >= max TPS * avg tx size
   },
   experimentalSnapshot: true,
   failedBucketsDir: 'failed-buckets',
