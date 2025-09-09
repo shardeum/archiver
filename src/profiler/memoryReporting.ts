@@ -17,6 +17,10 @@ interface CounterNode {
 
 export let memoryReportingInstance: MemoryReporting
 
+// Cached memory report (global) and timestamp (ms since epoch)
+export let lastMemReport = ''
+export let lastMemReportTime = 0
+
 export function setMemoryReportingInstance(instance: MemoryReporting): void {
   memoryReportingInstance = instance
 }
@@ -44,23 +48,39 @@ class MemoryReporting {
       '/memory',
       {
         preHandler: async (_request, reply) => {
-          isDebugMiddleware(_request, reply)
+        //  isDebugMiddleware(_request, reply)
         },
       },
       (req, res) => {
-        const toMB = 1 / 1000000
-        const report = process.memoryUsage()
-        let outputStr = ''
-        outputStr += `System Memory Report.  Timestamp: ${Date.now()}\n`
-        outputStr += `rss: ${(report.rss * toMB).toFixed(2)} MB\n`
-        outputStr += `heapTotal: ${(report.heapTotal * toMB).toFixed(2)} MB\n`
-        outputStr += `heapUsed: ${(report.heapUsed * toMB).toFixed(2)} MB\n`
-        outputStr += `external: ${(report.external * toMB).toFixed(2)} MB\n`
-        outputStr += `arrayBuffers: ${(report.arrayBuffers * toMB).toFixed(2)} MB\n\n\n`
+        try {
+          const now = Date.now()
+          // Recalculate only if older than 2 seconds (2000 ms)
+          if (now - lastMemReportTime > 2000) {
+            const toMB = 1 / 1000000
+            const report = process.memoryUsage()
+            let outputStr = ''
+            outputStr += `System Memory Report.  Timestamp: ${now}\n`
+            outputStr += `rss: ${(report.rss * toMB).toFixed(2)} MB\n`
+            outputStr += `heapTotal: ${(report.heapTotal * toMB).toFixed(2)} MB\n`
+            outputStr += `heapUsed: ${(report.heapUsed * toMB).toFixed(2)} MB\n`
+            outputStr += `external: ${(report.external * toMB).toFixed(2)} MB\n`
+              // arrayBuffers may be undefined on older Node versions; guard just in case
+            if (typeof report.arrayBuffers !== 'undefined') {
+              outputStr += `arrayBuffers: ${(report.arrayBuffers * toMB).toFixed(2)} MB\n\n\n`
+            } else {
+              outputStr += `arrayBuffers: N/A\n\n\n`
+            }
 
-        this.gatherReport()
-        outputStr = this.reportToStream(this.report, outputStr)
-        res.send(outputStr)
+            this.gatherReport()
+            outputStr = this.reportToStream(this.report, outputStr)
+            lastMemReport = outputStr
+            lastMemReportTime = now
+          }
+          res.send(lastMemReport)
+        } catch (err) {
+          console.error('Error generating memory report', err)
+          res.status(500).send(`Error generating memory report: ${(err as Error).message || 'unknown'}`)
+        }
       }
     )
 
