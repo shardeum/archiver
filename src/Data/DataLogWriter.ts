@@ -195,7 +195,7 @@ class DataLogWriter {
 
   appendData(data: string): Promise<void> {
     // Check if we should continue writing
-    const canContinueToWrite = this.dataLogWriteStream!.write(data)
+    const canContinueToWrite = this.dataLogWriteStream!.write(data + '\n')
 
     if (!canContinueToWrite) {
       // Wait for drain event to continue writing
