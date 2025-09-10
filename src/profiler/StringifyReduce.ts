@@ -17,15 +17,14 @@ export const makeShortHash = (x: string, n = 4): string => {
 }
 
 const objToString = Object.prototype.toString
-const objKeys =
-  ((obj: object): string[] => {
-    const keys = []
-    // tslint:disable-next-line: forin
-    for (const name in obj) {
-      keys.push(name)
-    }
-    return keys
-  }) || Object.keys
+const objKeys = (obj: object): string[] => {
+  const keys = []
+  // tslint:disable-next-line: forin
+  for (const name in obj) {
+    keys.push(name)
+  }
+  return keys
+} // || Object.keys  ##condition above is always true. Keeping this for posterity
 
 export type StringifyVal = string | number | boolean | null | undefined | object
 

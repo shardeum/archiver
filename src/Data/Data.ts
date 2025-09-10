@@ -80,7 +80,7 @@ class ValidationTracker {
 
 const validationTracker = new ValidationTracker()
 
-export const socketClients: Map<string, SocketIOClientStatic['Socket']> = new Map()
+export const socketClients: Map<string, ClientSocket> = new Map()
 export let combineAccountsData = {
   accounts: [],
   receipts: [],
@@ -210,7 +210,7 @@ export async function unsubscribeDataSender(publicKey: NodeList.ConsensusNodeInf
   const socketClient = socketClients.get(publicKey)
   if (socketClient) {
     socketClient.emit('UNSUBSCRIBE', config.ARCHIVER_PUBLIC_KEY)
-    socketClient.close()
+    socketClient.disconnect()
     socketClients.delete(publicKey)
   }
   nestedCountersInstance.countEvent('archiver', 'remove_data_sender')
@@ -1819,6 +1819,7 @@ export async function syncCyclesBetweenCycles(lastStoredCycle = 0, cycleToSyncTo
 }
 
 import { getLastUpdatedCycle, updateLastUpdatedCycle } from '../utils/cycleTracker'
+import { Socket as ClientSocket } from 'socket.io-client'
 
 export async function syncReceipts(): Promise<void> {
   const MAX_RETRIES = 3

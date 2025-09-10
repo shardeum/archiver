@@ -26,14 +26,15 @@ import * as Logger from '../Logger'
 import { nestedCountersInstance } from '../profiler/nestedCounters'
 import { profilerInstance } from '../profiler/profiler'
 import type { Server } from 'socket.io'
-import { io, type Socket } from 'socket.io-client'
 
 // Socket modules
 export let socketServer: Server
 import * as ioclient from 'socket.io-client'
 import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
-let socketClient: SocketIOClient.Socket['Socket']
-export const socketClients: Map<string, SocketIOClientStatic['Socket']> = new Map()
+import type { Socket } from 'socket.io-client'
+import { Node } from '@shardeum-foundation/lib-types/build/src/p2p/NodeListTypes'
+let socketClient: Socket
+export const socketClients: Map<string, Socket> = new Map()
 const socketConnectionsTracker: Map<string, string> = new Map()
 let lastSentCycleCounterToExplorer = 0
 
