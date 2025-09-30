@@ -554,7 +554,10 @@ export function collectCycleData(
     Logger.mainLogger.debug(
       `collectCycleData: Received ${receivedCertSigners.length} certificate signers for cycle ${cycle.counter}`
     )
-    delete (cycle as subscriptionCycleData).certificates
+
+    // Don't delete certificates from the cycle record here, we need to store them
+    // validateCycleData will remove the certificates from the cycle record for its validations
+    // delete (cycle as subscriptionCycleData).certificates
 
     if (receivedCycleTracker[cycle.counter]) {
       if (receivedCycleTracker[cycle.counter][cycle.marker]) {

@@ -154,7 +154,7 @@ describe('dbstore/index', () => {
       })
 
       it('should run create table and index statements for all databases', () => {
-        expect(mockRunCreate).toHaveBeenCalledTimes(24)
+        expect(mockRunCreate).toHaveBeenCalledTimes(25)
 
         // Spot check table and index creation calls
         expect(mockRunCreate).toHaveBeenCalledWith(

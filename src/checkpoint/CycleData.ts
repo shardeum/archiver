@@ -14,10 +14,24 @@ import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 import * as Logger from '../Logger'
 import { insertCycle } from '../dbstore/cycles'
 
+/**
+ * Strip non-consensus fields from the cycle
+ * @param cycle - The cycle to strip non-consensus fields from
+ * @returns The cycle with non-consensus fields stripped
+ */
+function stripNonConsensusFields(cycle: Cycle): Cycle {
+  // Shallow copy the receipt
+  const clone: any = { ...cycle }
+  delete clone.certificates
+
+  return clone
+}
+
 //Represents a single piece of cycle data
 export class CycleCheckpointData extends CheckpointData<Cycle> {
   constructor(cycle: Cycle) {
-    const cycleHash = Crypto.hash(StringUtils.safeStringify(cycle)).toLowerCase()
+    // strip non-consensus fields from the cycle record
+    const cycleHash = Crypto.hash(StringUtils.safeStringify(stripNonConsensusFields(cycle))).toLowerCase()
 
     super(
       cycleHash.substring(0, 2), // address (first 2 chars)
@@ -99,7 +113,9 @@ export class CycleRadixDigestTally extends RadixDigestTally {
 
 // Define the validateData function
 async function validateData(data: CheckpointData<Cycle>): Promise<boolean> {
-  const cycle = data.d
+  // strip non-consensus fields from the cycle record
+  const cycle = stripNonConsensusFields(data.d)
+
   // Basic validation checks
   if (!cycle || cycle.counter === undefined || !cycle.cycleMarker || !cycle.cycleRecord) {
     Logger.mainLogger.error('Missing required cycle fields')

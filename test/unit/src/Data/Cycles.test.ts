@@ -277,6 +277,7 @@ describe('Data/Cycles', () => {
         sig: 'signature',
       },
     },
+
     lostAfterSelection: [],
   }
 
@@ -445,7 +446,9 @@ describe('Data/Cycles', () => {
       const result = Cycles.validateCycleData(mockCycle)
 
       expect(result).toBe(true)
-      expect(Utils.validateTypes).toHaveBeenCalledWith(mockCycle, expect.any(Object))
+      // The validateCycleData function creates a copy and removes marker but keeps certificate
+      const { marker, ...expectedCycleCopy } = mockCycle
+      expect(Utils.validateTypes).toHaveBeenCalledWith(expectedCycleCopy, expect.any(Object))
       expect(Crypto.hashObj).toHaveBeenCalledWith(expect.not.objectContaining({ marker: expect.anything() }))
     })
 
@@ -467,6 +470,42 @@ describe('Data/Cycles', () => {
       expect(Logger.mainLogger.error).toHaveBeenCalledWith(
         'Invalid Cycle Record: cycle marker does not match with the computed marker'
       )
+    })
+
+    it('should validate cycle with certificate', () => {
+      const cycleWithCert = { ...mockCycle, certificate: mockCycle.certificate }
+      const result = Cycles.validateCycleData(cycleWithCert)
+
+      expect(result).toBe(true)
+      // Verify certificate is preserved during validation (business logic only removes certificates plural)
+      const { marker, ...expectedCycleCopy } = cycleWithCert
+      expect(Utils.validateTypes).toHaveBeenCalledWith(expectedCycleCopy, expect.any(Object))
+      expect(Crypto.hashObj).toHaveBeenCalledWith(expect.not.objectContaining({ marker: expect.anything() }))
+    })
+
+    it('should validate cycle without certificate', () => {
+      const { certificate, ...cycleWithoutCert } = mockCycle
+      const result = Cycles.validateCycleData(cycleWithoutCert as any)
+
+      expect(result).toBe(true)
+      // Verify validation works without certificate
+      const { marker, ...expectedCycleCopy } = cycleWithoutCert
+      expect(Utils.validateTypes).toHaveBeenCalledWith(expectedCycleCopy, expect.any(Object))
+      expect(Crypto.hashObj).toHaveBeenCalledWith(expect.not.objectContaining({ marker: expect.anything() }))
+    })
+
+    it('should preserve certificate during validation process', () => {
+      const cycleWithCert = { ...mockCycle, certificate: mockCycle.certificate }
+      const originalCertificate = { ...cycleWithCert.certificate }
+
+      const result = Cycles.validateCycleData(cycleWithCert)
+
+      expect(result).toBe(true)
+      // Verify certificate is preserved in the original object
+      expect(cycleWithCert.certificate).toEqual(originalCertificate)
+      // Verify validation was called with a copy that preserves certificate (business logic only removes certificates plural)
+      const { marker, ...expectedCycleCopy } = cycleWithCert
+      expect(Utils.validateTypes).toHaveBeenCalledWith(expectedCycleCopy, expect.any(Object))
     })
   })
 
