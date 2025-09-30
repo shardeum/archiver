@@ -114,6 +114,16 @@ export const initializeDB = async (config: Config): Promise<void> => {
     checkpointStatusDatabase,
     'CREATE INDEX if not exists `checkpoint_status_unified_status` ON `checkpoint_status` (`cycle`)'
   )
+
+  // Nodes table for receipt signature optimization
+  await runCreate(
+    receiptDatabase,
+    'CREATE TABLE if not exists `nodes` (`node_id` INTEGER PRIMARY KEY AUTOINCREMENT, `public_key` CHAR(64) UNIQUE NOT NULL, `first_seen` BIGINT NOT NULL)'
+  )
+  await runCreate(
+    receiptDatabase,
+    'CREATE INDEX if not exists `idx_nodes_public_key` ON `nodes` (`public_key`)'
+  )
 }
 
 export const closeDatabase = async (): Promise<void> => {
