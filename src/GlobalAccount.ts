@@ -9,6 +9,7 @@ import { robustQuery, deepCopy } from './Utils'
 import { isDeepStrictEqual } from 'util'
 import { accountSpecificHash } from './shardeum/calculateAccountHash'
 import { allowedArchiversManager } from './shardeum/allowedArchiversManager'
+import { Utils as StringUtils } from '@shardeum-foundation/lib-types'
 
 let cachedGlobalNetworkAccount: AccountDB.AccountsCopy
 let cachedGlobalNetworkAccountHash: string
@@ -208,6 +209,25 @@ export const loadGlobalAccounts = async (): Promise<void> => {
   const values = []
   const accounts = await AccountDB.fetchAccountsBySqlQuery(sql, values)
   for (const account of accounts) {
+    const recalculatedHash = accountSpecificHash(account.data)
+
+    if (recalculatedHash && recalculatedHash !== account.hash) {
+      Logger.mainLogger.warn(
+        '[DEBUG RESTORE] loadGlobalAccounts() - recalculatedHash !== account.hash',
+        'accountId:',
+        account.accountId,
+        'account.hash:',
+        account.hash,
+        'recalculatedHash:',
+        recalculatedHash,
+        '\naccount data:',
+        StringUtils.safeStringify(account)
+      )
+      account.hash = recalculatedHash
+      account.data.hash = recalculatedHash
+      await AccountDB.updateAccount(account)
+    }
+
     globalAccountsMap.set(account.accountId, { hash: account.hash, timestamp: account.timestamp })
     if (account.accountId === config.globalNetworkAccount) {
       setGlobalNetworkAccount(account)

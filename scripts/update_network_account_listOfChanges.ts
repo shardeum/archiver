@@ -337,7 +337,9 @@ const runProgram = async (): Promise<void> => {
     const confirmation = (await askQuestion('Are you sure you want to proceed with these changes? (yes/no): ')).trim()
     console.log(`User input: ${confirmation}`)
     if (confirmation.toLowerCase() === 'yes' || confirmation.toLowerCase() === 'y') {
+      console.log('List of changes before length:', networkAccount.data.listOfChanges.length)
       networkAccount.data.listOfChanges.push(changes)
+      console.log('List of changes after length:', networkAccount.data.listOfChanges.length)
 
       const calculatedAccountHash = accountSpecificHash(networkAccount.data)
       networkAccount.hash = calculatedAccountHash

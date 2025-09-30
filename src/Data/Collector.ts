@@ -933,8 +933,17 @@ export const storeReceiptData = async (
               }
               if (account.timestamp !== account.data['timestamp'])
                 Logger.mainLogger.error('Mismatched account timestamp', txId, account.accountId)
-              if (account.hash !== account.data['hash'])
-                Logger.mainLogger.error('Mismatched account hash', txId, account.accountId)
+              if (account.hash !== account.data['hash']) {
+                Logger.mainLogger.error(
+                  '[DEBUG RESTORE] Mismatched account hash',
+                  txId,
+                  account.accountId,
+                  'account.hash:',
+                  account.hash,
+                  'account.data.hash:',
+                  account.data['hash']
+                )
+              }
 
               const accountExist = await Account.queryAccountByAccountId(account.accountId)
               if (accountExist) {
