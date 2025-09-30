@@ -3,7 +3,7 @@ import * as Account from '../dbstore/accounts'
 import * as Transaction from '../dbstore/transactions'
 import * as Receipt from '../dbstore/receipts'
 import * as OriginalTxsData from '../dbstore/originalTxsData'
-import * as ProcessedTransaction from '../dbstore/processedTxs'
+import * as ProcessedTransaction from '../dbstore/processedTxs' // Still needed for types and stub functions
 import * as Crypto from '../Crypto'
 import { clearCombinedAccountsData, combineAccountsData, collectCycleData } from './Data'
 import { config } from '../Config'
@@ -737,7 +737,7 @@ export const storeReceiptData = async (
   let combineAccounts = []
   let combineOriginalTxsData = []
   let combineTransactions = []
-  let combineProcessedTxs = []
+  // let combineProcessedTxs = [] // Disabled: txDigest functionality not used
   let txDataList: TxData[] = []
   let originalTxDataList: TxData[] = [] // this is kind of duplicate of 'txDataList' but have created to avoid confusion
   if (saveOnlyGossipData) return
@@ -1056,17 +1056,18 @@ export const storeReceiptData = async (
         originalTxData: tx.originalTxData,
       }
 
-      const processedTx: ProcessedTransaction.ProcessedTransaction = {
-        txId: txId,
-        cycle: cycle,
-        txTimestamp: tx.timestamp,
-        applyTimestamp,
-      }
+      // Disabled: txDigest functionality not used
+      // const processedTx: ProcessedTransaction.ProcessedTransaction = {
+      //   txId: txId,
+      //   cycle: cycle,
+      //   txTimestamp: tx.timestamp,
+      //   applyTimestamp,
+      // }
 
       // await Transaction.insertTransaction(txObj)
       combineOriginalTxsData.push(originalTxData)
       combineTransactions.push(txObj)
-      combineProcessedTxs.push(processedTx)
+      // combineProcessedTxs.push(processedTx) // Disabled: txDigest functionality not used
       // Receipts size can be big, better to save per 100
       if (combineReceipts.length >= 100) {
         await Receipt.bulkInsertReceipts(combineReceipts, checkpoint)
@@ -1089,10 +1090,11 @@ export const storeReceiptData = async (
         await Transaction.bulkInsertTransactions(combineTransactions)
         combineTransactions = []
       }
-      if (combineProcessedTxs.length >= bucketSize) {
-        await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs)
-        combineProcessedTxs = []
-      }
+      // Disabled: txDigest functionality not used
+      // if (combineProcessedTxs.length >= bucketSize) {
+      //   await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs)
+      //   combineProcessedTxs = []
+      // }
     } catch (e) {
       Logger.mainLogger.error(
         'storeReceiptData: something went wrong while processing receipt:',
@@ -1117,7 +1119,7 @@ export const storeReceiptData = async (
 
   if (combineAccounts.length > 0) await Account.bulkInsertAccounts(combineAccounts)
   if (combineTransactions.length > 0) await Transaction.bulkInsertTransactions(combineTransactions)
-  if (combineProcessedTxs.length > 0) await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs)
+  // if (combineProcessedTxs.length > 0) await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs) // Disabled: txDigest functionality not used
   // If the archiver is not active, good to clean up the processed receipts map if it exceeds 2000
   if (!State.isActive && processedReceiptsMap.size > 2000) processedReceiptsMap.clear()
 }
@@ -1266,7 +1268,7 @@ export const storeAccountData = async (restoreData: StoreAccountParam = {}): Pro
   if (receipts && receipts.length > 0) {
     Logger.mainLogger.debug('Received receipts Size', receipts.length)
     const combineTransactions = []
-    const combineProcessedTxs = []
+    // const combineProcessedTxs = [] // Disabled: txDigest functionality not used
     for (const receipt of receipts) {
       const txObj: Transaction.Transaction = {
         txId: receipt.data.txId || receipt.txId,
@@ -1276,17 +1278,18 @@ export const storeAccountData = async (restoreData: StoreAccountParam = {}): Pro
         data: receipt.data,
         originalTxData: {},
       }
-      const processedTx: ProcessedTransaction.ProcessedTransaction = {
-        txId: receipt.data.txId || receipt.txId,
-        cycle: receipt.cycleNumber,
-        txTimestamp: receipt.timestamp,
-        applyTimestamp: receipt.timestamp,
-      }
+      // Disabled: txDigest functionality not used
+      // const processedTx: ProcessedTransaction.ProcessedTransaction = {
+      //   txId: receipt.data.txId || receipt.txId,
+      //   cycle: receipt.cycleNumber,
+      //   txTimestamp: receipt.timestamp,
+      //   applyTimestamp: receipt.timestamp,
+      // }
       combineTransactions.push(txObj)
-      combineProcessedTxs.push(processedTx)
+      // combineProcessedTxs.push(processedTx) // Disabled: txDigest functionality not used
     }
     await Transaction.bulkInsertTransactions(combineTransactions)
-    await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs)
+    // await ProcessedTransaction.bulkInsertProcessedTxs(combineProcessedTxs) // Disabled: txDigest functionality not used
   }
   if (profilerInstance) profilerInstance.profileSectionEnd('store_account_data')
   Logger.mainLogger.debug('Combined Accounts Data', combineAccountsData.accounts.length)

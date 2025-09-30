@@ -8,7 +8,7 @@ export let accountDatabase: Database
 export let transactionDatabase: Database
 export let receiptDatabase: Database
 export let originalTxDataDatabase: Database
-export let processedTxDatabase: Database
+export let processedTxDatabase: Database | null = null // Disabled: txDigest functionality not used
 export let checkpointStatusDatabase: Database
 
 export const initializeDB = async (config: Config): Promise<void> => {
@@ -21,10 +21,11 @@ export const initializeDB = async (config: Config): Promise<void> => {
     `${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.originalTxDataDB}`,
     'OriginalTxData'
   )
-  processedTxDatabase = await createDB(
-    `${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.processedTxDB}`,
-    'ProcessedTransaction'
-  )
+  // Disabled: txDigest functionality not used
+  // processedTxDatabase = await createDB(
+  //   `${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.processedTxDB}`,
+  //   'ProcessedTransaction'
+  // )
   checkpointStatusDatabase = await createDB(
     `${config.ARCHIVER_DB}/${config.ARCHIVER_DATA.checkpointStatusDB}`,
     'CheckpointStatus'
@@ -96,14 +97,15 @@ export const initializeDB = async (config: Config): Promise<void> => {
   )
 
   // Transaction digester service tables
-  await runCreate(
-    processedTxDatabase,
-    'CREATE TABLE if not exists `processedTxs` (`txId` VARCHAR(128) NOT NULL, `cycle` BIGINT NOT NULL, `txTimestamp` BIGINT NOT NULL, `applyTimestamp` BIGINT NOT NULL, PRIMARY KEY (`txId`))'
-  )
-  await runCreate(
-    processedTxDatabase,
-    'CREATE INDEX if not exists `processedTxs_cycle_idx` ON `processedTxs` (`cycle`)'
-  )
+  // Disabled: txDigest functionality not used
+  // await runCreate(
+  //   processedTxDatabase,
+  //   'CREATE TABLE if not exists `processedTxs` (`txId` VARCHAR(128) NOT NULL, `cycle` BIGINT NOT NULL, `txTimestamp` BIGINT NOT NULL, `applyTimestamp` BIGINT NOT NULL, PRIMARY KEY (`txId`))'
+  // )
+  // await runCreate(
+  //   processedTxDatabase,
+  //   'CREATE INDEX if not exists `processedTxs_cycle_idx` ON `processedTxs` (`cycle`)'
+  // )
 
   // Create checkpoint_status table
   await runCreate(
@@ -123,7 +125,7 @@ export const closeDatabase = async (): Promise<void> => {
   promises.push(close(cycleDatabase, 'Cycle'))
   promises.push(close(receiptDatabase, 'Receipt'))
   promises.push(close(originalTxDataDatabase, 'OriginalTxData'))
-  promises.push(close(processedTxDatabase, 'ProcessedTransaction'))
+  // promises.push(close(processedTxDatabase, 'ProcessedTransaction')) // Disabled: txDigest functionality not used
   promises.push(close(checkpointStatusDatabase, 'CheckpointStatus'))
   await Promise.all(promises)
 }
