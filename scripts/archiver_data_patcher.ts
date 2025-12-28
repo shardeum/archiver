@@ -163,7 +163,7 @@ const runProgram = async (): Promise<void> => {
     }
   }
 
-  const totalCycles = await CycleDB.queryCyleCount()
+  const totalCycles = await CycleDB.queryCycleCount()
   const totalAccounts = await AccountDB.queryAccountCount()
   const totalTransactions = await TransactionDB.queryTransactionCount()
   const totalReceipts = await ReceiptDB.queryReceiptCount()
